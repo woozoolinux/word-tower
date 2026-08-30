@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1b1e46">
+<title>Word Tower</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- 로비 (JS가 채움) -->
+  <section id="screen-lobby" class="screen active"></section>
+
+  <!-- 미로 -->
+  <section id="screen-maze" class="screen">
+    <div class="topbar">
+      <button class="btn ghost small" id="maze-quit">← 로비</button>
+      <div class="topbar-title" id="maze-floor">1층</div>
+      <div class="topbar-right"></div>
+    </div>
+    <div class="panel maze-hud">
+      <div class="door-target">🚪 문의 열쇠: <b id="maze-door-word"></b></div>
+      <div class="holding">들고 있는 열쇠: <span id="maze-holding"></span></div>
+      <div id="maze-hp"></div>
+    </div>
+    <div id="maze-grid" class="maze"></div>
+    <div class="dpad">
+      <button class="dpad-btn up" data-dir="0,-1">▲</button>
+      <button class="dpad-btn left" data-dir="-1,0">◀</button>
+      <button class="dpad-btn right" data-dir="1,0">▶</button>
+      <button class="dpad-btn down" data-dir="0,1">▼</button>
+    </div>
+    <p class="hint-text">🔑 열쇠를 주워서 🚪 문을 열어요. 몬스터를 만나면 배틀!</p>
+  </section>
+
+  <!-- 배틀 -->
+  <section id="screen-battle" class="screen">
+    <div class="topbar">
+      <div></div>
+      <div class="topbar-title" id="battle-title">배틀</div>
+      <div class="topbar-right"></div>
+    </div>
+    <div class="battle-arena">
+      <div id="battle-monster" class="monster-box"></div>
+      <div id="battle-mon-hp"></div>
+    </div>
+    <div class="panel battle-card">
+      <div id="battle-timer" class="timer"><div class="timer-fill"></div></div>
+      <div id="battle-prompt" class="prompt"></div>
+      <div id="battle-hint" class="hint-line"></div>
+      <div id="battle-choices" class="choices"></div>
+    </div>
+    <div id="battle-items" class="items-row"></div>
+    <div id="battle-player" class="player-box"></div>
+  </section>
+
+  <!-- 러너 -->
+  <section id="screen-runner" class="screen">
+    <div class="topbar">
+      <div></div>
+      <div class="topbar-title">🪜 계단 달리기</div>
+      <div class="topbar-right"></div>
+    </div>
+    <div class="panel runner-hud" id="runner-hud"></div>
+    <div class="runner-wrap">
+      <canvas id="runner-canvas"></canvas>
+      <div id="runner-overlay" class="runner-overlay"></div>
+    </div>
+    <div class="runner-controls">
+      <button class="dpad-btn big" id="runner-up">▲ 위</button>
+      <button class="dpad-btn big" id="runner-down">▼ 아래</button>
+    </div>
+    <p class="hint-text">미션 단어에 부딪히면 획득! 다른 단어는 피해요. 코인도 주워요.</p>
+  </section>
+
+</div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<!-- 타워 데이터 (타워를 추가하려면 여기에 한 줄 추가) -->
+<script src="data/main-tower.js"></script>
+<script src="data/book-tower.js"></script>
+
+<!-- 게임 -->
+<script src="js/state.js"></script>
+<script src="js/words.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/lobby.js"></script>
+<script src="js/maze.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/runner.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
