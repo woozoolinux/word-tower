@@ -1,10 +1,10 @@
-// 📗 정상어학원 타워 — 이번 달 학습 단어 (Vocabulary 1~4)
+// 📗 Useful Expressions DSD1 — 이번 달 학습 단어 (Vocabulary 1~4)
 // past: 과거형(지금은 표시 안 함, 나중에 과거형 퀴즈 모드용)
 window.TOWERS = window.TOWERS || [];
 window.TOWERS.push({
   id: 'jeongsang1',
-  name: '📗 정상어학원 타워',
-  desc: '이번 달 단어 · Vocabulary 1~4',
+  name: '📗 DSD1 타워',
+  desc: 'Useful Expressions DSD1 · Vocabulary 1~4',
   emoji: '📗',
   units: [
     { unit: 1, words: [
