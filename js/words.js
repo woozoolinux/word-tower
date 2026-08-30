@@ -54,7 +54,7 @@ function pickWord(towerId, words, excludeW) {
 function distractors(word, pool, n, field) {
   const out = [], seen = new Set([word[field]]);
   for (const w of shuffle(pool)) {
-    if (w.w === word.w || seen.has(w[field])) continue;
+    if (w.w === word.w || w.m === word.m || seen.has(w[field])) continue; // 뜻이 같은 단어(동의어)는 오답 금지
     seen.add(w[field]); out.push(w);
     if (out.length >= n) break;
   }
