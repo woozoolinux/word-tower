@@ -307,7 +307,7 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .mission b { color: var(--coral-dark); font-size: 22px; }
 .mission-dots { font-size: 14px; letter-spacing: 2px; color: var(--gold-dark); }
 .runner-wrap { position: relative; border-radius: 16px; overflow: hidden; border: 4px solid #4a4380; background: #1b1e46; }
-#runner-canvas { display: block; width: 100%; height: 260px; }
+#runner-canvas { display: block; width: 100%; }
 .runner-overlay {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-family: var(--font-en); font-weight: 700; font-size: 56px; color: var(--gold);

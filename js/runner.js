@@ -1,7 +1,9 @@
 'use strict';
 // 계단 러너: 3레인 자동 달리기. 미션 뜻에 맞는 영어 타일에 부딪히면 수집.
 const Runner = (() => {
-  const LANES = 3, PX = 90, HGT = 260;
+  // 화면 구성: [미션 띠] + [레인 3개] + [메시지 줄]
+  const LANES = 3, PX = 90, BAND = 58, LANE_H = 74, MSG_H = 26;
+  const HGT = BAND + LANES * LANE_H + MSG_H;
   let cv, ctx, run, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs, pimg;
 
   function start(r) {
@@ -29,13 +31,10 @@ const Runner = (() => {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   const width = () => cv.width / (window.devicePixelRatio || 1);
-  function laneY(l) { return 55 + l * 75; }
+  function laneY(l) { return BAND + LANE_H / 2 + l * LANE_H; }
 
   function hud() {
-    const w = missions[Math.min(mi, missions.length - 1)];
-    document.getElementById('runner-hud').innerHTML = `
-      <div class="mission">찾아라: <b>${esc(w.m)}</b> <span class="mission-dots">${'●'.repeat(mi)}${'○'.repeat(missions.length - mi)}</span></div>
-      ${UI.hpBar(state.player.hp, playerMaxHp(), 'hp')}`;
+    document.getElementById('runner-hud').innerHTML = UI.hpBar(state.player.hp, playerMaxHp(), 'hp');
   }
 
   function spawnWave() {
@@ -113,10 +112,10 @@ const Runner = (() => {
     for (let l = 0; l < LANES; l++) {
       const y = laneY(l);
       ctx.fillStyle = l === lane ? 'rgba(255,200,61,.10)' : 'rgba(255,255,255,.04)';
-      ctx.fillRect(0, y - 34, W, 68);
+      ctx.fillRect(0, y - LANE_H / 2, W, LANE_H);
       ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 2;
       ctx.setLineDash([18, 22]); ctx.lineDashOffset = groundOff;
-      ctx.beginPath(); ctx.moveTo(0, y + 34); ctx.lineTo(W, y + 34); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(0, y + LANE_H / 2); ctx.lineTo(W, y + LANE_H / 2); ctx.stroke(); ctx.setLineDash([]);
     }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     coins.forEach(c => {
@@ -131,11 +130,13 @@ const Runner = (() => {
       ctx.fillStyle = '#fff9ec'; ctx.fill(); ctx.strokeStyle = '#d9cca8'; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = '#2a2450'; ctx.font = '600 18px Fredoka, Jua, sans-serif'; ctx.fillText(t.w, t.x + t.width / 2, y + 1);
     });
+    drawBand(W);
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, HGT - MSG_H, W, MSG_H);
     msgs.forEach((m, i) => {
       ctx.globalAlpha = Math.min(1, m.life);
-      ctx.font = '700 17px Jua, Fredoka, sans-serif';
+      ctx.font = '700 16px Jua, Fredoka, sans-serif';
       ctx.fillStyle = m.color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(m.text, W / 2, 22 + i * 24);
+      ctx.fillText(m.text, W / 2, HGT - MSG_H / 2 - i * 20);
       ctx.globalAlpha = 1;
     });
     const bob = active ? Math.sin(performance.now() / 80) * 3 : 0;
@@ -143,6 +144,28 @@ const Runner = (() => {
     else { ctx.font = '38px serif'; ctx.fillText('🏃', PX, curY + bob); }
     particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill(); });
     ctx.globalAlpha = 1;
+  }
+
+  // 미션 띠: 지금 찾아야 할 단어를 게임 화면 안에 크게
+  function drawBand(W) {
+    ctx.fillStyle = '#12142f'; ctx.fillRect(0, 0, W, BAND);
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(0, BAND - 2, W, 2);
+    const m = missions[Math.min(mi, missions.length - 1)];
+    const gap = 16, dotsW = missions.length * gap;
+    for (let i = 0; i < missions.length; i++) {
+      ctx.beginPath();
+      ctx.arc(W - 14 - dotsW + gap / 2 + i * gap, BAND / 2, 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = i < mi ? '#3ee0c4' : 'rgba(255,255,255,.22)';
+      ctx.fill();
+    }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = '13px Jua, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.fillText('찾아라', 16, BAND / 2 - 13);
+    const maxW = W - 32 - dotsW;
+    let fs = 28;
+    do { ctx.font = `${fs}px Jua, sans-serif`; fs -= 1; } while (ctx.measureText(m.m).width > maxW && fs > 13);
+    ctx.fillStyle = '#ffc83d';
+    ctx.fillText(m.m, 16, BAND / 2 + 10);
   }
 
   function up() { if (active) lane = Math.max(0, lane - 1); }
