@@ -2,7 +2,7 @@
 // 계단 러너: 3레인 자동 달리기. 미션 뜻에 맞는 영어 타일에 부딪히면 수집.
 const Runner = (() => {
   const LANES = 3, PX = 90, HGT = 260;
-  let cv, ctx, run, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed;
+  let cv, ctx, run, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs;
 
   function start(r) {
     run = r; UI.show('runner');
@@ -11,8 +11,8 @@ const Runner = (() => {
     const ws = shuffle(run.words); missions = [];
     while (missions.length < 4) missions = missions.concat(ws);
     missions = missions.slice(0, 4);
-    mi = 0; tiles = []; coins = []; particles = []; missed = 0;
-    speed = 170 + run.floor * 10;
+    mi = 0; tiles = []; coins = []; particles = []; missed = 0; msgs = [];
+    speed = 115 + run.floor * 5; // 아이 반응속도 고려해 여유있게
     dashLeft = hasSkill('dash') ? 1 : 0;
     active = false; waveActive = false; groundOff = 0;
     hud(); draw();
@@ -68,12 +68,13 @@ const Runner = (() => {
       if (!c.got && c.lane === lane && Math.abs(c.x - PX) < 24) { c.got = true; addGold(5); Sfx.coin(); burst(c.x, laneY(c.lane), '#ffc83d'); }
     }
     if (waveActive && tiles.every(t => t.hit || t.x + t.width < -10)) {
-      if (!tiles.some(t => t.collected)) { missed++; UI.toast('앗, 놓쳤다! 한 번 더!', 'bad'); }
+      if (!tiles.some(t => t.collected)) { missed++; say('앗, 놓쳤다! 한 번 더!', '#ffc83d'); }
       tiles = []; waveActive = false;
     }
     coins = coins.filter(c => c.x > -30 && !c.got);
     particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.life -= dt * 1.8; });
     particles = particles.filter(p => p.life > 0);
+    msgs.forEach(m => m.life -= dt); msgs = msgs.filter(m => m.life > 0);
   }
   function collect(t) {
     t.collected = true; Sfx.ok(); burst(PX, laneY(lane), '#3ee0c4');
@@ -86,13 +87,14 @@ const Runner = (() => {
   }
   function bump(t) {
     recordResult(run.towerId, missions[mi], false, false);
-    if (dashLeft > 0) { dashLeft--; UI.toast('⚡ 대시! 뚫고 지나갔다', 'good'); burst(PX, laneY(lane), '#8f7bff'); return; }
+    if (dashLeft > 0) { dashLeft--; say('⚡ 대시!', '#8f7bff'); burst(PX, laneY(lane), '#8f7bff'); return; }
     const dmg = 6 + run.floor; state.player.hp -= dmg; Sfx.bad();
     burst(PX, laneY(lane), '#ff6b7a'); UI.shake(cv.parentElement);
-    UI.toast(`💥 "${t.w}"은(는) 아니야! -${dmg}`, 'bad');
+    say(`💥 ${t.w} ❌  -${dmg}`, '#ff6b7a');
     saveState(); hud();
     if (state.player.hp <= 0) { stop(); setTimeout(() => Game.playerDown(), 400); }
   }
+  function say(text, color) { msgs.push({ text, color, life: 1.6 }); if (msgs.length > 2) msgs.shift(); }
   function burst(x, y, c) { for (let i = 0; i < 12; i++) particles.push({ x, y, vx: (Math.random() - .5) * 260, vy: (Math.random() - .9) * 260, life: 1, c }); }
   function finish() {
     stop();
@@ -128,6 +130,13 @@ const Runner = (() => {
       roundRect(t.x, y - 22, t.width, 44, 12);
       ctx.fillStyle = '#fff9ec'; ctx.fill(); ctx.strokeStyle = '#d9cca8'; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = '#2a2450'; ctx.font = '600 18px Fredoka, Jua, sans-serif'; ctx.fillText(t.w, t.x + t.width / 2, y + 1);
+    });
+    msgs.forEach((m, i) => {
+      ctx.globalAlpha = Math.min(1, m.life);
+      ctx.font = '700 17px Jua, Fredoka, sans-serif';
+      ctx.fillStyle = m.color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(m.text, W / 2, 22 + i * 24);
+      ctx.globalAlpha = 1;
     });
     const bob = active ? Math.sin(performance.now() / 80) * 3 : 0;
     ctx.font = '38px serif'; ctx.fillText('🏃', PX, curY + bob);
