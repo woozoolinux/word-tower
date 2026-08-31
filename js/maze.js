@@ -2,7 +2,7 @@
 // 미로 층: 열쇠(영어)를 주워 문(한글 뜻)을 연다. 몬스터 → 배틀, 상자 → 골드, 열린 문 → 러너.
 const Maze = (() => {
   const CW = 6, CH = 5, W = CW * 2 + 1, H = CH * 2 + 1;
-  let run, grid, px, py, keys, door, monsters, chest, holding, seen, opened, busy, trail, face;
+  let run, grid, px, py, keys, door, monsters, chest, holding, seen, opened, busy, trail, face, doorBlocks;
   const gridEl = () => document.getElementById('maze-grid');
   const cellsEl = () => gridEl().querySelector('.maze-cells');
   const k = (x, y) => x + ',' + y;
@@ -42,6 +42,16 @@ const Maze = (() => {
   }
   function pathTo(prev, target) { const p = []; let c = target; while (c) { p.unshift(c); c = prev[c]; } return p; }
   function cells() { const c = []; for (let y = 1; y < H; y += 2) for (let x = 1; x < W; x += 2) c.push(k(x, y)); return c; }
+  // 출구가 하나뿐인 방 = 막다른 길. 여기에 문을 두면 문이 길을 막을 일이 없다.
+  function deadEnds() {
+    const out = [];
+    for (let y = 1; y < H; y += 2) for (let x = 1; x < W; x += 2) {
+      let n = 0;
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => { if (grid[y + dy] && grid[y + dy][x + dx] === 0) n++; });
+      if (n === 1) out.push(k(x, y));
+    }
+    return out;
+  }
 
   function start(r) {
     run = r; busy = false; holding = []; opened = false; seen = new Set();
@@ -51,7 +61,9 @@ const Maze = (() => {
       '<div class="maze-sprites"><div class="sprite pet no-anim" id="mz-pet"></div><div class="sprite player no-anim" id="mz-player"></div></div>';
     const { dist, prev } = bfs(1, 1);
     const cs = cells();
-    door = cs.reduce((a, b) => dist[a] >= dist[b] ? a : b);
+    const de = deadEnds().filter(c => c !== '1,1' && dist[c] !== undefined);
+    doorBlocks = de.length > 0;
+    door = (doorBlocks ? de : cs.filter(c => c !== '1,1')).reduce((a, b) => dist[a] >= dist[b] ? a : b);
     const doorWord = pickWord(run.towerId, run.words);
     run.doorWord = doorWord;
     const ds = distractors(doorWord, run.pool, 3, 'w');
@@ -125,7 +137,11 @@ const Maze = (() => {
     const nx = px + dx, ny = py + dy;
     if (!grid[ny] || grid[ny][nx] !== 0) return;
     const c = k(nx, ny);
-    if (c === door && !opened) { tryDoor(); return; }
+    if (c === door && !opened) {
+      if (holding.length) { tryDoor(); return; }
+      if (doorBlocks) { UI.toast(`🔒 "${run.doorWord.m}" 열쇠를 먼저 찾아요!`); Sfx.bad(); return; }
+      // 막다른 길이 아니면 길을 막지 않는다 (열쇠 주우러 돌아가지 않게)
+    }
     trail = k(px, py); px = nx; py = ny; if (dx) face = dx > 0 ? 1 : -1;
     reveal(); Sfx.step(); step();
     if (keys[c]) {
@@ -203,5 +219,14 @@ const Maze = (() => {
     }, { passive: true });
   }
 
-  return { start, key, init };
+  // 검증/디버그용 상태 조회
+  function debug() {
+    const openNb = c => {
+      const [x, y] = c.split(',').map(Number);
+      return [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => grid[y + dy] && grid[y + dy][x + dx] === 0).length;
+    };
+    return { door, doorBlocks, doorOpenNeighbors: openNb(door), keys: Object.keys(keys), chest, grid };
+  }
+
+  return { start, key, init, debug };
 })();
