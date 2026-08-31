@@ -127,7 +127,12 @@ window.addEventListener('DOMContentLoaded', () => {
   loadState();
   Lobby.init(); Maze.init(); Battle.init(); Runner.init();
   Lobby.render();
-  if (!state.player.avatar) Lobby.charCreator(true);
+  if (typeof Avatar === 'undefined') {
+    // 오래된 캐시로 새 파일이 안 실린 경우
+    UI.toast('새 버전이 있어요! 새로고침해 주세요 (Ctrl+Shift+R)', 'bad');
+  } else if (!state.player.avatar) {
+    Lobby.charCreator(true);
+  }
   window.addEventListener('keydown', e => {
     if (document.querySelector('.modal-wrap') || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     const cur = UI.current();
