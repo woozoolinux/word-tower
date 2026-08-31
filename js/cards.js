@@ -158,6 +158,20 @@ const Cards = (() => {
     });
   }
 
+  // 잠긴 오라도 미리 보여준다 — 목표가 눈에 보여야 모으고 싶어진다
+  function previewAura(id) {
+    const owned = state.player.owned.auras.indexOf(id) >= 0;
+    UI.modal(`
+      <div class="modal-title">${AURAS[id].emoji} ${AURAS[id].name}</div>
+      <div class="modal-sub">${owned ? '이미 가지고 있어요! 🎨 꾸미기에서 바꿀 수 있어요' : '이 단원의 단어 카드를 전부 모으면 열려요'}</div>
+      <div class="creator-preview">${Avatar.html(150, { aura: id, pet: '', weapon: false })}</div>
+      <div class="actions">
+        ${owned ? '<button class="btn" data-close="wear">지금 착용</button>' : ''}
+        <button class="btn ghost small" data-close="x">닫기</button>
+      </div>`,
+      { onClose: v => { if (v === 'wear') { state.player.aura = id; saveState(); Lobby.render(); UI.toast('오라를 착용했어요!', 'good'); } } });
+  }
+
   // ---------- 도감 ----------
   function cardHtml(towerId, word, owned) {
     const r = rarityOf(word), R = RARITY[r];
@@ -180,7 +194,7 @@ const Cards = (() => {
       const units = t.units.map(u => {
         const s = unitStat(t, u.unit), doneU = s.have >= s.total;
         const aid = auraFor(t, u.unit);
-        const rw = aid ? `<span class="unit-reward ${doneU ? 'got' : ''}">${AURAS[aid].emoji} ${AURAS[aid].name}${doneU ? ' 획득!' : ''}</span>` : '';
+        const rw = aid ? `<button class="unit-reward ${doneU ? 'got' : ''}" data-aurapv="${aid}">${AURAS[aid].emoji} ${AURAS[aid].name}${doneU ? ' 획득!' : ' 👁'}</button>` : '';
         return `<h4>Unit ${u.unit} <span class="unit-prog">${s.have} / ${s.total}</span> ${rw}</h4>
           <div class="bar exp"><div class="bar-fill" style="width:${s.have / s.total * 100}%"></div></div>
           <div class="card-grid">${u.words.map(w => cardHtml(cur, w, has(cur, w.w))).join('')}</div>`;
@@ -188,7 +202,7 @@ const Cards = (() => {
       return `<div class="modal-title">🃏 단어 도감</div>
         <div class="modal-sub">전체 ${count()}장 · ${points()}포인트 &nbsp;|&nbsp; 이 타워 ${owned} / ${ws.length}장</div>
         <div class="opt-row" style="justify-content:center;margin-bottom:6px">${tabs}</div>
-        <div class="toggle-desc" style="text-align:center">★★★ 단어에 <b>시험!</b>이 뜨면 눌러서 각인하세요</div>
+        <div class="toggle-desc" style="text-align:center">★★★ 단어에 <b>시험!</b>이 뜨면 눌러서 각인하세요<br>단원 제목 옆 <b>오라 배지</b>를 누르면 미리 볼 수 있어요 👁</div>
         ${units}
         <div class="actions"><button class="btn ghost small" data-close="x">닫기</button></div>`;
     };
@@ -197,6 +211,8 @@ const Cards = (() => {
     m.body.addEventListener('click', e => {
       const tab = e.target.closest('[data-tab]');
       if (tab) { cur = tab.dataset.tab; refresh(); return; }
+      const pv = e.target.closest('[data-aurapv]');
+      if (pv) { previewAura(pv.dataset.aurapv); return; }
       const card = e.target.closest('[data-test]');
       if (card) {
         const k = card.dataset.test, w = findWord(k);
@@ -266,5 +282,5 @@ const Cards = (() => {
     })();
   }
 
-  return { RARITY, rarityOf, key, has, isPending, auraFor, pendingRewards, claimRewards, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
+  return { RARITY, rarityOf, key, has, isPending, auraFor, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
 })();

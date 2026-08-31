@@ -245,7 +245,8 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .card-reveal .wcard .wc-en { font-size: 22px; }
 .card-reveal .wcard .wc-ko { font-size: 15px; }
 .unit-prog { font-size: 13px; color: var(--ink-dim); }
-.unit-reward { font-size: 12px; background: var(--panel2); color: var(--ink-dim); border-radius: 999px; padding: 2px 9px; }
+.unit-reward { font-size: 12px; background: var(--panel2); color: var(--ink-dim); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-family: var(--font-ko); }
+.unit-reward:active { transform: translateY(1px); }
 .unit-reward.got { background: var(--gold); color: var(--ink); }
 .title-badge {
   display: inline-block; background: linear-gradient(135deg, #ffe08a, var(--gold));
