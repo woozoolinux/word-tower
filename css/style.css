@@ -84,6 +84,16 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--mint); outl
 
 /* 캐릭터 */
 .char { position: relative; display: inline-block; line-height: 1; }
+.char svg { display: block; width: 100%; height: 100%; }
+.char.mini { display: block; width: 94%; height: 94%; }
+.ent.player { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.creator-preview { display: flex; justify-content: center; margin-bottom: 8px; }
+.opt-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.opt-btn { padding: 8px 12px; border-radius: 10px; background: #fff; box-shadow: 0 3px 0 #d9cca8; font-size: 15px; color: var(--ink); }
+.opt-btn.sel { background: var(--mint); }
+.opt-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #d9cca8; }
+.opt-dot { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(42,36,80,.15); }
+.opt-dot.sel { border-color: var(--mint-dark); box-shadow: inset 0 0 0 3px #fff; }
 .char-hat { position: absolute; left: 50%; top: -.5em; transform: translateX(-50%); font-size: .6em; }
 .char-pet { position: absolute; right: -.55em; bottom: -.05em; font-size: .5em; }
 

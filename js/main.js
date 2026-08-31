@@ -127,6 +127,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadState();
   Lobby.init(); Maze.init(); Battle.init(); Runner.init();
   Lobby.render();
+  if (!state.player.avatar) Lobby.charCreator(true);
   window.addEventListener('keydown', e => {
     if (document.querySelector('.modal-wrap') || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     const cur = UI.current();

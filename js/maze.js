@@ -78,7 +78,7 @@ const Maze = (() => {
       const c = k(x, y), wall = grid[y][x] === 1, vis = seen.has(c);
       let cls = 'cell ' + (wall ? 'wall' : 'floor') + (vis ? '' : ' fog') + (c === door && opened ? ' door-open' : '');
       let inner = '';
-      if (x === px && y === py) inner = `<span class="ent player">${UI.charEmoji()}</span>`;
+      if (x === px && y === py) inner = `<span class="ent player">${UI.charMini()}</span>`;
       else if (c === door) inner = `<span class="ent">${opened ? '🪜' : vis ? '🚪' : ''}</span>`;
       else if (keys[c] && (vis || sight)) inner = `<span class="ent key ${vis ? '' : 'ghost'}">🔑<i>${esc(keys[c].w)}</i></span>`;
       else if (monsters[c] && vis) inner = `<span class="ent">${monsters[c].emoji}</span>`;

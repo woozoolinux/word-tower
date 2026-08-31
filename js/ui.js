@@ -34,6 +34,7 @@ const UI = (() => {
 
   function charEmoji() { const lv = state.player.lv; return lv >= 20 ? '🧙' : lv >= 10 ? '🦸' : lv >= 5 ? '🧑' : '🧒'; }
   function charHtml(size) {
+    if (state.player.avatar) return Avatar.html(size);
     const hat = HATS[state.player.hat] ? HATS[state.player.hat].emoji : '';
     const pet = state.player.pet && PETS[state.player.pet] ? PETS[state.player.pet].emoji : '';
     return `<span class="char" style="font-size:${size}px"><span class="char-hat">${hat}</span><span class="char-body">${charEmoji()}</span>${pet ? `<span class="char-pet">${pet}</span>` : ''}</span>`;
@@ -75,5 +76,6 @@ const UI = (() => {
     `, { onClose: () => cb && cb() });
   }
 
-  return { show, current, toast, modal, charEmoji, charHtml, hpBar, floatText, shake, levelUpModal };
+  function charMini() { return state.player.avatar ? Avatar.html(0, { headOnly: true }) : charEmoji(); }
+  return { show, current, toast, modal, charEmoji, charHtml, charMini, hpBar, floatText, shake, levelUpModal };
 })();

@@ -55,7 +55,8 @@ function defaultState() {
     player: {
       name: '용사', lv: 1, exp: 0, gold: 0, hp: 100,
       weapon: 'stick', hat: 'none', pet: null,
-      owned: { weapons: ['stick'], hats: ['none'], pets: [] },
+      avatar: null, outfit: 'tunic',
+      owned: { weapons: ['stick'], hats: ['none'], pets: [], outfits: ['tunic', 'dress'] },
       items: { hint: 1, erase: 0, potion: 1 },
       shieldDate: '', arenaBest: 0,
     },

@@ -20,6 +20,7 @@ const Lobby = (() => {
       <div class="zone-list">${ZONES.map(zoneCard).join('')}</div>
       <div class="lobby-actions">
         <button class="btn small" data-act="shop">🛒 상점</button>
+        <button class="btn small ghost" data-act="dress">🎨 꾸미기</button>
         <button class="btn small ghost" data-act="skills">📜 스킬</button>
         <button class="btn small ghost" data-act="settings">⚙️ 설정</button>
         <button class="btn small ghost" data-act="save">💾 저장코드</button>
@@ -61,7 +62,7 @@ const Lobby = (() => {
     const zone = e.target.closest('[data-zone]');
     if (zone) { enterZone(zone.dataset.zone); return; }
     const act = e.target.closest('[data-act]');
-    if (act) ({ shop, skills, settings, save: saveCode })[act.dataset.act]();
+    if (act) ({ shop, skills, settings, save: saveCode, dress: () => charCreator(false) })[act.dataset.act]();
   }
 
   function floorSelect(id) {
@@ -105,8 +106,14 @@ const Lobby = (() => {
       const right = eq ? '<span class="tag">함께</span>' : owned ? `<button class="btn small mint" data-equip="pet:${id}">데려가기</button>` : '<span class="tag off">보스 드랍</span>';
       return row(owned ? pt.emoji : '❔', owned ? pt.name : '???', owned ? '보스를 이기고 얻었어요' : '보스 층을 깨면 얻어요', right);
     }).join('');
+    const outfits = Object.entries(OUTFITS).map(([id, o]) => {
+      const owned = p.owned.outfits.includes(id), eq = p.outfit === id;
+      const right = eq ? '<span class="tag">입는 중</span>' : owned ? `<button class="btn small mint" data-equip="outfit:${id}">입기</button>` : buy('outfit', id, o.price);
+      return row(o.emoji, o.name, o.desc, right);
+    }).join('');
     return `<div class="modal-title">🛒 상점 <span class="gold-pill">💰 ${p.gold}</span></div>
-      <h4>소모품</h4>${items}<h4>무기</h4>${weapons}<h4>모자</h4>${hats}<h4>펫</h4>${pets}
+      <div class="creator-preview">${UI.charHtml(72)}</div>
+      <h4>소모품</h4>${items}<h4>코스튬</h4>${outfits}<h4>무기</h4>${weapons}<h4>모자</h4>${hats}<h4>펫</h4>${pets}
       <div class="actions"><button class="btn ghost small" data-close="x">닫기</button></div>`;
   }
   function shop() {
@@ -116,16 +123,17 @@ const Lobby = (() => {
       const p = state.player;
       if (b.dataset.buy) {
         const [kind, id] = b.dataset.buy.split(':');
-        const price = kind === 'item' ? ITEMS[id].price : kind === 'weapon' ? WEAPONS[id].price : HATS[id].price;
+        const price = kind === 'item' ? ITEMS[id].price : kind === 'weapon' ? WEAPONS[id].price : kind === 'outfit' ? OUTFITS[id].price : HATS[id].price;
         if (p.gold < price) { UI.toast('골드가 부족해요'); return; }
         addGold(-price); Sfx.coin();
         if (kind === 'item') p.items[id]++;
         else if (kind === 'weapon') { p.owned.weapons.push(id); p.weapon = id; }
+        else if (kind === 'outfit') { p.owned.outfits.push(id); p.outfit = id; }
         else { p.owned.hats.push(id); p.hat = id; }
         UI.toast('구매 완료!', 'good');
       } else {
         const [kind, id] = b.dataset.equip.split(':');
-        if (kind === 'weapon') p.weapon = id; else if (kind === 'hat') p.hat = id; else p.pet = id;
+        if (kind === 'weapon') p.weapon = id; else if (kind === 'hat') p.hat = id; else if (kind === 'outfit') p.outfit = id; else p.pet = id;
         Sfx.ok();
       }
       saveState();
@@ -180,6 +188,54 @@ const Lobby = (() => {
     });
   }
 
+  // ---------- 캐릭터 만들기 / 꾸미기 ----------
+  function charCreator(force) {
+    const p = state.player;
+    const temp = Object.assign(Avatar.defaults(), p.avatar || {});
+    let outfit = p.owned.outfits.includes(p.outfit) ? p.outfit : 'tunic';
+    let name = p.name;
+    const html = () => `
+      <div class="modal-title">🎨 ${force ? '캐릭터 만들기' : '캐릭터 꾸미기'}</div>
+      <div class="creator-preview">${Avatar.html(120, { av: temp, outfit, pet: '', weapon: false })}</div>
+      <div class="opt-row" style="justify-content:center">
+        <button class="opt-btn" data-preset="boy">👦 소년 프리셋</button>
+        <button class="opt-btn" data-preset="girl">👧 소녀 프리셋</button>
+      </div>
+      <h4>머리 모양</h4>
+      <div class="opt-row">${Avatar.HAIRSTYLES.map(h => `<button class="opt-btn ${temp.hairStyle === h.id ? 'sel' : ''}" data-style="${h.id}">${h.name}</button>`).join('')}</div>
+      <h4>머리 색</h4>
+      <div class="opt-row">${Avatar.HAIRCOLORS.map((c, i) => `<button class="opt-dot ${temp.hairColor === i ? 'sel' : ''}" data-hair="${i}" style="background:${c}" aria-label="머리 색 ${i + 1}"></button>`).join('')}</div>
+      <h4>피부</h4>
+      <div class="opt-row">${Avatar.SKINS.map((c, i) => `<button class="opt-dot ${temp.skin === i ? 'sel' : ''}" data-skin="${i}" style="background:${c}" aria-label="피부 ${i + 1}"></button>`).join('')}</div>
+      <h4>옷</h4>
+      <div class="opt-row">${p.owned.outfits.map(id => `<button class="opt-btn ${outfit === id ? 'sel' : ''}" data-outfit="${id}">${OUTFITS[id].emoji} ${OUTFITS[id].name}</button>`).join('')}
+        <span class="toggle-desc">새 코스튬은 🛒 상점에!</span></div>
+      <h4>이름</h4>
+      <input class="name-input" id="cr-name" value="${esc(name)}" maxlength="10">
+      <div class="actions"><button class="btn" id="cr-ok">${force ? '모험 시작!' : '저장'}</button>${force ? '' : '<button class="btn ghost small" data-close="x">취소</button>'}</div>`;
+    const m = UI.modal(html());
+    const rerender = () => { m.body.innerHTML = html(); m.rebind(); };
+    m.body.addEventListener('click', e => {
+      const b = e.target.closest('[data-style],[data-hair],[data-skin],[data-outfit],[data-preset],#cr-ok');
+      if (!b) return;
+      const inp = m.body.querySelector('#cr-name'); if (inp) name = inp.value;
+      if (b.dataset.style) temp.hairStyle = b.dataset.style;
+      else if (b.dataset.hair !== undefined) temp.hairColor = +b.dataset.hair;
+      else if (b.dataset.skin !== undefined) temp.skin = +b.dataset.skin;
+      else if (b.dataset.outfit) outfit = b.dataset.outfit;
+      else if (b.dataset.preset === 'boy') { temp.hairStyle = 'short'; outfit = 'tunic'; }
+      else if (b.dataset.preset === 'girl') { temp.hairStyle = 'twin'; outfit = 'dress'; }
+      else if (b.id === 'cr-ok') {
+        p.avatar = temp; p.outfit = outfit;
+        if (name.trim()) p.name = name.trim().slice(0, 10);
+        saveState(); m.close(); render();
+        Sfx.win(); UI.toast('멋진 캐릭터 완성!', 'good');
+        return;
+      }
+      rerender();
+    });
+  }
+
   function init() { root().addEventListener('click', onClick); }
-  return { render, init };
+  return { render, init, charCreator };
 })();

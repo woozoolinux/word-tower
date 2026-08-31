@@ -2,7 +2,7 @@
 // 계단 러너: 3레인 자동 달리기. 미션 뜻에 맞는 영어 타일에 부딪히면 수집.
 const Runner = (() => {
   const LANES = 3, PX = 90, HGT = 260;
-  let cv, ctx, run, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs;
+  let cv, ctx, run, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs, pimg;
 
   function start(r) {
     run = r; UI.show('runner');
@@ -11,7 +11,7 @@ const Runner = (() => {
     const ws = shuffle(run.words); missions = [];
     while (missions.length < 4) missions = missions.concat(ws);
     missions = missions.slice(0, 4);
-    mi = 0; tiles = []; coins = []; particles = []; missed = 0; msgs = [];
+    mi = 0; tiles = []; coins = []; particles = []; missed = 0; msgs = []; pimg = Avatar.image();
     speed = 115 + run.floor * 5; // 아이 반응속도 고려해 여유있게
     dashLeft = hasSkill('dash') ? 1 : 0;
     active = false; waveActive = false; groundOff = 0;
@@ -139,7 +139,8 @@ const Runner = (() => {
       ctx.globalAlpha = 1;
     });
     const bob = active ? Math.sin(performance.now() / 80) * 3 : 0;
-    ctx.font = '38px serif'; ctx.fillText('🏃', PX, curY + bob);
+    if (pimg && pimg.ready) ctx.drawImage(pimg.img, PX - 17, curY + bob - 26, 38, 52);
+    else { ctx.font = '38px serif'; ctx.fillText('🏃', PX, curY + bob); }
     particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill(); });
     ctx.globalAlpha = 1;
   }
