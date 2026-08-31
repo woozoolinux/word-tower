@@ -39,8 +39,8 @@ const SKILLS = [
 ];
 const ZONES = [
   { lv: 5,  id: 'arena',   name: '투기장',    emoji: '🏟️', desc: '몬스터를 몇 마리나 잡을까?', ready: true },
-  { lv: 10, id: 'dungeon', name: '지하 던전', emoji: '🕳️', desc: '깊고 어두운 곳 (준비 중)', ready: false },
-  { lv: 20, id: 'sky',     name: '하늘섬',    emoji: '⛰️', desc: '구름 위의 세계 (준비 중)', ready: false },
+  { lv: 10, id: 'dungeon', name: '지하 던전', emoji: '🕳️', desc: '깊고 어두운 곳 (준비 중)', ready: false, cards: 25 },
+  { lv: 20, id: 'sky',     name: '하늘섬',    emoji: '⛰️', desc: '구름 위의 세계 (준비 중)', ready: false, cards: 60 },
 ];
 const MONSTERS = [
   { id: 'slime', name: '슬라임', emoji: '👾' }, { id: 'bat', name: '박쥐', emoji: '🦇' }, { id: 'ghost', name: '유령', emoji: '👻' },
@@ -62,6 +62,7 @@ function defaultState() {
       owned: { weapons: ['stick'], hats: ['none'], pets: [], outfits: ['tunic', 'dress'] },
       items: { hint: 1, erase: 0, potion: 1 },
       shieldDate: '', arenaBest: 0,
+      cards: {}, pendingCards: [], setBonus: {},
     },
     towers: {},
     settings: { listen: false, sound: true },
@@ -81,10 +82,28 @@ function loadState() {
 function migrate() {
   const d = defaultState();
   state.player = Object.assign(d.player, state.player || {});
+  state.player.cards = state.player.cards || {};
+  state.player.pendingCards = state.player.pendingCards || [];
+  state.player.setBonus = state.player.setBonus || {};
   state.player.owned = Object.assign(d.player.owned, state.player.owned || {});
   state.player.items = Object.assign(d.player.items, state.player.items || {});
   state.settings = Object.assign(d.settings, state.settings || {});
   state.towers = state.towers || {};
+  backfillCards();
+}
+// 이미 ★★★인데 카드가 없는 단어를 시험 대기열에 올린다 (기존 저장 소급)
+function backfillCards() {
+  if (!window.TOWERS) return;
+  window.TOWERS.forEach(t => {
+    const prog = state.towers[t.id];
+    if (!prog || !prog.words) return;
+    t.units.forEach(u => u.words.forEach(w => {
+      const st = prog.words[w.w];
+      if (!st || st.stars < 3) return;
+      const k = t.id + ':' + w.w;
+      if (!state.player.cards[k] && state.player.pendingCards.indexOf(k) < 0) state.player.pendingCards.push(k);
+    }));
+  });
 }
 function saveState() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* 저장 불가(시크릿 모드 등) */ }
@@ -122,12 +141,13 @@ function monsterHp(floor, boss, tower) {
   const rb = baseAtk(refLv(tower)), t = towerTier(tower);
   return Math.round(rb * (boss ? 10 + floor * 0.5 : 3.5 + floor * 0.2) * t);
 }
+// 적의 피해량은 카드/장비 보너스를 뺀 "기본 HP" 기준.
+// (최대 HP에 비례시키면 HP를 올려주는 보상이 스스로 상쇄돼 버린다)
 function monsterAtk(floor, boss, tower) {
-  return Math.max(3, Math.round(playerMaxHp() * (0.06 + floor * 0.004) * towerTier(tower) * (boss ? 1.25 : 1)));
+  return Math.max(3, Math.round(hpAt(state.player.lv) * (0.06 + floor * 0.004) * towerTier(tower) * (boss ? 1.25 : 1)));
 }
-// 미로 오답·러너 충돌 피해도 최대 HP 비례 (레벨이 올라도 긴장감 유지)
 function hazardDmg(ratio, tower) {
-  return Math.max(2, Math.round(playerMaxHp() * ratio * towerTier(tower)));
+  return Math.max(2, Math.round(hpAt(state.player.lv) * ratio * towerTier(tower)));
 }
 function playerAtk() { return atkAt(state.player.lv); }
 function playerMaxHp() { return hpAt(state.player.lv); }

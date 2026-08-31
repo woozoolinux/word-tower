@@ -72,8 +72,13 @@ function makeQuestion(word, pool, mode) {
 
 function recordResult(towerId, word, correct, helped) {
   const s = statFor(towerId, word); s.seen++;
+  const before = s.stars;
   if (correct) { if (!helped) s.stars = Math.min(3, s.stars + 1); }
   else { s.stars = Math.max(0, s.stars - 1); s.wrong++; }
+  if (s.stars >= 3 && before < 3 && typeof Cards !== 'undefined' && word.towerId) {
+    Cards.onMastered(word.towerId, word);
+    UI.toast(`🃏 "${word.w}" 각인 시험 준비 완료!`, 'gold');
+  }
 }
 function starsText(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
 

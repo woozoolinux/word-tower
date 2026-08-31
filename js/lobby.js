@@ -11,7 +11,7 @@ const Lobby = (() => {
         <div class="char-info">
           <div class="char-name">${esc(p.name)} <span class="lv-badge">Lv.${p.lv}</span></div>
           ${UI.hpBar(p.exp, need, 'exp')}
-          <div class="stat-row"><span>⚔️ ${playerAtk()}</span><span>❤️ ${playerMaxHp()}</span><span>💰 ${p.gold}</span></div>
+          <div class="stat-row"><span>⚔️ ${playerAtk()}</span><span>❤️ ${playerMaxHp()}</span><span>💰 ${p.gold}</span><span>🃏 ${Cards.count()}</span></div>
         </div>
       </header>
       <h2 class="sec-title">🏰 타워</h2>
@@ -21,6 +21,7 @@ const Lobby = (() => {
       <div class="lobby-actions">
         <button class="btn small" data-act="shop">🛒 상점</button>
         <button class="btn small ghost" data-act="dress">🎨 꾸미기</button>
+        <button class="btn small ghost" data-act="book">🃏 도감</button>
         <button class="btn small ghost" data-act="skills">📜 스킬</button>
         <button class="btn small ghost" data-act="settings">⚙️ 설정</button>
         <button class="btn small ghost" data-act="save">💾 저장코드</button>
@@ -30,10 +31,12 @@ const Lobby = (() => {
 
   function towerCard(t) {
     const prog = towerProg(t.id), total = floorList(t).length, done = prog.cleared >= total;
+    const words = allWords(t);
     const rg = towerRange(t), lv = state.player.lv;
+    const cardsHave = words.filter(w => Cards.has(t.id, w.w)).length;
+    const pendHave = Cards.pendingFor(t.id).length;
     const lvTag = `권장 Lv.${rg[0]}~${rg[1]} · ` +
       (lv < rg[0] ? '<b class="warn">⚠️ 아직 어려워요</b>' : lv > rg[1] ? '<b class="easy">😎 여유로워요</b>' : '<b class="fit">👍 딱 맞아요</b>');
-    const words = allWords(t);
     const stars = words.reduce((a, w) => a + wordStat(t.id, w.w).stars, 0);
     const pct = Math.round(prog.cleared / total * 100);
     const next = Math.min(prog.floor, total);
@@ -45,15 +48,17 @@ const Lobby = (() => {
         <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div><span class="bar-text">${prog.cleared} / ${total}층</span></div>
         <div class="tower-meta">⭐ ${stars} / ${words.length * 3} · 단어 ${words.length}개${done ? ' · 🏆 정복!' : ''}</div>
         <div class="tower-meta">${lvTag}</div>
+        <div class="tower-meta">🃏 카드 ${cardsHave} / ${words.length}${pendHave ? ` · <b class="warn">시험 ${pendHave}장 대기!</b>` : ''}</div>
       </div>
       <button class="btn mint small" data-go="${t.id}">${done ? '다시' : next + '층'}<br>도전!</button>
     </div>`;
   }
   function zoneCard(z) {
-    const locked = state.player.lv < z.lv;
+    const needCards = z.cards || 0, haveCards = Cards.count();
+    const locked = state.player.lv < z.lv || haveCards < needCards;
     const best = z.id === 'arena' && state.player.arenaBest ? `<div class="best">최고 ${state.player.arenaBest}마리</div>` : '';
     return `<div class="zone ${locked ? 'locked' : 'panel'}" data-zone="${z.id}">
-      ${locked ? `<span class="lock-badge">🔒 Lv.${z.lv}</span>` : ''}
+      ${locked ? `<span class="lock-badge">🔒 Lv.${z.lv}${needCards ? ` · 🃏${needCards}` : ''}</span>` : ''}
       <div class="zone-emoji">${z.emoji}</div><div class="zone-name">${z.name}</div><div class="zone-desc">${z.desc}</div>${locked ? '' : best}
     </div>`;
   }
@@ -66,7 +71,7 @@ const Lobby = (() => {
     const zone = e.target.closest('[data-zone]');
     if (zone) { enterZone(zone.dataset.zone); return; }
     const act = e.target.closest('[data-act]');
-    if (act) ({ shop, skills, settings, save: saveCode, dress: () => charCreator(false) })[act.dataset.act]();
+    if (act) ({ shop, skills, settings, save: saveCode, dress: () => charCreator(false), book: () => Cards.book() })[act.dataset.act]();
   }
 
   function floorSelect(id) {
@@ -85,6 +90,7 @@ const Lobby = (() => {
   function enterZone(id) {
     const z = ZONES.find(x => x.id === id);
     if (state.player.lv < z.lv) { UI.toast(`🔒 ${z.name}은(는) Lv.${z.lv}부터 들어갈 수 있어요`); Sfx.bad(); return; }
+    if (z.cards && Cards.count() < z.cards) { UI.toast(`🃏 카드가 ${z.cards}장 필요해요 (지금 ${Cards.count()}장)`); Sfx.bad(); return; }
     if (!z.ready) { UI.toast(`${z.emoji} ${z.name}은(는) 준비 중이에요!`); return; }
     if (id === 'arena') Game.startArena();
   }

@@ -32,6 +32,7 @@ const Game = {
     if (n < 1 || n > floors.length) n = 1;
     const plan = floors[n - 1], pool = allWords(tower);
     const words = plan.type === 'boss' ? floorWords(tower, n) : withReview(towerId, floorWords(tower, n), pool);
+    if (plan.type === 'boss' && !this.bossGate(tower, plan, n)) return;
     const prog0 = towerProg(towerId);
     this.run = {
       towerId, tower, floor: n, plan, words, pool, total: floors.length,
@@ -49,8 +50,57 @@ const Game = {
     });
   },
 
+  // 보스 층은 해당 단원 카드를 일정 비율 모아야 들어갈 수 있다 (일반 층은 자유)
+  bossGate(tower, plan, n) {
+    const g = Cards.gateInfo(tower, plan.upTo);
+    if (g.ok) return true;
+    Sfx.bad();
+    const list = shuffle(g.missing).slice(0, 10);
+    const chips = list.map(w => `<span class="star-chip"><span class="en">${esc(w.w)}</span> ${esc(w.m)} <span class="stars">${starsText(statFor(tower.id, w).stars)}</span></span>`).join("")
+      + (g.missing.length > list.length ? `<span class="star-chip more">외 ${g.missing.length - list.length}개</span>` : "");
+    UI.modal(`
+      <div class="modal-title">🔒 보스가 문을 막았다!</div>
+      <div class="modal-sub">Unit ${plan.upTo}까지의 단어 카드가 더 필요해요<br>
+        <b style="font-size:22px">${g.have} / ${g.need}장</b> <span class="dim">(전체 ${g.total}개 중)</span></div>
+      <div class="bar exp"><div class="bar-fill" style="width:${Math.min(100, g.have / g.need * 100)}%"></div></div>
+      <div class="star-summary">아직 카드가 없는 단어</div>
+      <div class="star-list">${chips}</div>
+      <div class="actions">
+        <button class="btn" data-close="practice">📖 복습하러 가기</button>
+        <button class="btn ghost" data-close="lobby">나중에</button>
+      </div>`,
+      { onClose: v => { if (v === "practice") this.startPractice(tower, g.missing); else this.toLobby(); } });
+    return false;
+  },
+
+  // 복습 배틀: 허수아비라 맞아도 아프지 않다. 카드가 없는 단어만 나온다.
+  startPractice(tower, words) {
+    this.run = null;
+    state.player.hp = playerMaxHp();
+    UI.toast("📖 복습 배틀! 허수아비는 때리지 않아요", "good");
+    Battle.start({
+      monster: { id: "slime", name: "연습 허수아비", emoji: "👾", hp: playerAtk() * 10, atk: 0 },
+      words: shuffle(words).slice(0, 12), pool: allWords(tower), towerId: tower.id, floor: 1, practice: true,
+      onWin: () => this.afterPractice(tower),
+      onLose: () => this.afterPractice(tower),
+    });
+  },
+  afterPractice(tower) {
+    Sfx.win();
+    this.flushCardTests(tower.id, () => this.flushLevelUps(() => this.toLobby()));
+  },
+
+  // 각인 시험: 층이 끝난 뒤 최대 2장까지 바로, 나머지는 도감에서
+  flushCardTests(towerId, cb) {
+    const pend = Cards.pendingFor(towerId).slice(0, 2);
+    if (!pend.length) { cb && cb(); return; }
+    Cards.runTests(pend, () => { Lobby.render(); cb && cb(); });
+  },
+
   floorClear() {
-    const r = this.run, boss = r.plan.type === 'boss';
+    const r = this.run;
+    if (!r) { this.toLobby(); return; } // 관문에 막혀 층이 시작되지 않은 경우
+    const boss = r.plan.type === 'boss';
     const gold = Math.round((boss ? 60 + r.floor * 8 : 20 + r.floor * 3) * r.tier * r.mul);
     const exp = Math.round((boss ? 50 + r.floor * 6 : 20 + r.floor * 3) * r.tier);
     addGold(gold); this.gainExpQuiet(exp);
@@ -68,6 +118,7 @@ const Game = {
     }
     saveState();
     const done = r.floor >= r.total;
+    const pendN = Cards.pendingFor(r.towerId).length;
     const MAX_CHIPS = 12;
     const byStars = r.words.slice().sort((a, b) => statFor(r.towerId, a).stars - statFor(r.towerId, b).stars);
     const shown = byStars.slice(0, MAX_CHIPS);
@@ -88,13 +139,16 @@ const Game = {
     UI.modal(`
       <div class="modal-title">${done ? '🏆 타워 정복!' : boss ? '👑 보스 격파!' : `🎉 ${r.floor}층 클리어!`}</div>
       <div class="reward-row">💰 +${gold} &nbsp; ✨ +${exp} EXP</div>
+      ${pendN ? `<div class="unlock"><span class="big">🃏</span><div><div>각인 시험 <b>${pendN}장</b> 준비됨!</div><div class="toggle-desc">스펠링을 맞히면 카드를 받아요</div></div></div>` : ''}
       ${drop}
       ${stars}
       <div class="actions">
         ${done ? '' : '<button class="btn" data-close="next">다음 층 ➡️</button>'}
         <button class="btn ghost" data-close="lobby">로비로</button>
       </div>
-    `, { cls: 'celebrate', onClose: v => this.flushLevelUps(() => { if (v === 'next') this.startFloor(r.towerId, r.floor + 1); else this.toLobby(); }) });
+    `, { cls: 'celebrate', onClose: v => this.flushCardTests(r.towerId, () => this.flushLevelUps(() => {
+      if (v === 'next') this.startFloor(r.towerId, r.floor + 1); else this.toLobby();
+    })) });
   },
 
   playerDown() {
