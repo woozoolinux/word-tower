@@ -1,10 +1,12 @@
 'use strict';
 // 배틀: 문제를 맞추면 공격, 빨리 맞추면 크리티컬, 틀리면 맞는다.
 const Battle = (() => {
-  let o, mon, q, qStart, combo, helped, ultiUsed, lock;
+  const TIME_LIMIT = 10, WARN_AT = 3, CRIT_UNDER = 2.5; // 초
+  let o, mon, q, qStart, combo, helped, ultiUsed, lock, timer, warnTimer;
   const $ = id => document.getElementById(id);
 
   function start(opts) {
+    clearTimer();
     o = opts; mon = Object.assign({}, opts.monster, { maxHp: opts.monster.hp });
     combo = 0; ultiUsed = false; lock = false; q = null;
     UI.show('battle');
@@ -42,12 +44,46 @@ const Battle = (() => {
     $('battle-hint').textContent = '';
     const sb = $('speak-btn'); if (sb) sb.onclick = () => speak(word.w);
     if (mode === 'listen') setTimeout(() => speak(word.w), 300);
-    const tb = $('battle-timer'); tb.classList.remove('run'); void tb.offsetWidth; tb.classList.add('run');
+    const tb = $('battle-timer');
+    tb.classList.remove('run', 'warn'); void tb.offsetWidth;
+    tb.style.setProperty('--t', TIME_LIMIT + 's');
+    tb.classList.add('run');
     qStart = performance.now();
+    clearTimer();
+    warnTimer = setTimeout(() => tb.classList.add('warn'), (TIME_LIMIT - WARN_AT) * 1000);
+    timer = setTimeout(timeUp, TIME_LIMIT * 1000);
+  }
+
+  function clearTimer() { clearTimeout(timer); clearTimeout(warnTimer); timer = warnTimer = null; }
+
+  // 시간 초과: 오답과 같은 처리 + 정답 보여주기
+  function timeUp() {
+    if (lock || UI.current() !== 'battle') return;
+    lock = true; clearTimer();
+    document.querySelectorAll('#battle-choices .choice').forEach(b => {
+      if (b.textContent === q.answer) b.classList.add('right');
+      b.disabled = true;
+    });
+    recordResult(o.towerId, q.word, false, helped);
+    UI.toast(`⏰ 시간 초과! 정답은 "${q.answer}"`, 'bad');
+    penalty();
+  }
+
+  // 오답/시간초과 공통: 몬스터 반격
+  function penalty() {
+    combo = 0; Sfx.bad();
+    if (shieldReady()) { useShield(); UI.toast('🛡️ 실드가 막았다!', 'good'); }
+    else {
+      state.player.hp -= mon.atk;
+      UI.shake($('battle-player')); UI.floatText($('battle-player'), `-${mon.atk}`, 'dmg-p');
+    }
+    renderBars(); renderItems(); saveState();
+    if (state.player.hp <= 0) { setTimeout(() => o.onLose(), 700); return; }
+    setTimeout(next, 1600);
   }
 
   function choose(btn) {
-    if (lock) return; lock = true;
+    if (lock) return; lock = true; clearTimer();
     const correct = btn.textContent === q.answer;
     const elapsed = (performance.now() - qStart) / 1000;
     document.querySelectorAll('#battle-choices .choice').forEach(b => {
@@ -57,7 +93,7 @@ const Battle = (() => {
     recordResult(o.towerId, q.word, correct, helped);
     if (correct) {
       combo++;
-      const crit = elapsed < 2.5;
+      const crit = elapsed < CRIT_UNDER;
       hit(Math.round(playerAtk() * (crit ? 1.5 : 1)), crit ? 'CRITICAL!' : '', crit);
       if (crit) Sfx.crit(); else Sfx.ok();
       Game.gainExpQuiet(3 + (o.floor || 1)); addGold(2);
@@ -65,15 +101,7 @@ const Battle = (() => {
         setTimeout(() => { hit(Math.round(playerAtk() * 0.5), '🔥 더블!'); check(); }, 450);
       } else check();
     } else {
-      combo = 0; Sfx.bad();
-      if (shieldReady()) { useShield(); UI.toast('🛡️ 실드가 막았다!', 'good'); }
-      else {
-        state.player.hp -= mon.atk;
-        UI.shake($('battle-player')); UI.floatText($('battle-player'), `-${mon.atk}`, 'dmg-p');
-      }
-      renderBars(); renderItems(); saveState();
-      if (state.player.hp <= 0) { setTimeout(() => o.onLose(), 700); return; }
-      setTimeout(next, 1400);
+      penalty();
     }
   }
   function hit(dmg, label, crit) {
@@ -84,7 +112,7 @@ const Battle = (() => {
     renderBars(); saveState();
   }
   function check() {
-    if (mon.hp <= 0) { Sfx.win(); setTimeout(() => o.onWin(), 700); }
+    if (mon.hp <= 0) { clearTimer(); Sfx.win(); setTimeout(() => o.onWin(), 700); }
     else setTimeout(next, 800);
   }
 

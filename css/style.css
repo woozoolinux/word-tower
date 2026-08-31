@@ -258,7 +258,8 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .battle-card { margin-top: 10px; padding: 12px 14px 14px; }
 .timer { height: 6px; border-radius: 3px; background: rgba(42,36,80,.12); overflow: hidden; margin-bottom: 10px; }
 .timer-fill { height: 100%; width: 100%; background: var(--gold); border-radius: 3px; }
-.timer.run .timer-fill { animation: shrink 4s linear forwards; }
+.timer.run .timer-fill { animation: shrink var(--t, 10s) linear forwards; }
+.timer.warn .timer-fill { background: var(--coral); }
 .prompt { text-align: center; min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
 .prompt-main { font-size: 32px; line-height: 1.15; text-wrap: balance; }
 .prompt-main.en { font-family: var(--font-en); font-weight: 600; font-size: 36px; }
