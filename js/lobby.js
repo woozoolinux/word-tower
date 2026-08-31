@@ -165,6 +165,7 @@ const Lobby = (() => {
     const html = () => `<div class="modal-title">⚙️ 설정</div>
       <div class="toggle-row"><div><div>🔊 듣기 문제</div><div class="toggle-desc">켜면 배틀에서 소리 듣고 뜻 고르기가 나와요</div></div><button class="toggle ${s.listen ? 'on' : ''}" data-t="listen" aria-label="듣기 문제"></button></div>
       <div class="toggle-row"><div><div>🎵 효과음</div></div><button class="toggle ${s.sound ? 'on' : ''}" data-t="sound" aria-label="효과음"></button></div>
+      <div class="toggle-row"><div><div>🔍 정찰 (예습)</div><div class="toggle-desc">층에 들어가기 전에 단어를 미리 봐요</div></div><button class="toggle ${s.preview ? 'on' : ''}" data-t="preview" aria-label="정찰"></button></div>
       <div class="toggle-row"><div style="flex:1"><div>✏️ 이름</div><input class="name-input" id="name-input" value="${esc(state.player.name)}" maxlength="10"></div></div>
       <div class="actions"><button class="btn small" data-close="ok">확인</button><button class="btn small ghost" id="test-tts">🔊 소리 테스트</button><button class="btn small coral" id="reset-btn">처음부터</button></div>`;
     const m = UI.modal(html(), { onClose: () => { const v = m.body.querySelector('#name-input').value.trim(); if (v) state.player.name = v; saveState(); render(); } });

@@ -66,7 +66,7 @@ function defaultState() {
       cards: {}, pendingCards: [], setBonus: {},
     },
     towers: {},
-    settings: { listen: false, sound: true },
+    settings: { listen: false, sound: true, preview: true },
     createdAt: Date.now(),
   };
 }

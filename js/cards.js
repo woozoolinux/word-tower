@@ -62,11 +62,12 @@ const Cards = (() => {
   }
 
   // ---------- 각인 시험 (스펠링) ----------
-  function buildTest(word) {
+  // hard = 정찰 "이건 알아!" 도전용. 도움 글자가 없고 함정 글자가 더 많다.
+  function buildTest(word, hard) {
     const r = rarityOf(word), chars = word.w.split('');
     const letterIdx = chars.map((c, i) => i).filter(i => /[A-Za-z]/.test(chars[i]));
     const preSpec = RARITY[r].pre;
-    let preN = preSpec < 1 ? Math.ceil(letterIdx.length * preSpec) : Math.min(preSpec, letterIdx.length - 2);
+    let preN = hard ? 0 : (preSpec < 1 ? Math.ceil(letterIdx.length * preSpec) : Math.min(preSpec, letterIdx.length - 2));
     preN = Math.max(0, Math.min(preN, letterIdx.length - 2));
     const pre = new Set();
     if (preN > 0) { pre.add(letterIdx[0]); shuffle(letterIdx.slice(1)).slice(0, preN - 1).forEach(i => pre.add(i)); }
@@ -76,11 +77,65 @@ const Cards = (() => {
       filled: null,
     }));
     let tiles = slots.filter(s => !s.fixed).map(s => s.ch);
-    if (r === 'epic' || r === 'legend') { // 함정 글자 몇 개
-      const extra = 'abcdefghilmnoprstu'.split('');
-      tiles = tiles.concat(shuffle(extra).slice(0, r === 'legend' ? 3 : 2));
+    const decoy = hard
+      ? ({ common: 2, rare: 3, epic: 4, legend: 5 })[r]
+      : (r === 'legend' ? 3 : r === 'epic' ? 2 : 0);
+    if (decoy) {
+      const used = new Set(word.w.toLowerCase().split(''));
+      const extra = 'abcdefghiklmnoprstuwy'.split('').filter(c => !used.has(c));
+      tiles = tiles.concat(shuffle(extra).slice(0, decoy));
     }
     return { word, r, slots, tiles: shuffle(tiles) };
+  }
+
+  // 어디서든 쓰는 스펠링 시험 위젯. done(true/false)로 결과만 돌려준다.
+  function spellTest(word, opts, done) {
+    const t = buildTest(word, opts.hard);
+    const used = [];
+    let settled = false;
+    const open = () => t.slots.map((s, i) => i).filter(i => !t.slots[i].fixed);
+    const render = () => `
+      <div class="modal-title">${opts.title || '🃏 카드 각인 시험'}</div>
+      <div class="modal-sub">${opts.sub || '글자를 순서대로 눌러 단어를 완성해요'}</div>
+      <div class="spell-slots">${t.slots.map((s, i) => {
+        const v = s.fixed ? s.ch : (used[open().indexOf(i)] !== undefined ? t.tiles[used[open().indexOf(i)]] : '');
+        const sep = /[\s-]/.test(s.ch);
+        return `<span class="slot ${s.fixed ? 'fixed' : ''} ${sep ? 'sep' : ''} ${v ? 'on' : ''}">${sep ? (s.ch === ' ' ? '&nbsp;' : s.ch) : esc(v || '')}</span>`;
+      }).join('')}</div>
+      <div class="spell-tiles">${t.tiles.map((c, i) =>
+        `<button class="tile ${used.indexOf(i) >= 0 ? 'used' : ''}" data-tile="${i}" ${used.indexOf(i) >= 0 ? 'disabled' : ''}>${esc(c)}</button>`).join('')}</div>
+      <div class="actions"><button class="btn ghost small" data-act="back">⌫ 하나 지우기</button>
+        ${opts.allowSkip ? '<button class="btn ghost small" data-act="skip">나중에</button>' : ''}</div>`;
+    const m = UI.modal(render(), { cls: 'spell' });
+    m.body.addEventListener('click', e => {
+      if (settled) return;
+      const tile = e.target.closest('[data-tile]');
+      if (tile) {
+        if (used.length >= open().length) return;
+        used.push(+tile.dataset.tile); Sfx.step();
+        m.body.innerHTML = render();
+        if (used.length === open().length) {
+          const slots = open();
+          const answer = t.slots.map((s, i) => s.fixed ? s.ch : t.tiles[used[slots.indexOf(i)]]).join('');
+          setTimeout(() => {
+            settled = true; m.close();
+            done(answer.toLowerCase() === word.w.toLowerCase(), answer);
+          }, 260);
+        }
+        return;
+      }
+      const act = e.target.closest('[data-act]');
+      if (!act) return;
+      if (act.dataset.act === 'back') { used.pop(); m.body.innerHTML = render(); }
+      else { settled = true; m.close(); done(null); }
+    });
+  }
+
+  // 정찰 도전 통과 → ★★★까지 채우고 카드 즉시 지급
+  function grantDirect(towerId, word) {
+    const st = wordStat(towerId, word.w);
+    st.stars = 3;
+    grant(towerId, word);
   }
 
   // 시험 목록을 하나씩 진행. 통과하면 카드 지급.
@@ -94,70 +149,32 @@ const Cards = (() => {
   }
 
   function showTest(word, done) {
-    const t = buildTest(word), r = RARITY[t.r];
-    const used = [];   // 사용한 타일 인덱스 (슬롯 순서대로)
-    let finished = false;
-    const openSlots = () => t.slots.map((s, i) => i).filter(i => !t.slots[i].fixed);
-
-    const render = () => `
-      <div class="modal-title">🃏 카드 각인 시험</div>
-      <div class="modal-sub">글자를 순서대로 눌러 단어를 완성해요<br><b style="color:${r.color}">${r.name}</b> 카드 · <b>${esc(word.m)}</b></div>
-      <div class="spell-slots">${t.slots.map((s, i) => {
-        const v = s.fixed ? s.ch : (used[openSlots().indexOf(i)] !== undefined ? t.tiles[used[openSlots().indexOf(i)]] : '');
-        const sep = /[\s-]/.test(s.ch);
-        return `<span class="slot ${s.fixed ? 'fixed' : ''} ${sep ? 'sep' : ''} ${v ? 'on' : ''}">${sep ? (s.ch === ' ' ? '&nbsp;' : s.ch) : esc(v || '')}</span>`;
-      }).join('')}</div>
-      <div class="spell-tiles">${t.tiles.map((c, i) =>
-        `<button class="tile ${used.indexOf(i) >= 0 ? 'used' : ''}" data-tile="${i}" ${used.indexOf(i) >= 0 ? 'disabled' : ''}>${esc(c)}</button>`).join('')}</div>
-      <div class="actions">
-        <button class="btn ghost small" data-act="back">⌫ 하나 지우기</button>
-        <button class="btn ghost small" data-act="skip">나중에</button>
-      </div>`;
-
-    const m = UI.modal(render(), { cls: 'spell' });
-    const rerender = () => { m.body.innerHTML = render(); };
-
-    function judge() {
-      const slots = openSlots();
-      const answer = t.slots.map((s, i) => s.fixed ? s.ch : t.tiles[used[slots.indexOf(i)]]).join('');
-      finished = true;
-      if (answer.toLowerCase() === word.w.toLowerCase()) {
+    const r = RARITY[rarityOf(word)];
+    spellTest(word, {
+      title: '🃏 카드 각인 시험',
+      sub: `글자를 순서대로 눌러 단어를 완성해요<br><b style="color:${r.color}">${r.name}</b> 카드 · <b>${esc(word.m)}</b>`,
+      allowSkip: true,
+    }, (ok, answer) => {
+      if (ok === null) { done(null); return; }
+      if (ok) {
         grant(word.towerId, word);
-        Sfx.fanfare(); UI.confetti({ count: t.r === 'legend' ? 140 : 70, colors: [r.color, '#ffffff', '#ffc83d'] });
-        m.body.innerHTML = `
+        Sfx.fanfare(); UI.confetti({ count: rarityOf(word) === 'legend' ? 140 : 70, colors: [r.color, '#ffffff', '#ffc83d'] });
+        UI.modal(`
           <div class="modal-title">✨ 각인 성공!</div>
           <div class="card-reveal">${cardHtml(word.towerId, word, true)}</div>
           <div class="modal-sub">카드를 얻었어요! 도감에서 볼 수 있어요</div>
-          <div class="actions"><button class="btn" data-close="ok">좋아!</button></div>`;
-        m.rebind();
-        m.el.querySelector('[data-close]').onclick = () => { m.close(); done(word); };
+          <div class="actions"><button class="btn" data-close="ok">좋아!</button></div>`,
+          { onClose: () => done(word) });
       } else {
         Sfx.bad();
-        m.body.innerHTML = `
+        UI.modal(`
           <div class="modal-title">🤔 아직이야!</div>
           <div class="modal-sub">쓴 것: <b class="spell-wrong">${esc(answer)}</b><br>정답: <b class="spell-right">${esc(word.w)}</b><br><br>★★★는 그대로예요. 도감에서 다시 도전할 수 있어요!</div>
-          <div class="actions"><button class="btn" data-close="ok">다시 해볼게</button></div>`;
-        m.rebind();
-        m.el.querySelector('[data-close]').onclick = () => { m.close(); done(null); };
+          <div class="actions"><button class="btn" data-close="ok">다시 해볼게</button></div>`,
+          { onClose: () => done(null) });
       }
-    }
-
-    m.body.addEventListener('click', e => {
-      if (finished) return;
-      const tile = e.target.closest('[data-tile]');
-      if (tile) {
-        if (used.length >= openSlots().length) return;
-        used.push(+tile.dataset.tile); Sfx.step(); rerender();
-        if (used.length === openSlots().length) setTimeout(judge, 260);
-        return;
-      }
-      const act = e.target.closest('[data-act]');
-      if (!act) return;
-      if (act.dataset.act === 'back') { used.pop(); rerender(); }
-      else { finished = true; m.close(); done(null); }
     });
   }
-
   // 잠긴 오라도 미리 보여준다 — 목표가 눈에 보여야 모으고 싶어진다
   function previewAura(id) {
     const owned = state.player.owned.auras.indexOf(id) >= 0;
@@ -282,5 +299,5 @@ const Cards = (() => {
     })();
   }
 
-  return { RARITY, rarityOf, key, has, isPending, buildTest, auraFor, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
+  return { RARITY, rarityOf, key, has, isPending, buildTest, spellTest, grantDirect, auraFor, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
 })();

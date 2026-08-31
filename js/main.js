@@ -39,7 +39,8 @@ const Game = {
       tier: towerTier(tower), mul: n <= prog0.cleared ? 0.3 : 1,
     };
     state.player.hp = playerMaxHp(); saveState();
-    if (plan.type === 'boss') this.startBoss(); else Maze.start(this.run);
+    if (plan.type === 'boss') this.startBoss();
+    else Preview.maybeShow(this.run, () => Maze.start(this.run));
   },
   startBoss() {
     const r = this.run, base = BOSSES[r.plan.bossIdx % BOSSES.length];

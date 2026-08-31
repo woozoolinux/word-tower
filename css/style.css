@@ -240,6 +240,27 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .wcard.locked .wc-en { color: #b8ae98; }
 .wcard.pending { background: var(--gold); border-color: var(--gold-dark); border-style: solid; opacity: 1; cursor: pointer; animation: pop .4s; }
 .wcard.pending .wc-en { color: var(--ink); font-family: var(--font-ko); }
+
+/* ---------- 🔍 정찰 (예습) ---------- */
+.pv-card {
+  background: #fff; border-radius: 18px; border: 4px solid #d9cca8;
+  padding: 18px 14px 14px; text-align: center; margin: 4px 0 12px;
+  animation: cardFlip .5s ease-out;
+}
+.pv-card.r-rare { border-color: var(--mint-dark); }
+.pv-card.r-epic { border-color: var(--violet); }
+.pv-card.r-legend { border-color: var(--gold-dark); background: linear-gradient(135deg, #fff, #fff3c4, #fff); }
+.pv-rarity { font-size: 13px; margin-bottom: 2px; }
+.pv-en { font-family: var(--font-en); font-weight: 600; font-size: 38px; color: var(--ink); line-height: 1.1; word-break: break-word; }
+.pv-ko { font-size: 22px; color: var(--ink); margin-top: 4px; }
+.pv-meta { font-size: 13px; color: var(--ink-dim); margin-top: 6px; }
+.pv-dots { display: flex; gap: 7px; justify-content: center; margin-bottom: 4px; }
+.pv-dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(42,36,80,.18); }
+.pv-dots i.done { background: var(--mint); }
+.pv-dots i.now { background: var(--gold); transform: scale(1.35); }
+.star-chip.owned { background: var(--mint); }
+.pop-in { animation: pop .25s; }
+
 .card-reveal { display: flex; justify-content: center; margin: 12px 0; }
 .card-reveal .wcard { width: 140px; min-height: 130px; animation: cardFlip .7s ease-out; }
 .card-reveal .wcard .wc-en { font-size: 22px; }
