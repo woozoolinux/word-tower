@@ -6,6 +6,7 @@ window.TOWERS.push({
   name: '📗 DSD1 타워',
   desc: 'Useful Expressions DSD1 · Vocabulary 1~4',
   emoji: '📗',
+  roof: '#3ee0c4',
   units: [
     { unit: 1, words: [
       { w: 'raindrop', m: '빗방울', pos: 'n' },

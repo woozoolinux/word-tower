@@ -20,20 +20,34 @@
   --font-en: 'Fredoka', 'Jua', sans-serif;
 }
 * { box-sizing: border-box; }
+html {
+  background: radial-gradient(circle at 50% -10%, var(--bg2), var(--bg) 60%);
+  background-attachment: fixed;
+}
 html, body {
   margin: 0;
-  background: var(--bg);
   color: var(--panel);
   font-family: var(--font-ko);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   overscroll-behavior: none;
 }
-body {
-  background: radial-gradient(circle at 50% -10%, var(--bg2), var(--bg) 60%);
-  min-height: 100vh;
+body { background: transparent; min-height: 100vh; }
+#app { max-width: 560px; margin: 0 auto; padding: 12px 12px 48px; position: relative; z-index: 1; }
+
+/* 밤하늘 배경 */
+#sky { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+#sky i { position: absolute; background: #fff; border-radius: 50%; animation: twinkle 3.4s ease-in-out infinite; }
+#sky .moon { display: none; }
+@media (min-width: 720px) {
+  #sky .moon {
+    display: block; position: absolute; right: 7%; top: 8%;
+    width: 58px; height: 58px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 32%, #fffaea, #ffe4a0);
+    box-shadow: 0 0 44px rgba(255, 228, 160, .28);
+  }
 }
-#app { max-width: 560px; margin: 0 auto; padding: 12px 12px 48px; }
+#sky u { position: absolute; bottom: 0; background: #171a3d; border-radius: 4px 4px 0 0; }
 h2, h4 { margin: 0; font-weight: normal; }
 b { font-weight: normal; }
 button { font-family: inherit; font-size: inherit; cursor: pointer; border: 0; color: inherit; background: none; }
@@ -194,8 +208,10 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .stat-row { display: flex; gap: 14px; margin-top: 8px; font-size: 16px; font-variant-numeric: tabular-nums; }
 .sec-title { font-size: 20px; margin: 18px 0 8px; color: rgba(255,255,255,.85); }
 .tower-list { display: flex; flex-direction: column; gap: 10px; }
-.tower-card { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; cursor: pointer; }
+.tower-card { display: grid; grid-template-columns: 58px 1fr auto; gap: 12px; align-items: center; cursor: pointer; }
 .tower-emoji { font-size: 40px; text-align: center; }
+.tower-art { width: 58px; }
+.tower-art svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 3px 6px rgba(0,0,0,.25)); }
 .tower-body { min-width: 0; }
 .tower-name { font-size: 20px; }
 .tower-desc { font-size: 13px; color: var(--ink-dim); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -220,11 +236,25 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .holding { font-size: 15px; }
 .holding b { font-family: var(--font-en); font-weight: 600; color: var(--gold-dark); font-size: 17px; }
 .maze {
-  display: grid; grid-template-columns: repeat(13, 1fr);
+  position: relative;
   background: var(--wall); border: 4px solid #4a4380; border-radius: 14px;
   overflow: visible; user-select: none;
 }
-.cell { aspect-ratio: 1; position: relative; display: flex; align-items: center; justify-content: center; font-size: clamp(14px, 4.4vw, 26px); }
+.maze-cells { display: grid; grid-template-columns: repeat(13, 1fr); }
+.maze-sprites { position: absolute; inset: 0; pointer-events: none; }
+.sprite {
+  position: absolute; left: 0; top: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .19s ease-out;
+}
+.sprite.no-anim { transition: none; }
+.sprite.player { z-index: 4; }
+.sprite.pet { z-index: 3; transition: transform .3s ease-out .06s; }
+.sprite.pet { align-items: flex-end; }
+.sprite.pet .petwrap { display: block; width: 68%; height: 68%; margin-bottom: 4%; animation: petHop 1.1s ease-in-out infinite; }
+.sprite.pet svg { display: block; width: 100%; height: 100%; }
+.sprite.walking .char.walk { animation: hop .19s ease-out; }
+.cell { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; font-size: clamp(14px, 4.4vw, 26px); }
 .cell.floor { background: var(--floor); }
 .cell.wall { background: var(--wall); }
 .cell.fog { background: var(--fog); }
@@ -275,7 +305,7 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .ent.mon svg { width: 100%; height: 100%; display: block; }
 .ent.pet { width: 82%; height: 82%; z-index: 3; animation: petHop 1.1s ease-in-out infinite; }
 .ent.pet svg { width: 100%; height: 100%; display: block; }
-.char.walk { display: block; width: 100%; height: 155%; margin-top: -42%; }
+.char.walk { display: block; width: 100%; height: 132%; margin-top: -26%; }
 .char.walk svg { width: 100%; height: 100%; display: block; }
 .char-pet svg { display: block; width: 100%; height: 100%; }
 .mon-name { font-size: 18px; color: rgba(255,255,255,.85); margin-top: 2px; }
@@ -368,9 +398,13 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 }
 @keyframes flashOut { 0% { opacity: .5; } 100% { opacity: 0; } }
 @keyframes petHop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14%); } }
+@keyframes hop { 0% { transform: translateY(0); } 45% { transform: translateY(-13%); } 100% { transform: translateY(0); } }
+@keyframes twinkle { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .mon-emoji, .mon-art, .screen.active, .ent.player, .ent.pet, .choice.right { animation: none; }
+  .mon-emoji, .mon-art, .screen.active, .ent.player, .ent.pet, .choice.right,
+  .sprite.pet .petwrap, .sprite.walking .char.walk, #sky i { animation: none; }
+  .sprite { transition: none; }
   .mon-art.die { opacity: 0; }
   .float { animation-duration: .5s; }
 }

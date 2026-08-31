@@ -123,8 +123,29 @@ const Game = {
   },
 };
 
+// 로비 뒤 밤하늘: 별 + 달 + 멀리 보이는 탑 실루엣
+function buildSky() {
+  const sky = document.createElement('div');
+  sky.id = 'sky'; sky.setAttribute('aria-hidden', 'true');
+  let h = '<div class="moon"></div>';
+  for (let i = 0; i < 48; i++) {
+    const s = (0.8 + Math.random() * 2.2).toFixed(1);
+    h += `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 84).toFixed(1)}%;width:${s}px;height:${s}px;opacity:${(0.3 + Math.random() * 0.55).toFixed(2)};animation-delay:${(Math.random() * 4).toFixed(2)}s`;
+    h += '"></i>';
+  }
+  let x = -4;
+  while (x < 102) {
+    const w = 5 + Math.random() * 8, ht = 26 + Math.random() * 78;
+    h += `<u style="left:${x.toFixed(1)}%;width:${w.toFixed(1)}%;height:${ht.toFixed(0)}px"></u>`;
+    x += w + Math.random() * 3;
+  }
+  sky.innerHTML = h;
+  document.body.insertBefore(sky, document.body.firstChild);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   loadState();
+  buildSky();
   Lobby.init(); Maze.init(); Battle.init(); Runner.init();
   Lobby.render();
   if (typeof Avatar === 'undefined') {

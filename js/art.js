@@ -182,8 +182,34 @@ const Art = (() => {
       ${eyes(46, 74, 64, 9, 4.5)}`,
   };
 
-  function wrap(inner, cls) {
-    return `<svg class="${cls || ''}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">${inner}</svg>`;
+  function wrap(inner, cls, vb) {
+    return `<svg class="${cls || ''}" xmlns="http://www.w3.org/2000/svg" viewBox="${vb || '0 0 120 120'}">${inner}</svg>`;
+  }
+
+  // 로비 카드용 타워: 깬 층만큼 아래에서부터 창문에 불이 켜진다
+  function tower(cleared, total, roof) {
+    const ROWS = 6, COLS = 2, N = ROWS * COLS;
+    const lit = total > 0 ? Math.min(N, Math.round(cleared / total * N)) : 0;
+    const done = total > 0 && cleared >= total;
+    let win = '';
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const on = r * COLS + c < lit;
+      const x = 19 + c * 13, y = 86 - r * 11;
+      win += `<rect x="${x}" y="${y}" width="9" height="8" rx="2" fill="${on ? '#ffc83d' : '#2b2950'}"/>`;
+      if (on) win += `<rect x="${x + 1.5}" y="${y + 1}" width="6" height="3" rx="1.5" fill="#fff" opacity=".5"/>`;
+    }
+    return wrap(`
+      <ellipse cx="30" cy="107" rx="21" ry="4" fill="#000" opacity=".28"/>
+      <path d="M13,104 L16,30 L44,30 L47,104 Z" fill="#453f7d"/>
+      <path d="M13,104 L16,30 L30,30 L30,104 Z" fill="#544d94"/>
+      <path d="M5,32 L30,9 L55,32 Z" fill="${roof || '#8f7bff'}"/>
+      <path d="M5,32 L55,32 L55,36 L5,36 Z" fill="#332e5e"/>
+      ${win}
+      <path d="M25,94 L35,94 L35,104 L25,104 Z" fill="#241f3d"/>
+      <circle cx="32.5" cy="99" r="1.3" fill="#ffc83d"/>
+      <path d="M30,9 L30,-3" stroke="#c9971c" stroke-width="2" stroke-linecap="round"/>
+      ${done ? '<path d="M30,-3 L45,2 L30,7 Z" fill="#ffc83d"/><circle cx="30" cy="-3" r="2.5" fill="#ffe9a8"/>' : ''}
+    `, '', '0 -6 60 114');
   }
   function monster(id, boss) {
     const f = (boss ? BOSS[id] : MON[id]) || MON.slime;
@@ -193,5 +219,5 @@ const Art = (() => {
     const f = PETS_ART[id] || PETS_ART.cat;
     return wrap(f());
   }
-  return { monster, pet };
+  return { monster, pet, tower };
 })();

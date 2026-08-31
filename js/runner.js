@@ -4,7 +4,7 @@ const Runner = (() => {
   // 화면 구성: [미션 띠] + [레인 3개] + [메시지 줄]
   const LANES = 3, PX = 90, BAND = 58, LANE_H = 74, MSG_H = 26;
   const HGT = BAND + LANES * LANE_H + MSG_H;
-  let cv, ctx, run, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs, pimg;
+  let cv, ctx, run, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs, pimg, bgOff, stars, bldgs, bgSpan;
 
   function start(r) {
     run = r; UI.show('runner');
@@ -16,7 +16,7 @@ const Runner = (() => {
     mi = 0; tiles = []; coins = []; particles = []; missed = 0; msgs = []; pimg = Avatar.image();
     speed = 115 + run.floor * 5; // 아이 반응속도 고려해 여유있게
     dashLeft = hasSkill('dash') ? 1 : 0;
-    active = false; waveActive = false; groundOff = 0;
+    active = false; waveActive = false; groundOff = 0; bgOff = 0; initBg();
     hud(); draw();
     const ov = document.getElementById('runner-overlay');
     ov.textContent = 'READY'; ov.classList.add('show');
@@ -29,8 +29,43 @@ const Runner = (() => {
     const w = cv.parentElement.clientWidth || 320, dpr = window.devicePixelRatio || 1;
     cv.width = w * dpr; cv.height = HGT * dpr; cv.style.height = HGT + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (stars) initBg();
   }
   const width = () => cv.width / (window.devicePixelRatio || 1);
+  // 멀리 보이는 별과 건물 (달리면 천천히 흘러간다)
+  function initBg() {
+    const W = width();
+    stars = [];
+    for (let i = 0; i < 30; i++) stars.push({ x: Math.random() * W, y: BAND + 8 + Math.random() * 70, r: 0.6 + Math.random() * 1.4 });
+    bldgs = []; let x = 0;
+    while (x < W + 140) {
+      const w = 22 + Math.random() * 42, h = 34 + Math.random() * 78;
+      bldgs.push({ x, w, h, win: Math.random() < 0.75 });
+      x += w + 6 + Math.random() * 22;
+    }
+    bgSpan = x;
+  }
+  function drawBg(W) {
+    const sShift = (bgOff * 0.12) % W;
+    ctx.fillStyle = '#fff';
+    stars.forEach(s => {
+      let x = s.x - sShift; if (x < 0) x += W;
+      ctx.globalAlpha = 0.45;
+      ctx.beginPath(); ctx.arc(x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    const base = HGT - MSG_H, shift = (bgOff * 0.3) % bgSpan;
+    bldgs.forEach(b => {
+      let x = b.x - shift; if (x + b.w < 0) x += bgSpan;
+      ctx.fillStyle = '#24275c';
+      ctx.fillRect(x, base - b.h, b.w, b.h);
+      if (b.win) {
+        ctx.fillStyle = '#3a3f86';
+        for (let wy = base - b.h + 10; wy < base - 12; wy += 16)
+          for (let wx = x + 7; wx < x + b.w - 9; wx += 14) ctx.fillRect(wx, wy, 6, 7);
+      }
+    });
+  }
   function laneY(l) { return BAND + LANE_H / 2 + l * LANE_H; }
 
   function hud() {
@@ -55,7 +90,7 @@ const Runner = (() => {
   }
   function update(dt) {
     const dx = speed * dt;
-    groundOff = (groundOff + dx) % 40;
+    groundOff = (groundOff + dx) % 40; bgOff += dx;
     curY += (laneY(lane) - curY) * Math.min(1, dt * 14);
     tiles.forEach(t => t.x -= dx); coins.forEach(c => c.x -= dx);
     if (!waveActive) spawnWave();
@@ -109,6 +144,7 @@ const Runner = (() => {
     const W = width();
     const g = ctx.createLinearGradient(0, 0, 0, HGT); g.addColorStop(0, '#34378a'); g.addColorStop(1, '#1b1e46');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, HGT);
+    drawBg(W);
     for (let l = 0; l < LANES; l++) {
       const y = laneY(l);
       ctx.fillStyle = l === lane ? 'rgba(255,200,61,.10)' : 'rgba(255,255,255,.04)';

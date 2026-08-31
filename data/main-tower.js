@@ -5,6 +5,7 @@ window.TOWERS.push({
   name: '⭐ 바벨 타워',
   desc: '기초 단어로 오르는 메인 타워',
   emoji: '🏰',
+  roof: '#8f7bff',
   units: [
     { unit: 1, words: [
       { w: 'dog', m: '개', pos: 'n' },

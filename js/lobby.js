@@ -35,7 +35,7 @@ const Lobby = (() => {
     const pct = Math.round(prog.cleared / total * 100);
     const next = Math.min(prog.floor, total);
     return `<div class="tower-card panel" data-tower="${t.id}">
-      <div class="tower-emoji">${t.emoji || '🏰'}</div>
+      <div class="tower-art">${typeof Art !== 'undefined' ? Art.tower(prog.cleared, total, t.roof) : (t.emoji || '🏰')}</div>
       <div class="tower-body">
         <div class="tower-name">${esc(t.name)}</div>
         <div class="tower-desc">${esc(t.desc || '')}</div>

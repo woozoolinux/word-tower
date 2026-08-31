@@ -2,8 +2,9 @@
 // 미로 층: 열쇠(영어)를 주워 문(한글 뜻)을 연다. 몬스터 → 배틀, 상자 → 골드, 열린 문 → 러너.
 const Maze = (() => {
   const CW = 6, CH = 5, W = CW * 2 + 1, H = CH * 2 + 1;
-  let run, grid, px, py, keys, door, monsters, chest, holding, seen, opened, busy, trail;
+  let run, grid, px, py, keys, door, monsters, chest, holding, seen, opened, busy, trail, face;
   const gridEl = () => document.getElementById('maze-grid');
+  const cellsEl = () => gridEl().querySelector('.maze-cells');
   const k = (x, y) => x + ',' + y;
 
   function gen() {
@@ -44,7 +45,10 @@ const Maze = (() => {
 
   function start(r) {
     run = r; busy = false; holding = []; opened = false; seen = new Set();
-    gen(); px = 1; py = 1; trail = null;
+    gen(); px = 1; py = 1; trail = null; face = 1;
+    gridEl().innerHTML =
+      `<div class="maze-cells" style="grid-template-columns:repeat(${W},1fr);grid-template-rows:repeat(${H},1fr);aspect-ratio:${W}/${H}"></div>` +
+      '<div class="maze-sprites"><div class="sprite pet no-anim" id="mz-pet"></div><div class="sprite player no-anim" id="mz-player"></div></div>';
     const { dist, prev } = bfs(1, 1);
     const cs = cells();
     door = cs.reduce((a, b) => dist[a] >= dist[b] ? a : b);
@@ -67,6 +71,30 @@ const Maze = (() => {
     UI.toast(`${run.floor}층 · "${doorWord.m}" 열쇠를 찾아요!`);
   }
 
+  // 캐릭터/펫은 칸 위를 미끄러지듯 이동한다 (격자 다시 그려도 안 끊기게 분리)
+  function renderSprites() {
+    const p = document.getElementById('mz-player'), pe = document.getElementById('mz-pet');
+    if (!p) return;
+    const petId = state.player.pet && PETS[state.player.pet] ? state.player.pet : null;
+    const cw = 100 / W, ch = 100 / H;
+    p.style.width = cw + '%'; p.style.height = ch + '%';
+    pe.style.width = cw + '%'; pe.style.height = ch + '%';
+    if (!p.firstChild) p.innerHTML = UI.charWalk();
+    if (petId && pe.dataset.pet !== petId) { pe.innerHTML = `<span class="petwrap">${Art.pet(petId)}</span>`; pe.dataset.pet = petId; }
+    pe.style.display = petId && trail ? '' : 'none';
+    place(p, px, py);
+    if (trail) { const t = trail.split(',').map(Number); place(pe, t[0], t[1]); }
+    requestAnimationFrame(() => { p.classList.remove('no-anim'); pe.classList.remove('no-anim'); });
+  }
+  function place(el, x, y) {
+    el.style.transform = `translate(${x * 100}%, ${y * 100}%) scaleX(${el.id === 'mz-player' ? face : 1})`;
+  }
+  function step() {
+    const p = document.getElementById('mz-player');
+    if (!p) return;
+    p.classList.remove('walking'); void p.offsetWidth; p.classList.add('walking');
+  }
+
   function reveal() {
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (Math.abs(dx) + Math.abs(dy) <= 2) seen.add(k(px + dx, py + dy));
   }
@@ -74,20 +102,18 @@ const Maze = (() => {
   function render() {
     let h = '';
     const sight = hasSkill('sight');
-    const pet = state.player.pet && PETS[state.player.pet] ? state.player.pet : null;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const c = k(x, y), wall = grid[y][x] === 1, vis = seen.has(c);
       let cls = 'cell ' + (wall ? 'wall' : 'floor') + (vis ? '' : ' fog') + (c === door && opened ? ' door-open' : '');
       let inner = '';
-      if (x === px && y === py) inner = `<span class="ent player">${UI.charWalk()}</span>`;
-      else if (c === trail && pet) inner = `<span class="ent pet">${Art.pet(pet)}</span>`;
-      else if (c === door) inner = `<span class="ent">${opened ? '🪜' : vis ? '🚪' : ''}</span>`;
+      if (c === door) inner = `<span class="ent">${opened ? '🪜' : vis ? '🚪' : ''}</span>`;
       else if (keys[c] && (vis || sight)) inner = `<span class="ent key ${vis ? '' : 'ghost'}">🔑<i>${esc(keys[c].w)}</i></span>`;
       else if (monsters[c] && vis) inner = `<span class="ent mon">${Art.monster(monsters[c].id, false)}</span>`;
       else if (chest === c && vis) inner = '<span class="ent">🎁</span>';
       h += `<div class="${cls}">${inner}</div>`;
     }
-    gridEl().innerHTML = h;
+    cellsEl().innerHTML = h;
+    renderSprites();
     document.getElementById('maze-door-word').textContent = run.doorWord.m;
     document.getElementById('maze-holding').innerHTML = holding.length ? holding.map(h => `🔑 <b>${esc(h.w)}</b>`).join(' ') : '<span class="dim">없음</span>';
     document.getElementById('maze-hp').innerHTML = UI.hpBar(state.player.hp, playerMaxHp(), 'hp');
@@ -100,7 +126,8 @@ const Maze = (() => {
     if (!grid[ny] || grid[ny][nx] !== 0) return;
     const c = k(nx, ny);
     if (c === door && !opened) { tryDoor(); return; }
-    trail = k(px, py); px = nx; py = ny; reveal(); Sfx.step();
+    trail = k(px, py); px = nx; py = ny; if (dx) face = dx > 0 ? 1 : -1;
+    reveal(); Sfx.step(); step();
     if (keys[c]) {
       holding.push(keys[c]); delete keys[c];
       Sfx.coin(); UI.toast(`🔑 ${holding[holding.length - 1].w} 열쇠를 주웠다!`);
