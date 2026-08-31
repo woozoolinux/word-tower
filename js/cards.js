@@ -179,7 +179,9 @@ const Cards = (() => {
         `<button class="btn small ${x.id === cur ? '' : 'ghost'}" data-tab="${x.id}">${esc(x.name)}</button>`).join('');
       const units = t.units.map(u => {
         const s = unitStat(t, u.unit), doneU = s.have >= s.total;
-        return `<h4>Unit ${u.unit} <span class="unit-prog">${s.have} / ${s.total}${doneU ? ' · 🎉 완성!' : ''}</span></h4>
+        const aid = auraFor(t, u.unit);
+        const rw = aid ? `<span class="unit-reward ${doneU ? 'got' : ''}">${AURAS[aid].emoji} ${AURAS[aid].name}${doneU ? ' 획득!' : ''}</span>` : '';
+        return `<h4>Unit ${u.unit} <span class="unit-prog">${s.have} / ${s.total}</span> ${rw}</h4>
           <div class="bar exp"><div class="bar-fill" style="width:${s.have / s.total * 100}%"></div></div>
           <div class="card-grid">${u.words.map(w => cardHtml(cur, w, has(cur, w.w))).join('')}</div>`;
       }).join('');
@@ -203,5 +205,66 @@ const Cards = (() => {
     });
   }
 
-  return { RARITY, rarityOf, key, has, isPending, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
+  // 단원을 완성하면 오라가 열리고, 타워를 전부 모으면 칭호 + 영구 보너스가 붙는다
+  function auraFor(tower, unit) {
+    const i = tower.units.findIndex(u => u.unit === unit);
+    return (tower.auras && tower.auras[i]) || null;
+  }
+  function pendingRewards(towerId) {
+    const t = towerById(towerId), out = [];
+    if (!t) return out;
+    t.units.forEach(u => {
+      const s = unitStat(t, u.unit);
+      const k = t.id + ':' + u.unit;
+      if (s.have >= s.total && !state.player.setBonus[k]) {
+        const a = auraFor(t, u.unit);
+        if (a) out.push({ kind: 'aura', key: k, aura: a, unit: u.unit, tower: t });
+      }
+    });
+    const all = allWords(t);
+    if (all.every(w => has(t.id, w.w)) && t.clearBonus && !state.player.towerClear[t.id]) {
+      out.push({ kind: 'tower', tower: t });
+    }
+    return out;
+  }
+  // 보상을 하나씩 모달로 보여준다
+  function claimRewards(towerId, cb) {
+    const list = pendingRewards(towerId);
+    (function next() {
+      if (!list.length) { cb && cb(); return; }
+      const r = list.shift();
+      if (r.kind === 'aura') {
+        state.player.setBonus[r.key] = r.aura;
+        if (state.player.owned.auras.indexOf(r.aura) < 0) state.player.owned.auras.push(r.aura);
+        const wasNone = !state.player.aura || state.player.aura === 'none';
+        if (wasNone) state.player.aura = r.aura;
+        saveState();
+        Sfx.fanfare(); UI.confetti({ count: 120, colors: ['#ffc83d', '#8f7bff', '#ffffff'] });
+        UI.modal(`
+          <div class="modal-title">🎉 Unit ${r.unit} 완성!</div>
+          <div class="modal-sub">${esc(r.tower.name)}의 Unit ${r.unit} 단어를 전부 모았어요</div>
+          <div class="creator-preview">${Avatar.html(120, { aura: r.aura, pet: '', weapon: false })}</div>
+          <div class="unlock"><span class="big">${AURAS[r.aura].emoji}</span><div><div>새 오라: <b>${AURAS[r.aura].name}</b></div>
+            <div class="toggle-desc">골드로는 살 수 없어요! 🎨 꾸미기에서 바꿀 수 있어요</div></div></div>
+          <div class="actions"><button class="btn" data-close="ok">멋지다!</button></div>`,
+          { cls: 'celebrate', onClose: () => { Lobby.render(); next(); } });
+      } else {
+        state.player.towerClear[r.tower.id] = true;
+        const cb2 = r.tower.clearBonus;
+        if (state.player.titles.indexOf(cb2.title) < 0) state.player.titles.push(cb2.title);
+        if (!state.player.title) state.player.title = cb2.title;
+        saveState();
+        Sfx.fanfare(); UI.confetti({ count: 220, life: 4, colors: ['#ffc83d', '#fff3c4', '#ffffff'] });
+        UI.modal(`
+          <div class="modal-title">🏆 ${esc(r.tower.name)} 완전 정복!</div>
+          <div class="modal-sub">이 타워의 단어 카드를 전부 모았어요</div>
+          <div class="unlock"><span class="big">🎖️</span><div><div>칭호: <b>${esc(cb2.title)}</b></div>
+            <div class="toggle-desc">${cb2.type === 'atk' ? '공격력' : '최대 HP'} +${Math.round(cb2.pct * 100)}% (영구)</div></div></div>
+          <div class="actions"><button class="btn" data-close="ok">최고!</button></div>`,
+          { cls: 'celebrate', onClose: () => { Lobby.render(); next(); } });
+      }
+    })();
+  }
+
+  return { RARITY, rarityOf, key, has, isPending, auraFor, pendingRewards, claimRewards, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
 })();

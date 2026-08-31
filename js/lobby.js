@@ -9,6 +9,7 @@ const Lobby = (() => {
       <header class="lobby-head panel">
         <div class="char-box">${UI.charHtml(56)}</div>
         <div class="char-info">
+          ${p.title ? `<div class="title-badge">🎖️ ${esc(p.title)}</div>` : ''}
           <div class="char-name">${esc(p.name)} <span class="lv-badge">Lv.${p.lv}</span></div>
           ${UI.hpBar(p.exp, need, 'exp')}
           <div class="stat-row"><span>⚔️ ${playerAtk()}</span><span>❤️ ${playerMaxHp()}</span><span>💰 ${p.gold}</span><span>🃏 ${Cards.count()}</span></div>
@@ -203,10 +204,12 @@ const Lobby = (() => {
     const p = state.player;
     const temp = Object.assign(Avatar.defaults(), p.avatar || {});
     let outfit = p.owned.outfits.includes(p.outfit) ? p.outfit : 'tunic';
+    let aura = p.owned.auras.includes(p.aura) ? p.aura : 'none';
+    let title = p.title;
     let name = p.name;
     const html = () => `
       <div class="modal-title">🎨 ${force ? '캐릭터 만들기' : '캐릭터 꾸미기'}</div>
-      <div class="creator-preview">${Avatar.html(120, { av: temp, outfit, pet: '', weapon: false })}</div>
+      <div class="creator-preview">${Avatar.html(120, { av: temp, outfit, aura, pet: '', weapon: false })}</div>
       <div class="opt-row" style="justify-content:center">
         <button class="opt-btn" data-preset="boy">👦 소년 프리셋</button>
         <button class="opt-btn" data-preset="girl">👧 소녀 프리셋</button>
@@ -220,23 +223,30 @@ const Lobby = (() => {
       <h4>옷</h4>
       <div class="opt-row">${p.owned.outfits.map(id => `<button class="opt-btn ${outfit === id ? 'sel' : ''}" data-outfit="${id}">${OUTFITS[id].emoji} ${OUTFITS[id].name}</button>`).join('')}
         <span class="toggle-desc">새 코스튬은 🛒 상점에!</span></div>
+      <h4>✨ 오라 <span class="toggle-desc">단원을 완성하면 열려요</span></h4>
+      <div class="opt-row">${p.owned.auras.map(id => `<button class="opt-btn ${aura === id ? 'sel' : ''}" data-aura="${id}">${AURAS[id].emoji} ${AURAS[id].name}</button>`).join('')}</div>
+      ${p.titles.length ? `<h4>🎖️ 칭호</h4>
+      <div class="opt-row"><button class="opt-btn ${title ? '' : 'sel'}" data-title="">없음</button>
+        ${p.titles.map(t => `<button class="opt-btn ${title === t ? 'sel' : ''}" data-title="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}
       <h4>이름</h4>
       <input class="name-input" id="cr-name" value="${esc(name)}" maxlength="10">
       <div class="actions"><button class="btn" id="cr-ok">${force ? '모험 시작!' : '저장'}</button>${force ? '' : '<button class="btn ghost small" data-close="x">취소</button>'}</div>`;
     const m = UI.modal(html());
     const rerender = () => { m.body.innerHTML = html(); m.rebind(); };
     m.body.addEventListener('click', e => {
-      const b = e.target.closest('[data-style],[data-hair],[data-skin],[data-outfit],[data-preset],#cr-ok');
+      const b = e.target.closest('[data-style],[data-hair],[data-skin],[data-outfit],[data-aura],[data-title],[data-preset],#cr-ok');
       if (!b) return;
       const inp = m.body.querySelector('#cr-name'); if (inp) name = inp.value;
       if (b.dataset.style) temp.hairStyle = b.dataset.style;
       else if (b.dataset.hair !== undefined) temp.hairColor = +b.dataset.hair;
       else if (b.dataset.skin !== undefined) temp.skin = +b.dataset.skin;
       else if (b.dataset.outfit) outfit = b.dataset.outfit;
+      else if (b.dataset.aura) aura = b.dataset.aura;
+      else if (b.dataset.title !== undefined && !b.dataset.preset) title = b.dataset.title;
       else if (b.dataset.preset === 'boy') { temp.hairStyle = 'short'; outfit = 'tunic'; }
       else if (b.dataset.preset === 'girl') { temp.hairStyle = 'twin'; outfit = 'dress'; }
       else if (b.id === 'cr-ok') {
-        p.avatar = temp; p.outfit = outfit;
+        p.avatar = temp; p.outfit = outfit; p.aura = aura; p.title = title;
         if (name.trim()) p.name = name.trim().slice(0, 10);
         saveState(); m.close(); render();
         Sfx.win(); UI.toast('멋진 캐릭터 완성!', 'good');

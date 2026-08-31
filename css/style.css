@@ -245,6 +245,43 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .card-reveal .wcard .wc-en { font-size: 22px; }
 .card-reveal .wcard .wc-ko { font-size: 15px; }
 .unit-prog { font-size: 13px; color: var(--ink-dim); }
+.unit-reward { font-size: 12px; background: var(--panel2); color: var(--ink-dim); border-radius: 999px; padding: 2px 9px; }
+.unit-reward.got { background: var(--gold); color: var(--ink); }
+.title-badge {
+  display: inline-block; background: linear-gradient(135deg, #ffe08a, var(--gold));
+  color: var(--ink); border-radius: 999px; padding: 2px 12px; font-size: 13px; margin-bottom: 4px;
+}
+
+/* ---------- 오라 (단원 완성 보상) ---------- */
+.char svg .aura { pointer-events: none; }
+.char svg .a-fairy .wl, .char svg .a-angel .wl { transform-box: fill-box; transform-origin: 100% 60%; animation: flapL 1s ease-in-out infinite alternate; }
+.char svg .a-fairy .wr, .char svg .a-angel .wr { transform-box: fill-box; transform-origin: 0% 60%; animation: flapR 1s ease-in-out infinite alternate; }
+.char svg .a-angel .halo { animation: haloBob 2.2s ease-in-out infinite; }
+.char svg .a-flame .f1, .char svg .a-dragon .f1 { transform-box: fill-box; transform-origin: 50% 100%; animation: flick .38s ease-in-out infinite alternate; }
+.char svg .a-flame .f2, .char svg .a-dragon .f2 { transform-box: fill-box; transform-origin: 50% 100%; animation: flick .52s ease-in-out infinite alternate-reverse; }
+.char svg .a-aqua .r1 { transform-box: fill-box; transform-origin: 50% 50%; animation: ripple 2.1s linear infinite; }
+.char svg .a-aqua .r2 { transform-box: fill-box; transform-origin: 50% 50%; animation: ripple 2.1s linear infinite .7s; }
+.char svg .a-aqua .r3 { transform-box: fill-box; transform-origin: 50% 50%; animation: ripple 2.1s linear infinite 1.4s; }
+.char svg .a-sparkle .s1 { animation: twinkle 1.5s ease-in-out infinite; }
+.char svg .a-sparkle .s2 { animation: twinkle 1.5s ease-in-out infinite .5s; }
+.char svg .a-sparkle .s3 { animation: twinkle 1.5s ease-in-out infinite 1s; }
+.char svg .a-thunder .t1 { animation: blink .9s steps(1) infinite; }
+.char svg .a-thunder .t2 { animation: blink .9s steps(1) infinite .3s; }
+.char svg .a-thunder .t3 { animation: blink .9s steps(1) infinite .6s; }
+.char svg .a-moon .glow { transform-box: fill-box; transform-origin: 50% 50%; animation: breathe 3s ease-in-out infinite; }
+.char svg .a-moon .glow2 { transform-box: fill-box; transform-origin: 50% 50%; animation: breathe 3s ease-in-out infinite 1.2s; }
+.char svg .a-comet .c1 { animation: streak 1.1s ease-in-out infinite; }
+.char svg .a-comet .c2 { animation: streak 1.1s ease-in-out infinite .25s; }
+.char svg .a-comet .c3 { animation: streak 1.1s ease-in-out infinite .5s; }
+.char svg .a-rainbow { transform-box: fill-box; transform-origin: 50% 100%; animation: breathe 2.6s ease-in-out infinite; }
+@keyframes flapL { from { transform: rotate(-6deg) scaleX(1); } to { transform: rotate(10deg) scaleX(.86); } }
+@keyframes flapR { from { transform: rotate(6deg) scaleX(1); } to { transform: rotate(-10deg) scaleX(.86); } }
+@keyframes haloBob { 0%, 100% { transform: translateY(0); opacity: .9; } 50% { transform: translateY(-3px); opacity: 1; } }
+@keyframes flick { from { transform: scaleY(1) scaleX(1); } to { transform: scaleY(1.22) scaleX(.92); } }
+@keyframes ripple { 0% { transform: scale(.45); opacity: .8; } 100% { transform: scale(1.35); opacity: 0; } }
+@keyframes blink { 0%, 40% { opacity: .85; } 45% { opacity: .15; } 50%, 100% { opacity: .85; } }
+@keyframes breathe { 0%, 100% { transform: scale(.94); opacity: .8; } 50% { transform: scale(1.06); opacity: 1; } }
+@keyframes streak { 0%, 100% { opacity: .2; } 50% { opacity: .75; } }
 @keyframes cardFlip {
   0% { transform: rotateY(90deg) scale(.7); opacity: 0; }
   60% { transform: rotateY(-12deg) scale(1.08); opacity: 1; }
@@ -463,6 +500,7 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   .mon-emoji, .mon-art, .screen.active, .ent.player, .ent.pet, .choice.right,
   .sprite.pet .petwrap, .sprite.walking .char.walk, #sky i { animation: none; }
   .sprite { transition: none; }
+  .char svg .aura, .char svg .aura * { animation: none !important; }
   .modal.celebrate, .modal.celebrate .modal-title, .card-reveal .wcard, .wcard.pending { animation: none; }
   .mon-art.die { opacity: 0; }
   .float { animation-duration: .5s; }

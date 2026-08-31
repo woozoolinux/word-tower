@@ -92,9 +92,10 @@ const Game = {
 
   // 각인 시험: 층이 끝난 뒤 최대 2장까지 바로, 나머지는 도감에서
   flushCardTests(towerId, cb) {
+    const done = () => Cards.claimRewards(towerId, () => { Lobby.render(); cb && cb(); });
     const pend = Cards.pendingFor(towerId).slice(0, 2);
-    if (!pend.length) { cb && cb(); return; }
-    Cards.runTests(pend, () => { Lobby.render(); cb && cb(); });
+    if (!pend.length) { done(); return; }
+    Cards.runTests(pend, done);
   },
 
   floorClear() {

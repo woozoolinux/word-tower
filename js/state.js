@@ -58,8 +58,9 @@ function defaultState() {
     player: {
       name: '용사', lv: 1, exp: 0, gold: 0, hp: 100,
       weapon: 'stick', hat: 'none', pet: null,
-      avatar: null, outfit: 'tunic',
-      owned: { weapons: ['stick'], hats: ['none'], pets: [], outfits: ['tunic', 'dress'] },
+      avatar: null, outfit: 'tunic', aura: 'none', title: '',
+      owned: { weapons: ['stick'], hats: ['none'], pets: [], outfits: ['tunic', 'dress'], auras: ['none'] },
+      towerClear: {}, titles: [],
       items: { hint: 1, erase: 0, potion: 1 },
       shieldDate: '', arenaBest: 0,
       cards: {}, pendingCards: [], setBonus: {},
@@ -86,6 +87,9 @@ function migrate() {
   state.player.pendingCards = state.player.pendingCards || [];
   state.player.setBonus = state.player.setBonus || {};
   state.player.owned = Object.assign(d.player.owned, state.player.owned || {});
+  state.player.owned.auras = state.player.owned.auras || ['none'];
+  state.player.towerClear = state.player.towerClear || {};
+  state.player.titles = state.player.titles || [];
   state.player.items = Object.assign(d.player.items, state.player.items || {});
   state.settings = Object.assign(d.settings, state.settings || {});
   state.towers = state.towers || {};
@@ -123,8 +127,18 @@ function wordStat(towerId, w) {
 function expToNext(lv) { return Math.floor(40 * Math.pow(lv, 1.4)) + 20; }
 // 무기를 뺀 순수 레벨 화력. 몬스터는 이 값을 기준으로 만들어진다.
 function baseAtk(lv) { return 10 + lv * 3; }
-function atkAt(lv, weapon) { return Math.round(baseAtk(lv) * (1 + WEAPONS[weapon || state.player.weapon].pct)); }
+function atkAt(lv, weapon) { return Math.round(baseAtk(lv) * (1 + WEAPONS[weapon || state.player.weapon].pct + clearPct('atk'))); }
 function hpAt(lv) { return 100 + (lv - 1) * 12; }
+// 타워를 완전히 정복(모든 카드)하면 붙는 영구 보너스. 밸런스 조절 지점은 여기 하나뿐.
+function clearPct(type) {
+  if (!window.TOWERS) return 0;
+  let v = 0;
+  window.TOWERS.forEach(t => {
+    const cb = t.clearBonus;
+    if (cb && cb.type === type && state.player.towerClear && state.player.towerClear[t.id]) v += cb.pct;
+  });
+  return v;
+}
 
 // 타워는 저마다 "설계 기준 레벨 구간"을 갖는다.
 // 몬스터는 clamp(내 레벨, 구간)으로 만들어지므로,
@@ -150,7 +164,7 @@ function hazardDmg(ratio, tower) {
   return Math.max(2, Math.round(hpAt(state.player.lv) * ratio * towerTier(tower)));
 }
 function playerAtk() { return atkAt(state.player.lv); }
-function playerMaxHp() { return hpAt(state.player.lv); }
+function playerMaxHp() { return Math.round(hpAt(state.player.lv) * (1 + clearPct('hp'))); }
 function hasSkill(id) { const s = SKILLS.find(x => x.id === id); return !!s && state.player.lv >= s.lv; }
 
 // 레벨업하면 올라간 레벨 목록을 돌려준다 (레벨업 시 HP 전부 회복)

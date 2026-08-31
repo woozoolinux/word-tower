@@ -9,6 +9,8 @@ window.TOWERS.push({
   roof: '#3ee0c4',
   tier: 1.5,
   lvRange: [5, 24],
+  auras: ['angel', 'thunder', 'moon', 'dragon'],
+  clearBonus: { type: 'hp', pct: 0.15, title: 'DSD1 마스터' },
   units: [
     { unit: 1, words: [
       { w: 'raindrop', m: '빗방울', pos: 'n' },
