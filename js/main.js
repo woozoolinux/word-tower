@@ -61,17 +61,33 @@ const Game = {
     }
     saveState();
     const done = r.floor >= r.total;
-    const stars = r.words.map(w => `<span class="star-chip"><span class="en">${esc(w.w)}</span> ${esc(w.m)} <span class="stars">${starsText(statFor(r.towerId, w).stars)}</span></span>`).join('');
+    const MAX_CHIPS = 12;
+    const byStars = r.words.slice().sort((a, b) => statFor(r.towerId, a).stars - statFor(r.towerId, b).stars);
+    const shown = byStars.slice(0, MAX_CHIPS);
+    const mastered = r.words.filter(w => statFor(r.towerId, w).stars >= 3).length;
+    const stars =
+      `<div class="star-summary">⭐ 이 층 단어 ${r.words.length}개 중 마스터 ${mastered}개` +
+      (r.words.length > MAX_CHIPS ? ' · 더 연습할 단어부터 표시' : '') + '</div>' +
+      '<div class="star-list">' +
+      shown.map(w => `<span class="star-chip"><span class="en">${esc(w.w)}</span> ${esc(w.m)} <span class="stars">${starsText(statFor(r.towerId, w).stars)}</span></span>`).join('') +
+      (r.words.length > MAX_CHIPS ? `<span class="star-chip more">외 ${r.words.length - MAX_CHIPS}개</span>` : '') +
+      '</div>';
+    const party = done
+      ? { count: 220, life: 4, colors: ['#ffc83d', '#fff3c4', '#ffffff', '#ffe08a'] }
+      : boss ? { count: 140, life: 3.2, colors: ['#ffc83d', '#ff6b7a', '#ffffff', '#8f7bff'] }
+        : { count: 70, life: 2.4 };
+    if (boss || done) Sfx.fanfare();
+    UI.confetti(party);
     UI.modal(`
       <div class="modal-title">${done ? '🏆 타워 정복!' : boss ? '👑 보스 격파!' : `🎉 ${r.floor}층 클리어!`}</div>
       <div class="reward-row">💰 +${gold} &nbsp; ✨ +${exp} EXP</div>
       ${drop}
-      <div class="star-list">${stars}</div>
+      ${stars}
       <div class="actions">
         ${done ? '' : '<button class="btn" data-close="next">다음 층 ➡️</button>'}
         <button class="btn ghost" data-close="lobby">로비로</button>
       </div>
-    `, { onClose: v => this.flushLevelUps(() => { if (v === 'next') this.startFloor(r.towerId, r.floor + 1); else this.toLobby(); }) });
+    `, { cls: 'celebrate', onClose: v => this.flushLevelUps(() => { if (v === 'next') this.startFloor(r.towerId, r.floor + 1); else this.toLobby(); }) });
   },
 
   playerDown() {

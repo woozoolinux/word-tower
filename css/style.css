@@ -141,6 +141,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--mint); outl
 }
 .modal-wrap.show .modal { transform: scale(1); }
 .modal-title { font-size: 26px; text-align: center; margin-bottom: 12px; text-wrap: balance; }
+.confetti-cv { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
+.modal.celebrate { animation: celebrateIn .45s cubic-bezier(.2, 1.5, .4, 1); }
+.modal.celebrate .modal-title { animation: titlePop .6s .12s both; }
 .modal-sub { text-align: center; color: var(--ink-dim); margin-bottom: 14px; }
 .modal .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
 .modal h4 { font-size: 17px; color: var(--ink-dim); margin: 16px 0 6px; letter-spacing: .02em; }
@@ -197,6 +200,8 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .star-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 10px 0; }
 .star-chip { background: #fff; border-radius: 999px; padding: 4px 10px; font-size: 14px; display: inline-flex; gap: 6px; align-items: center; }
 .star-chip .en { font-family: var(--font-en); font-weight: 600; }
+.star-chip.more { background: var(--panel2); color: var(--ink-dim); }
+.star-summary { text-align: center; font-size: 14px; color: var(--ink-dim); margin-top: 10px; }
 .stars { color: var(--gold-dark); letter-spacing: -1px; font-size: 13px; }
 
 /* ---------- 로비 ---------- */
@@ -400,11 +405,14 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 @keyframes petHop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14%); } }
 @keyframes hop { 0% { transform: translateY(0); } 45% { transform: translateY(-13%); } 100% { transform: translateY(0); } }
 @keyframes twinkle { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes celebrateIn { 0% { transform: scale(.7) translateY(24px); } 100% { transform: scale(1) translateY(0); } }
+@keyframes titlePop { 0% { transform: scale(.5); opacity: 0; } 60% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {
   .mon-emoji, .mon-art, .screen.active, .ent.player, .ent.pet, .choice.right,
   .sprite.pet .petwrap, .sprite.walking .char.walk, #sky i { animation: none; }
   .sprite { transition: none; }
+  .modal.celebrate, .modal.celebrate .modal-title { animation: none; }
   .mon-art.die { opacity: 0; }
   .float { animation-duration: .5s; }
 }

@@ -55,6 +55,57 @@ const UI = (() => {
     el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
   }
 
+  // 별과 리본이 쏟아지는 축하 연출
+  function confetti(opts = {}) {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.querySelectorAll('.confetti-cv').forEach(c => c.remove());
+    const W = window.innerWidth, H = window.innerHeight, dpr = window.devicePixelRatio || 1;
+    const cv = document.createElement('canvas');
+    cv.className = 'confetti-cv';
+    cv.width = W * dpr; cv.height = H * dpr;
+    document.getElementById('modal-root').appendChild(cv);
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const colors = opts.colors || ['#ffc83d', '#3ee0c4', '#ff6b7a', '#8f7bff', '#ffffff'];
+    const n = opts.count || 80, life = opts.life || 2.8;
+    const parts = [];
+    for (let i = 0; i < n; i++) parts.push({
+      x: W * (0.08 + Math.random() * 0.84),
+      y: -24 - Math.random() * H * 0.7,
+      vx: (Math.random() - 0.5) * 110, vy: 130 + Math.random() * 230,
+      r: 5 + Math.random() * 7, rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 9,
+      c: colors[(Math.random() * colors.length) | 0], star: Math.random() < 0.5,
+    });
+    let last = performance.now(), t = 0;
+    function star(x, y, r, rot) {
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const a = rot + i * Math.PI * 2 / 5, b = a + Math.PI / 5;
+        ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        ctx.lineTo(x + Math.cos(b) * r * 0.45, y + Math.sin(b) * r * 0.45);
+      }
+      ctx.closePath(); ctx.fill();
+    }
+    function frame(now) {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalAlpha = t > life - 0.6 ? Math.max(0, (life - t) / 0.6) : 1;
+      parts.forEach(p => {
+        p.vy += 250 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+        ctx.fillStyle = p.c;
+        if (p.star) star(p.x, p.y, p.r, p.rot);
+        else {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+          ctx.fillRect(-p.r * 0.6, -p.r * 0.35, p.r * 1.2, p.r * 0.7);
+          ctx.restore();
+        }
+      });
+      ctx.globalAlpha = 1;
+      if (t < life) requestAnimationFrame(frame); else cv.remove();
+    }
+    requestAnimationFrame(frame);
+  }
+
   // 레벨업 모달: 전/후 능력치 + 새 스킬/구역
   function levelUpModal(ups, cb) {
     const lv0 = ups[0] - 1, lv1 = ups[ups.length - 1];
@@ -73,7 +124,9 @@ const UI = (() => {
       ${newSkills.map(s => `<div class="unlock"><span class="big">${s.emoji}</span><div><div>새 스킬: <b>${s.name}</b></div><div class="toggle-desc">${s.desc}</div></div></div>`).join('')}
       ${newZones.map(z => `<div class="unlock"><span class="big">${z.emoji}</span><div><div>새 구역: <b>${z.name}</b></div><div class="toggle-desc">${z.ready ? '로비에서 들어갈 수 있어요!' : '곧 열려요'}</div></div></div>`).join('')}
       <div class="actions"><button class="btn" data-close="ok">멋지다!</button></div>
-    `, { onClose: () => cb && cb() });
+    `, { cls: 'celebrate', onClose: () => cb && cb() });
+    Sfx.fanfare();
+    confetti({ count: 110, colors: ['#8f7bff', '#ffc83d', '#cbbfff', '#ffffff'] });
   }
 
   function charMini() { return state.player.avatar ? Avatar.html(0, { headOnly: true }) : charEmoji(); }
@@ -89,5 +142,5 @@ const UI = (() => {
     document.getElementById('modal-root').appendChild(el);
     setTimeout(() => el.remove(), 300);
   }
-  return { show, current, toast, modal, charEmoji, charHtml, charMini, charWalk, hpBar, floatText, shake, flash, levelUpModal };
+  return { show, current, toast, modal, charEmoji, charHtml, charMini, charWalk, hpBar, floatText, shake, flash, confetti, levelUpModal };
 })();

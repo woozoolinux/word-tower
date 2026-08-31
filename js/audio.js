@@ -25,6 +25,10 @@ const Sfx = (() => {
     step()    { beep(200, 0.03, 'sine', 0.02); },
     levelup() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.25, 'sine', 0.09), i * 120)); },
     win()     { [784, 988, 1175].forEach((f, i) => setTimeout(() => beep(f, 0.2, 'sine', 0.08), i * 100)); },
+    fanfare()  {
+      [[523, 0], [659, 110], [784, 220], [1047, 330]].forEach(([f, d]) => setTimeout(() => beep(f, 0.22, 'sine', 0.09), d));
+      [1047, 1319, 1568].forEach(f => setTimeout(() => beep(f, 0.55, 'sine', 0.07), 470));
+    },
     down()    { [400, 300, 200].forEach((f, i) => setTimeout(() => beep(f, 0.3, 'sawtooth', 0.05), i * 200)); },
   };
 })();
