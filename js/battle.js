@@ -2,15 +2,17 @@
 // 배틀: 문제를 맞추면 공격, 빨리 맞추면 크리티컬, 틀리면 맞는다.
 const Battle = (() => {
   const TIME_LIMIT = 10, WARN_AT = 3, CRIT_UNDER = 2.5; // 초
-  let o, mon, q, qStart, combo, helped, ultiUsed, lock, timer, warnTimer;
+  const CHARGE_NEED = 3;   // 연속 정답 3번이면 필살기 준비
+  let o, mon, q, qStart, combo, helped, charge, lock, timer, warnTimer;
   const $ = id => document.getElementById(id);
 
   function start(opts) {
     clearTimer();
     o = opts; mon = Object.assign({}, opts.monster, { maxHp: opts.monster.hp });
-    combo = 0; ultiUsed = false; lock = false; q = null;
+    combo = 0; charge = 0; lock = false; q = null;
     UI.show('battle');
     $('battle-title').textContent = o.boss ? '👑 보스전' : o.arena ? '🏟️ 투기장' : '⚔️ 배틀';
+    $('battle-hero').innerHTML = state.player.avatar ? Avatar.html(52, { pet: '' }) : `<span style="font-size:44px">${UI.charEmoji()}</span>`;
     $('battle-monster').innerHTML =
       `<div class="mon-art ${o.boss ? 'boss' : ''}" id="mon-art">${Art.monster(mon.id || 'slime', !!o.boss)}<span class="slash" id="mon-slash"></span></div>` +
       `<div class="mon-name">${esc(mon.name)}<span class="atk">ATK ${mon.atk}</span></div>`;
@@ -23,10 +25,21 @@ const Battle = (() => {
   }
   function renderItems() {
     const it = state.player.items;
+    const ready = charge >= CHARGE_NEED;
+    const pips = Array.from({ length: CHARGE_NEED }, (_, i) => `<i class="${i < charge ? 'on' : ''}"></i>`).join('');
     $('battle-items').innerHTML =
+      `<button class="ulti-btn ${ready ? 'ready' : ''}" data-item="super" ${ready ? '' : 'disabled'}>
+         <span class="ulti-label">${ready ? '💥 필살기!' : '🔥 필살기'}</span><span class="charge-pips">${pips}</span></button>` +
       ['hint', 'erase', 'potion'].map(k => `<button class="item-btn" data-item="${k}" ${it[k] > 0 ? '' : 'disabled'}>${ITEMS[k].emoji} ${ITEMS[k].name} <b>${it[k]}</b></button>`).join('') +
-      (o.boss && hasSkill('ulti') ? `<button class="item-btn ulti" data-item="ulti" ${ultiUsed ? 'disabled' : ''}>💫 필살기</button>` : '') +
       (shieldReady() ? '<span class="shield-badge">🛡️ 실드 준비됨</span>' : '');
+  }
+  function ultDamage() {
+    return Math.round(playerAtk() * (2 + Cards.points() / 25) * (hasSkill('ulti') ? 1.5 : 1));
+  }
+  function heroAttack(cls) {
+    const h = $('battle-hero');
+    if (!h) return;
+    h.classList.remove('attack', 'attack-crit', 'attack-ult'); void h.offsetWidth; h.classList.add(cls);
   }
 
   function next() {
@@ -73,7 +86,9 @@ const Battle = (() => {
 
   // 오답/시간초과 공통: 몬스터 반격
   function penalty() {
-    combo = 0; Sfx.bad();
+    combo = 0; charge = 0; Sfx.bad();
+    const art = $('mon-art');
+    if (art) { art.classList.remove('lunge', 'hurt'); void art.offsetWidth; art.classList.add('lunge'); }
     if (shieldReady()) { useShield(); UI.toast('🛡️ 실드가 막았다!', 'good'); }
     else {
       state.player.hp -= mon.atk;
@@ -95,13 +110,18 @@ const Battle = (() => {
     recordResult(o.towerId, q.word, correct, helped);
     if (correct) {
       combo++;
+      charge = Math.min(CHARGE_NEED, charge + 1);
       const crit = elapsed < CRIT_UNDER;
-      hit(Math.round(playerAtk() * (crit ? 1.5 : 1)), crit ? 'CRITICAL!' : '', crit);
+      heroAttack(crit ? 'attack-crit' : 'attack');
+      renderItems();
       if (crit) Sfx.crit(); else Sfx.ok();
       Game.gainExpQuiet(Math.round(2 + (o.floor || 1) * 0.6)); Game.gainGold(1);
-      if (hasSkill('double') && combo >= 2 && combo % 2 === 0 && mon.hp > 0) {
-        setTimeout(() => { hit(Math.round(playerAtk() * 0.5), '🔥 더블!'); check(); }, 450);
-      } else check();
+      setTimeout(() => {                       // 캐릭터가 닿는 순간에 데미지
+        hit(Math.round(playerAtk() * (crit ? 1.5 : 1)), crit ? 'CRITICAL!' : '', crit);
+        if (hasSkill('double') && combo >= 2 && combo % 2 === 0 && mon.hp > 0) {
+          setTimeout(() => { hit(Math.round(playerAtk() * 0.5), '🔥 더블!'); check(); }, 450);
+        } else check();
+      }, 200);
     } else {
       penalty();
     }
@@ -112,7 +132,7 @@ const Battle = (() => {
     UI.floatText($('battle-monster'), label ? `${dmg} ${label}` : `${dmg}`, 'dmg-m' + (crit ? ' crit' : ''));
     const art = $('mon-art');
     if (art) {
-      art.classList.remove('hurt'); void art.offsetWidth; art.classList.add('hurt');
+      art.classList.remove('hurt', 'lunge'); void art.offsetWidth; art.classList.add('hurt');
       const sl = $('mon-slash');
       if (sl) { sl.classList.remove('go'); void sl.offsetWidth; sl.classList.add('go'); }
     }
@@ -128,16 +148,67 @@ const Battle = (() => {
     else setTimeout(next, 800);
   }
 
+  // 필살기: 스펠링을 맞히면 대미지 폭발. 틀려도 피해는 없다 (게이지만 소모)
+  function superAttack() {
+    if (charge < CHARGE_NEED || lock) return;
+    lock = true; clearTimer();
+    const word = pickWord(o.towerId, o.words, q && q.word.w);
+    const t = Cards.buildTest(word);
+    const used = [];
+    const open = () => t.slots.map((s, i) => i).filter(i => !t.slots[i].fixed);
+    const render = () => `
+      <div class="modal-title">💥 필살기!</div>
+      <div class="modal-sub">스펠링을 맞히면 <b>${ultDamage()}</b> 데미지!<br>뜻: <b>${esc(word.m)}</b> <span class="dim">(틀려도 아프지 않아요)</span></div>
+      <div class="spell-slots">${t.slots.map((s, i) => {
+        const v = s.fixed ? s.ch : (used[open().indexOf(i)] !== undefined ? t.tiles[used[open().indexOf(i)]] : '');
+        const sep = /[\s-]/.test(s.ch);
+        return `<span class="slot ${s.fixed ? 'fixed' : ''} ${sep ? 'sep' : ''} ${v ? 'on' : ''}">${sep ? (s.ch === ' ' ? '&nbsp;' : s.ch) : esc(v || '')}</span>`;
+      }).join('')}</div>
+      <div class="spell-tiles">${t.tiles.map((c, i) =>
+        `<button class="tile ${used.indexOf(i) >= 0 ? 'used' : ''}" data-tile="${i}" ${used.indexOf(i) >= 0 ? 'disabled' : ''}>${esc(c)}</button>`).join('')}</div>
+      <div class="actions"><button class="btn ghost small" data-act="back">⌫ 하나 지우기</button></div>`;
+    const m = UI.modal(render(), { cls: 'spell' });
+    let settled = false;
+    const finish = ok => {
+      if (settled) return; settled = true;
+      charge = 0; m.close();
+      if (ok) {
+        recordResult(o.towerId, word, true, false);
+        UI.flash(); Sfx.crit(); heroAttack('attack-ult');
+        setTimeout(() => { hit(ultDamage(), '💥 필살기!', true); renderItems(); check(); }, 260);
+      } else {
+        Sfx.bad();
+        UI.toast(`아쉬워! 정답은 "${word.w}"`, 'bad');
+        renderItems();
+        setTimeout(next, 900);
+      }
+    };
+    m.body.addEventListener('click', e => {
+      if (settled) return;
+      const tile = e.target.closest('[data-tile]');
+      if (tile) {
+        if (used.length >= open().length) return;
+        used.push(+tile.dataset.tile); Sfx.step();
+        m.body.innerHTML = render();
+        if (used.length === open().length) {
+          const slots = open();
+          const answer = t.slots.map((s, i) => s.fixed ? s.ch : t.tiles[used[slots.indexOf(i)]]).join('');
+          setTimeout(() => finish(answer.toLowerCase() === word.w.toLowerCase()), 260);
+        }
+        return;
+      }
+      const act = e.target.closest('[data-act]');
+      if (act && act.dataset.act === 'back') { used.pop(); m.body.innerHTML = render(); }
+    });
+  }
+
   function useItem(kind) {
     const it = state.player.items;
+    if (kind === 'super') { superAttack(); return; }
     if (kind === 'potion') {
       if (it.potion <= 0) return; it.potion--;
       const heal = Math.round(playerMaxHp() * 0.4);
       state.player.hp = Math.min(playerMaxHp(), state.player.hp + heal); UI.toast(`🧪 HP +${heal}`, 'good'); Sfx.coin();
-    } else if (kind === 'ulti') {
-      if (ultiUsed || lock) return; ultiUsed = true;
-      hit(Math.round(mon.maxHp * 0.3), '💫 필살기!', true);
-      if (mon.hp <= 0) { lock = true; check(); }
     } else if (lock) { return; }
     else if (kind === 'hint') {
       if (it.hint <= 0) return; it.hint--; helped = true;

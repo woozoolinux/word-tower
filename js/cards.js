@@ -282,5 +282,5 @@ const Cards = (() => {
     })();
   }
 
-  return { RARITY, rarityOf, key, has, isPending, auraFor, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
+  return { RARITY, rarityOf, key, has, isPending, buildTest, auraFor, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
 })();

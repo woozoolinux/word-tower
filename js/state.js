@@ -35,7 +35,7 @@ const SKILLS = [
   { lv: 5,  id: 'sight',  name: '투시',      emoji: '👁️', desc: '미로에서 열쇠가 어디 있는지 항상 보여요' },
   { lv: 8,  id: 'shield', name: '실드',      emoji: '🛡️', desc: '하루에 한 번, 틀려도 데미지를 안 받아요' },
   { lv: 12, id: 'dash',   name: '대시',      emoji: '⚡', desc: '달리기에서 처음 한 번은 부딪혀도 괜찮아요' },
-  { lv: 20, id: 'ulti',   name: '필살기',    emoji: '💫', desc: '보스전에서 한 번, 보스 HP를 30% 깎아요' },
+  { lv: 20, id: 'ulti',   name: '필살 강화', emoji: '💫', desc: '필살기 위력이 1.5배가 돼요' },
 ];
 const ZONES = [
   { lv: 5,  id: 'arena',   name: '투기장',    emoji: '🏟️', desc: '몬스터를 몇 마리나 잡을까?', ready: true },
