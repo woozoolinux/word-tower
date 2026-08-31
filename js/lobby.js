@@ -30,6 +30,9 @@ const Lobby = (() => {
 
   function towerCard(t) {
     const prog = towerProg(t.id), total = floorList(t).length, done = prog.cleared >= total;
+    const rg = towerRange(t), lv = state.player.lv;
+    const lvTag = `권장 Lv.${rg[0]}~${rg[1]} · ` +
+      (lv < rg[0] ? '<b class="warn">⚠️ 아직 어려워요</b>' : lv > rg[1] ? '<b class="easy">😎 여유로워요</b>' : '<b class="fit">👍 딱 맞아요</b>');
     const words = allWords(t);
     const stars = words.reduce((a, w) => a + wordStat(t.id, w.w).stars, 0);
     const pct = Math.round(prog.cleared / total * 100);
@@ -41,6 +44,7 @@ const Lobby = (() => {
         <div class="tower-desc">${esc(t.desc || '')}</div>
         <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div><span class="bar-text">${prog.cleared} / ${total}층</span></div>
         <div class="tower-meta">⭐ ${stars} / ${words.length * 3} · 단어 ${words.length}개${done ? ' · 🏆 정복!' : ''}</div>
+        <div class="tower-meta">${lvTag}</div>
       </div>
       <button class="btn mint small" data-go="${t.id}">${done ? '다시' : next + '층'}<br>도전!</button>
     </div>`;
@@ -94,7 +98,7 @@ const Lobby = (() => {
     const weapons = Object.entries(WEAPONS).map(([id, w]) => {
       const owned = p.owned.weapons.includes(id), eq = p.weapon === id;
       const right = eq ? '<span class="tag">장착중</span>' : owned ? `<button class="btn small mint" data-equip="weapon:${id}">장착</button>` : buy('weapon', id, w.price);
-      return row(w.emoji, w.name, `공격력 +${w.atk}`, right);
+      return row(w.emoji, w.name, `공격력 +${Math.round(w.pct * 100)}%`, right);
     }).join('');
     const hats = Object.entries(HATS).map(([id, h]) => {
       const owned = p.owned.hats.includes(id), eq = p.hat === id;

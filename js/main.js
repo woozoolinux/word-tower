@@ -16,21 +16,27 @@ const Game = {
     UI.levelUpModal(ups, cb);
   },
 
-  monsterFor(floor, boss, base) {
-    if (boss) {
-      const b = base || BOSSES[floor % BOSSES.length];
-      return { id: b.id, name: b.name, emoji: b.emoji, hp: (30 + floor * 12) * 4, atk: 10 + floor * 2 };
-    }
-    const m = base || pick(MONSTERS);
-    return { id: m.id, name: m.name, emoji: m.emoji, hp: 30 + floor * 12, atk: 8 + floor * 2 };
+  monsterFor(floor, boss, base, tower) {
+    const src = base || (boss ? BOSSES[floor % BOSSES.length] : pick(MONSTERS));
+    return {
+      id: src.id, name: src.name, emoji: src.emoji,
+      hp: monsterHp(floor, boss, tower), atk: monsterAtk(floor, boss, tower),
+    };
   },
+
+  // 이미 깬 층을 다시 돌면 보상이 크게 준다 (반복 파밍 방지)
+  gainGold(n) { addGold(Math.max(1, Math.round(n * (this.run ? this.run.mul : 1)))); },
 
   startFloor(towerId, n) {
     const tower = towerById(towerId), floors = floorList(tower);
     if (n < 1 || n > floors.length) n = 1;
     const plan = floors[n - 1], pool = allWords(tower);
     const words = plan.type === 'boss' ? floorWords(tower, n) : withReview(towerId, floorWords(tower, n), pool);
-    this.run = { towerId, tower, floor: n, plan, words, pool, total: floors.length };
+    const prog0 = towerProg(towerId);
+    this.run = {
+      towerId, tower, floor: n, plan, words, pool, total: floors.length,
+      tier: towerTier(tower), mul: n <= prog0.cleared ? 0.3 : 1,
+    };
     state.player.hp = playerMaxHp(); saveState();
     if (plan.type === 'boss') this.startBoss(); else Maze.start(this.run);
   },
@@ -38,15 +44,15 @@ const Game = {
     const r = this.run, base = BOSSES[r.plan.bossIdx % BOSSES.length];
     UI.toast(`👑 ${r.floor}층 보스 등장!`, 'bad');
     Battle.start({
-      monster: this.monsterFor(r.floor, true, base), words: r.words, pool: r.pool, towerId: r.towerId, floor: r.floor, boss: true,
+      monster: this.monsterFor(r.floor, true, base, r.tower), words: r.words, pool: r.pool, towerId: r.towerId, floor: r.floor, boss: true,
       onWin: () => this.floorClear(), onLose: () => this.playerDown(),
     });
   },
 
   floorClear() {
     const r = this.run, boss = r.plan.type === 'boss';
-    const gold = boss ? 80 + r.floor * 10 : 30 + r.floor * 5;
-    const exp = boss ? 60 + r.floor * 8 : 25 + r.floor * 4;
+    const gold = Math.round((boss ? 60 + r.floor * 8 : 20 + r.floor * 3) * r.tier * r.mul);
+    const exp = Math.round((boss ? 50 + r.floor * 6 : 20 + r.floor * 3) * r.tier);
     addGold(gold); this.gainExpQuiet(exp);
     const prog = towerProg(r.towerId);
     if (r.floor >= prog.floor) prog.floor = r.floor + 1;
@@ -57,7 +63,8 @@ const Game = {
       if (!state.player.owned.pets.includes(petId)) {
         state.player.owned.pets.push(petId); if (!state.player.pet) state.player.pet = petId;
         drop = `<div class="unlock"><span class="big">${PETS[petId].emoji}</span><div>보스가 떨어뜨렸다: <b>${PETS[petId].name}</b> 펫!<div class="toggle-desc">상점에서 데려갈 펫을 고를 수 있어요</div></div></div>`;
-      } else { addGold(100); drop = '<div class="reward-row">🎁 보너스 +100G</div>'; }
+      } else { const b = Math.round(80 * r.tier * r.mul); addGold(b); drop = `<div class="reward-row">🎁 보너스 +${b}G</div>`; }
+      if (r.mul < 1) drop += '<div class="star-summary">이미 깬 층이라 골드는 줄었어요 (경험치는 그대로!)</div>';
     }
     saveState();
     const done = r.floor >= r.total;
@@ -113,14 +120,19 @@ const Game = {
     window.TOWERS.forEach(t => allWords(t).forEach(w => { if (wordStat(t.id, w.w).seen > 0) words.push(w); }));
     if (words.length < 8) { UI.toast('타워에서 단어를 8개 이상 만난 뒤에 도전할 수 있어요!'); return; }
     let kills = 0;
+    this.run = null;
     state.player.hp = playerMaxHp();
     const spawn = () => {
       const lv = state.player.lv;
       const m = Object.assign({}, pick(MONSTERS));
       Battle.start({
-        monster: { id: m.id, name: `${kills + 1}번째 ${m.name}`, emoji: m.emoji, hp: 20 + lv * 8 + kills * 7, atk: Math.round(6 + lv * 1.5 + kills * 1.2) },
+        monster: {
+          id: m.id, name: `${kills + 1}번째 ${m.name}`, emoji: m.emoji,
+          hp: Math.round(baseAtk(lv) * (2 + kills * 0.35)),
+          atk: Math.max(3, Math.round(playerMaxHp() * (0.05 + kills * 0.012))),
+        },
         words, pool: words, towerId: 'arena', floor: lv, arena: true,
-        onWin: () => { kills++; addGold(5); saveState(); spawn(); },
+        onWin: () => { kills++; addGold(3); saveState(); spawn(); },
         onLose: () => end(),
       });
     };

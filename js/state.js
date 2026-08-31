@@ -4,11 +4,14 @@
 
 const SAVE_KEY = 'wordtower_save_v1';
 
+// 무기는 더하기가 아니라 곱하기(%). 레벨 성장을 건너뛰지 못하게.
 const WEAPONS = {
-  stick:  { name: '나무막대', emoji: '🪵', atk: 0,  price: 0 },
-  bronze: { name: '청동검',   emoji: '🗡️', atk: 8,  price: 150 },
-  silver: { name: '은검',     emoji: '⚔️', atk: 18, price: 400 },
-  flame:  { name: '불꽃검',   emoji: '🔥', atk: 35, price: 1000 },
+  stick:  { name: '나무막대', emoji: '🪵', pct: 0,    price: 0 },
+  bronze: { name: '청동검',   emoji: '🗡️', pct: 0.15, price: 200 },
+  silver: { name: '은검',     emoji: '⚔️', pct: 0.30, price: 700 },
+  steel:  { name: '강철검',   emoji: '⚒️', pct: 0.50, price: 2000 },
+  flame:  { name: '불꽃검',   emoji: '🔥', pct: 0.75, price: 5000 },
+  dragon: { name: '용의검',   emoji: '🐉', pct: 1.10, price: 12000 },
 };
 const HATS = {
   none:   { name: '모자 없음',   emoji: '',   price: 0 },
@@ -25,7 +28,7 @@ const BOSS_DROPS = ['cat', 'owl', 'dragon'];
 const ITEMS = {
   hint:   { name: '힌트',   emoji: '💡', price: 20, desc: '정답의 첫 글자를 보여줘요 (★은 안 올라요)' },
   erase:  { name: '지우개', emoji: '🧽', price: 30, desc: '틀린 답 2개를 지워요 (★은 안 올라요)' },
-  potion: { name: '물약',   emoji: '🧪', price: 50, desc: 'HP를 50 회복해요' },
+  potion: { name: '물약',   emoji: '🧪', price: 60, desc: 'HP를 40% 회복해요' },
 };
 const SKILLS = [
   { lv: 3,  id: 'double', name: '더블 어택', emoji: '🔥', desc: '2연속 정답마다 한 번 더 공격해요' },
@@ -99,8 +102,33 @@ function wordStat(towerId, w) {
 }
 
 function expToNext(lv) { return Math.floor(40 * Math.pow(lv, 1.4)) + 20; }
-function atkAt(lv, weapon) { return 10 + lv * 3 + WEAPONS[weapon || state.player.weapon].atk; }
+// 무기를 뺀 순수 레벨 화력. 몬스터는 이 값을 기준으로 만들어진다.
+function baseAtk(lv) { return 10 + lv * 3; }
+function atkAt(lv, weapon) { return Math.round(baseAtk(lv) * (1 + WEAPONS[weapon || state.player.weapon].pct)); }
 function hpAt(lv) { return 100 + (lv - 1) * 12; }
+
+// 타워는 저마다 "설계 기준 레벨 구간"을 갖는다.
+// 몬스터는 clamp(내 레벨, 구간)으로 만들어지므로,
+// 구간을 훌쩍 넘긴 레벨로 저렙 타워에 가면 그 차이가 그대로 초과 화력이 된다.
+function towerTier(tower) { return (tower && tower.tier) || 1; }
+function towerRange(tower) { return (tower && tower.lvRange) || [1, 12]; }
+const MON_GROWTH = 0.7; // 몬스터는 내 성장 속도의 70%로만 따라온다
+function refLv(tower) {
+  const r = towerRange(tower);
+  const clamped = Math.max(r[0], Math.min(r[1], state.player.lv));
+  return r[0] + (clamped - r[0]) * MON_GROWTH;
+}
+function monsterHp(floor, boss, tower) {
+  const rb = baseAtk(refLv(tower)), t = towerTier(tower);
+  return Math.round(rb * (boss ? 10 + floor * 0.5 : 3.5 + floor * 0.2) * t);
+}
+function monsterAtk(floor, boss, tower) {
+  return Math.max(3, Math.round(playerMaxHp() * (0.06 + floor * 0.004) * towerTier(tower) * (boss ? 1.25 : 1)));
+}
+// 미로 오답·러너 충돌 피해도 최대 HP 비례 (레벨이 올라도 긴장감 유지)
+function hazardDmg(ratio, tower) {
+  return Math.max(2, Math.round(playerMaxHp() * ratio * towerTier(tower)));
+}
 function playerAtk() { return atkAt(state.player.lv); }
 function playerMaxHp() { return hpAt(state.player.lv); }
 function hasSkill(id) { const s = SKILLS.find(x => x.id === id); return !!s && state.player.lv >= s.lv; }

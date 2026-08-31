@@ -51,8 +51,8 @@ const Avatar = (() => {
   function weaponSvg(weapon) {
     if (!weapon || weapon === 'none') return '';
     if (weapon === 'stick') return `<line x1="84" y1="118" x2="98" y2="86" stroke="#8a5a2b" stroke-width="6" stroke-linecap="round"/>`;
-    const blade = weapon === 'bronze' ? '#c9803a' : '#cdd6e0';
-    const flame = weapon === 'flame' ? `
+    const blade = weapon === 'bronze' ? '#c9803a' : weapon === 'dragon' ? '#ffd76b' : '#cdd6e0';
+    const flame = (weapon === 'flame' || weapon === 'dragon') ? `
       <path d="M100,72 Q108,62 104,52 Q112,60 110,70 Q116,68 114,78 Q108,88 98,84 Q94,78 100,72 Z" fill="#ff8a3d"/>
       <circle cx="104" cy="72" r="5" fill="#ffc83d"/>` : '';
     return `${flame}

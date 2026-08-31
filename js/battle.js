@@ -98,7 +98,7 @@ const Battle = (() => {
       const crit = elapsed < CRIT_UNDER;
       hit(Math.round(playerAtk() * (crit ? 1.5 : 1)), crit ? 'CRITICAL!' : '', crit);
       if (crit) Sfx.crit(); else Sfx.ok();
-      Game.gainExpQuiet(3 + (o.floor || 1)); addGold(2);
+      Game.gainExpQuiet(Math.round(2 + (o.floor || 1) * 0.6)); Game.gainGold(1);
       if (hasSkill('double') && combo >= 2 && combo % 2 === 0 && mon.hp > 0) {
         setTimeout(() => { hit(Math.round(playerAtk() * 0.5), '🔥 더블!'); check(); }, 450);
       } else check();
@@ -132,7 +132,8 @@ const Battle = (() => {
     const it = state.player.items;
     if (kind === 'potion') {
       if (it.potion <= 0) return; it.potion--;
-      state.player.hp = Math.min(playerMaxHp(), state.player.hp + 50); UI.toast('🧪 HP +50', 'good'); Sfx.coin();
+      const heal = Math.round(playerMaxHp() * 0.4);
+      state.player.hp = Math.min(playerMaxHp(), state.player.hp + heal); UI.toast(`🧪 HP +${heal}`, 'good'); Sfx.coin();
     } else if (kind === 'ulti') {
       if (ultiUsed || lock) return; ultiUsed = true;
       hit(Math.round(mon.maxHp * 0.3), '💫 필살기!', true);

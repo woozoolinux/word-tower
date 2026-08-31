@@ -6,6 +6,8 @@ window.TOWERS.push({
   desc: '기초 단어로 오르는 메인 타워',
   emoji: '🏰',
   roof: '#8f7bff',
+  tier: 1,
+  lvRange: [1, 12],
   units: [
     { unit: 1, words: [
       { w: 'dog', m: '개', pos: 'n' },

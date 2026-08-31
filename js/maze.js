@@ -135,7 +135,7 @@ const Maze = (() => {
       busy = true; render();
       setTimeout(() => encounter(c), 350); return;
     } else if (chest === c) {
-      chest = null; const g = 20 + run.floor * 5; addGold(g); saveState();
+      chest = null; const g = Math.round((15 + run.floor * 3) * run.tier); Game.gainGold(g); saveState();
       Sfx.coin(); UI.toast(`🎁 보물상자! +${g}G`, 'gold');
     } else if (c === door && opened) {
       busy = true; render();
@@ -161,12 +161,12 @@ const Maze = (() => {
     if (key.correct) {
       opened = true; Sfx.door();
       recordResult(run.towerId, run.doorWord, true, false);
-      Game.gainExpQuiet(4 + run.floor); addGold(3);
+      Game.gainExpQuiet(Math.round(3 + run.floor * 0.6)); Game.gainGold(2);
       UI.toast('🔓 문이 열렸다! 계단으로 가자', 'good');
     } else {
       Sfx.bad();
       recordResult(run.towerId, run.doorWord, false, false);
-      const dmg = 5 + run.floor; state.player.hp -= dmg;
+      const dmg = hazardDmg(0.05, run.tower); state.player.hp -= dmg;
       UI.shake(gridEl());
       UI.toast(`💥 삐-! "${key.w}"은(는) "${run.doorWord.m}"이(가) 아니야. 열쇠가 부서졌다! -${dmg}`, 'bad');
       if (state.player.hp <= 0) { busy = true; setTimeout(() => Game.playerDown(), 500); return; }
@@ -177,7 +177,7 @@ const Maze = (() => {
   function encounter(c) {
     const m = monsters[c];
     Battle.start({
-      monster: Game.monsterFor(run.floor, false, m), words: run.words, pool: run.pool, towerId: run.towerId, floor: run.floor,
+      monster: Game.monsterFor(run.floor, false, m, run.tower), words: run.words, pool: run.pool, towerId: run.towerId, floor: run.floor,
       onWin: () => { delete monsters[c]; busy = false; UI.show('maze'); render(); UI.toast('몬스터를 물리쳤다!', 'good'); },
       onLose: () => Game.playerDown(),
     });

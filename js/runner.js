@@ -99,7 +99,7 @@ const Runner = (() => {
       if (t.lane === lane && t.x < PX + 20 && t.x + t.width > PX - 20) { t.hit = true; if (t.correct) collect(t); else bump(t); if (!active) return; }
     }
     for (const c of coins) {
-      if (!c.got && c.lane === lane && Math.abs(c.x - PX) < 24) { c.got = true; addGold(5); Sfx.coin(); burst(c.x, laneY(c.lane), '#ffc83d'); }
+      if (!c.got && c.lane === lane && Math.abs(c.x - PX) < 24) { c.got = true; Game.gainGold(3); Sfx.coin(); burst(c.x, laneY(c.lane), '#ffc83d'); }
     }
     if (waveActive && tiles.every(t => t.hit || t.x + t.width < -10)) {
       if (!tiles.some(t => t.collected)) { missed++; say('앗, 놓쳤다! 한 번 더!', '#ffc83d'); }
@@ -113,7 +113,7 @@ const Runner = (() => {
   function collect(t) {
     t.collected = true; Sfx.ok(); burst(PX, laneY(lane), '#3ee0c4');
     recordResult(run.towerId, missions[mi], true, false);
-    Game.gainExpQuiet(3 + run.floor); addGold(5);
+    Game.gainExpQuiet(Math.round(2 + run.floor * 0.6)); Game.gainGold(3);
     tiles.forEach(x => x.hit = true);
     mi++;
     if (mi >= missions.length) { finish(); return; }
@@ -122,7 +122,7 @@ const Runner = (() => {
   function bump(t) {
     recordResult(run.towerId, missions[mi], false, false);
     if (dashLeft > 0) { dashLeft--; say('⚡ 대시!', '#8f7bff'); burst(PX, laneY(lane), '#8f7bff'); return; }
-    const dmg = 6 + run.floor; state.player.hp -= dmg; Sfx.bad();
+    const dmg = hazardDmg(0.06, run.tower); state.player.hp -= dmg; Sfx.bad();
     burst(PX, laneY(lane), '#ff6b7a'); UI.shake(cv.parentElement);
     say(`💥 ${t.w} ❌  -${dmg}`, '#ff6b7a');
     saveState(); hud();
