@@ -17,9 +17,9 @@ const HATS = {
   crown:  { name: '왕관',        emoji: '👑', price: 800 },
 };
 const PETS = {
-  cat:    { name: '고양이',  emoji: '🐱' },
-  owl:    { name: '부엉이',  emoji: '🦉' },
-  dragon: { name: '아기 용', emoji: '🐲' },
+  cat:    { name: '고양이',  emoji: '🐱', id: 'cat' },
+  owl:    { name: '부엉이',  emoji: '🦉', id: 'owl' },
+  dragon: { name: '아기 용', emoji: '🐲', id: 'dragon' },
 };
 const BOSS_DROPS = ['cat', 'owl', 'dragon'];
 const ITEMS = {
@@ -40,13 +40,13 @@ const ZONES = [
   { lv: 20, id: 'sky',     name: '하늘섬',    emoji: '⛰️', desc: '구름 위의 세계 (준비 중)', ready: false },
 ];
 const MONSTERS = [
-  { name: '슬라임', emoji: '👾' }, { name: '박쥐', emoji: '🦇' }, { name: '유령', emoji: '👻' },
-  { name: '멧돼지', emoji: '🐗' }, { name: '뱀', emoji: '🐍' }, { name: '좀비', emoji: '🧟' },
-  { name: '전갈', emoji: '🦂' }, { name: '늑대', emoji: '🐺' }, { name: '거미', emoji: '🕷️' },
+  { id: 'slime', name: '슬라임', emoji: '👾' }, { id: 'bat', name: '박쥐', emoji: '🦇' }, { id: 'ghost', name: '유령', emoji: '👻' },
+  { id: 'boar', name: '멧돼지', emoji: '🐗' }, { id: 'snake', name: '뱀', emoji: '🐍' }, { id: 'zombie', name: '좀비', emoji: '🧟' },
+  { id: 'scorpion', name: '전갈', emoji: '🦂' }, { id: 'wolf', name: '늑대', emoji: '🐺' }, { id: 'spider', name: '거미', emoji: '🕷️' },
 ];
 const BOSSES = [
-  { name: '드래곤 킹', emoji: '🐉' }, { name: '오니', emoji: '👹' }, { name: '티라노', emoji: '🦖' },
-  { name: '크라켄', emoji: '🐙' }, { name: '해골 마왕', emoji: '💀' },
+  { id: 'dragon', name: '드래곤 킹', emoji: '🐉' }, { id: 'oni', name: '오니', emoji: '👹' }, { id: 'trex', name: '티라노', emoji: '🦖' },
+  { id: 'kraken', name: '크라켄', emoji: '🐙' }, { id: 'skull', name: '해골 마왕', emoji: '💀' },
 ];
 
 function defaultState() {

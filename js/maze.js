@@ -2,7 +2,7 @@
 // 미로 층: 열쇠(영어)를 주워 문(한글 뜻)을 연다. 몬스터 → 배틀, 상자 → 골드, 열린 문 → 러너.
 const Maze = (() => {
   const CW = 6, CH = 5, W = CW * 2 + 1, H = CH * 2 + 1;
-  let run, grid, px, py, keys, door, monsters, chest, holding, seen, opened, busy;
+  let run, grid, px, py, keys, door, monsters, chest, holding, seen, opened, busy, trail;
   const gridEl = () => document.getElementById('maze-grid');
   const k = (x, y) => x + ',' + y;
 
@@ -44,7 +44,7 @@ const Maze = (() => {
 
   function start(r) {
     run = r; busy = false; holding = []; opened = false; seen = new Set();
-    gen(); px = 1; py = 1;
+    gen(); px = 1; py = 1; trail = null;
     const { dist, prev } = bfs(1, 1);
     const cs = cells();
     door = cs.reduce((a, b) => dist[a] >= dist[b] ? a : b);
@@ -74,14 +74,16 @@ const Maze = (() => {
   function render() {
     let h = '';
     const sight = hasSkill('sight');
+    const pet = state.player.pet && PETS[state.player.pet] ? state.player.pet : null;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const c = k(x, y), wall = grid[y][x] === 1, vis = seen.has(c);
       let cls = 'cell ' + (wall ? 'wall' : 'floor') + (vis ? '' : ' fog') + (c === door && opened ? ' door-open' : '');
       let inner = '';
-      if (x === px && y === py) inner = `<span class="ent player">${UI.charMini()}</span>`;
+      if (x === px && y === py) inner = `<span class="ent player">${UI.charWalk()}</span>`;
+      else if (c === trail && pet) inner = `<span class="ent pet">${Art.pet(pet)}</span>`;
       else if (c === door) inner = `<span class="ent">${opened ? '🪜' : vis ? '🚪' : ''}</span>`;
       else if (keys[c] && (vis || sight)) inner = `<span class="ent key ${vis ? '' : 'ghost'}">🔑<i>${esc(keys[c].w)}</i></span>`;
-      else if (monsters[c] && vis) inner = `<span class="ent">${monsters[c].emoji}</span>`;
+      else if (monsters[c] && vis) inner = `<span class="ent mon">${Art.monster(monsters[c].id, false)}</span>`;
       else if (chest === c && vis) inner = '<span class="ent">🎁</span>';
       h += `<div class="${cls}">${inner}</div>`;
     }
@@ -98,7 +100,7 @@ const Maze = (() => {
     if (!grid[ny] || grid[ny][nx] !== 0) return;
     const c = k(nx, ny);
     if (c === door && !opened) { tryDoor(); return; }
-    px = nx; py = ny; reveal(); Sfx.step();
+    trail = k(px, py); px = nx; py = ny; reveal(); Sfx.step();
     if (keys[c]) {
       holding.push(keys[c]); delete keys[c];
       Sfx.coin(); UI.toast(`🔑 ${holding[holding.length - 1].w} 열쇠를 주웠다!`);

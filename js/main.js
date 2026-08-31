@@ -19,10 +19,10 @@ const Game = {
   monsterFor(floor, boss, base) {
     if (boss) {
       const b = base || BOSSES[floor % BOSSES.length];
-      return { name: b.name, emoji: b.emoji, hp: (30 + floor * 12) * 4, atk: 10 + floor * 2 };
+      return { id: b.id, name: b.name, emoji: b.emoji, hp: (30 + floor * 12) * 4, atk: 10 + floor * 2 };
     }
     const m = base || pick(MONSTERS);
-    return { name: m.name, emoji: m.emoji, hp: 30 + floor * 12, atk: 8 + floor * 2 };
+    return { id: m.id, name: m.name, emoji: m.emoji, hp: 30 + floor * 12, atk: 8 + floor * 2 };
   },
 
   startFloor(towerId, n) {
@@ -102,7 +102,7 @@ const Game = {
       const lv = state.player.lv;
       const m = Object.assign({}, pick(MONSTERS));
       Battle.start({
-        monster: { name: `${kills + 1}번째 ${m.name}`, emoji: m.emoji, hp: 20 + lv * 8 + kills * 7, atk: Math.round(6 + lv * 1.5 + kills * 1.2) },
+        monster: { id: m.id, name: `${kills + 1}번째 ${m.name}`, emoji: m.emoji, hp: 20 + lv * 8 + kills * 7, atk: Math.round(6 + lv * 1.5 + kills * 1.2) },
         words, pool: words, towerId: 'arena', floor: lv, arena: true,
         onWin: () => { kills++; addGold(5); saveState(); spawn(); },
         onLose: () => end(),

@@ -120,9 +120,11 @@ const Avatar = (() => {
   function html(size, o = {}) {
     const av = o.av || state.player.avatar || defaults();
     if (o.headOnly) return `<span class="char mini">${svg(av, o)}</span>`;
-    const pet = o.pet !== undefined ? o.pet : (state.player.pet && PETS[state.player.pet] ? PETS[state.player.pet].emoji : '');
+    const petId = o.pet !== undefined ? o.pet : state.player.pet;
     const h = Math.round(size * 1.3);
-    return `<span class="char" style="width:${size}px;height:${h}px">${svg(av, o)}${pet ? `<span class="char-pet" style="font-size:${Math.round(size * .45)}px">${pet}</span>` : ''}</span>`;
+    const petHtml = petId && PETS[petId] && typeof Art !== 'undefined'
+      ? `<span class="char-pet" style="width:${Math.round(size * .5)}px;height:${Math.round(size * .5)}px">${Art.pet(petId)}</span>` : '';
+    return `<span class="char" style="width:${size}px;height:${h}px">${svg(av, o)}${petHtml}</span>`;
   }
 
   // 러너용: SVG를 이미지로 (로딩 전엔 ready=false)

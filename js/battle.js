@@ -11,7 +11,9 @@ const Battle = (() => {
     combo = 0; ultiUsed = false; lock = false; q = null;
     UI.show('battle');
     $('battle-title').textContent = o.boss ? '👑 보스전' : o.arena ? '🏟️ 투기장' : '⚔️ 배틀';
-    $('battle-monster').innerHTML = `<div class="mon-emoji ${o.boss ? 'boss' : ''}">${mon.emoji}</div><div class="mon-name">${esc(mon.name)}<span class="atk">ATK ${mon.atk}</span></div>`;
+    $('battle-monster').innerHTML =
+      `<div class="mon-art ${o.boss ? 'boss' : ''}" id="mon-art">${Art.monster(mon.id || 'slime', !!o.boss)}<span class="slash" id="mon-slash"></span></div>` +
+      `<div class="mon-name">${esc(mon.name)}<span class="atk">ATK ${mon.atk}</span></div>`;
     renderBars(); renderItems();
     setTimeout(next, 400);
   }
@@ -108,11 +110,21 @@ const Battle = (() => {
     mon.hp = Math.max(0, mon.hp - dmg);
     Sfx.hit();
     UI.floatText($('battle-monster'), label ? `${dmg} ${label}` : `${dmg}`, 'dmg-m' + (crit ? ' crit' : ''));
-    UI.shake($('battle-monster'));
+    const art = $('mon-art');
+    if (art) {
+      art.classList.remove('hurt'); void art.offsetWidth; art.classList.add('hurt');
+      const sl = $('mon-slash');
+      if (sl) { sl.classList.remove('go'); void sl.offsetWidth; sl.classList.add('go'); }
+    }
+    if (crit) UI.flash();
     renderBars(); saveState();
   }
   function check() {
-    if (mon.hp <= 0) { clearTimer(); Sfx.win(); setTimeout(() => o.onWin(), 700); }
+    if (mon.hp <= 0) {
+      clearTimer(); Sfx.win();
+      const art = $('mon-art'); if (art) art.classList.add('die');
+      setTimeout(() => o.onWin(), 950);
+    }
     else setTimeout(next, 800);
   }
 

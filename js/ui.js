@@ -77,5 +77,17 @@ const UI = (() => {
   }
 
   function charMini() { return state.player.avatar ? Avatar.html(0, { headOnly: true }) : charEmoji(); }
-  return { show, current, toast, modal, charEmoji, charHtml, charMini, hpBar, floatText, shake, levelUpModal };
+  // 미로 칸용: 무기까지 보이는 전신 (펫은 따로 따라다님)
+  function charWalk() {
+    if (!state.player.avatar) return charEmoji();
+    return `<span class="char walk">${Avatar.svg(state.player.avatar, { pet: '' })}</span>`;
+  }
+  // 크리티컬 등에서 화면 번쩍
+  function flash() {
+    const el = document.createElement('div');
+    el.className = 'screen-flash';
+    document.getElementById('modal-root').appendChild(el);
+    setTimeout(() => el.remove(), 300);
+  }
+  return { show, current, toast, modal, charEmoji, charHtml, charMini, charWalk, hpBar, floatText, shake, flash, levelUpModal };
 })();
