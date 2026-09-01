@@ -2,17 +2,22 @@
 // 배틀: 문제를 맞추면 공격, 빨리 맞추면 크리티컬, 틀리면 맞는다.
 const Battle = (() => {
   const B = BAL.battle;    // 수치는 전부 js/balance.js
-  const TIME_LIMIT = B.timeLimit, WARN_AT = B.warnAt, CRIT_UNDER = B.critUnder; // 초
+  const WARN_AT = B.warnAt, CRIT_UNDER = B.critUnder; // 초
   const CHARGE_NEED = B.chargeNeed;   // 이만큼 연속 정답이면 필살기 준비
-  let o, mon, q, qStart, combo, helped, charge, lock, timer, warnTimer;
+  // 제한시간은 판마다 다르다 (투기장은 오래 버틸수록 짧아진다)
+  let o, mon, q, qStart, combo, helped, charge, lock, timer, warnTimer, timeLimit;
   const $ = id => document.getElementById(id);
 
   function start(opts) {
     clearTimer();
     o = opts; mon = Object.assign({}, opts.monster, { maxHp: opts.monster.hp });
     combo = 0; charge = 0; lock = false; q = null;
+    timeLimit = Math.max(1, opts.timeLimit || B.timeLimit);
     UI.show('battle');
     $('battle-title').textContent = o.boss ? '👑 보스전' : o.arena ? '🏟️ 투기장' : '⚔️ 배틀';
+    // 언제든 그만두고 지금까지의 보상을 챙겨 나갈 수 있는 판에서만 뜬다
+    $('battle-left').innerHTML = o.onRetire ? '<button class="btn ghost small" id="battle-retire">🏳️ 여기까지</button>' : '';
+    const rb = $('battle-retire'); if (rb) rb.onclick = retire;
     $('battle-hero').innerHTML = state.player.avatar ? Avatar.html(52, { pet: '' }) : `<span style="font-size:44px">${UI.charEmoji()}</span>`;
     $('battle-monster').innerHTML =
       `<div class="mon-art ${o.boss ? 'boss' : ''}" id="mon-art">${Art.monster(mon.id || 'slime', !!o.boss)}<span class="slash" id="mon-slash"></span></div>` +
@@ -65,15 +70,29 @@ const Battle = (() => {
     if (mode === 'listen') setTimeout(() => speak(word.w), 300);
     const tb = $('battle-timer');
     tb.classList.remove('run', 'warn'); void tb.offsetWidth;
-    tb.style.setProperty('--t', TIME_LIMIT + 's');
+    tb.style.setProperty('--t', timeLimit + 's');
     tb.classList.add('run');
     qStart = performance.now();
     clearTimer();
-    warnTimer = setTimeout(() => tb.classList.add('warn'), (TIME_LIMIT - WARN_AT) * 1000);
-    timer = setTimeout(timeUp, TIME_LIMIT * 1000);
+    warnTimer = setTimeout(() => tb.classList.add('warn'), Math.max(300, (timeLimit - WARN_AT) * 1000));
+    timer = setTimeout(timeUp, timeLimit * 1000);
   }
 
   function clearTimer() { clearTimeout(timer); clearTimeout(warnTimer); timer = warnTimer = null; }
+
+  // 🏳️ 여기까지 — 죽을 때까지 기다리지 않고 나간다. 보상은 이미 받아 둔 상태다.
+  function retire() {
+    if (lock || !o.onRetire) return;
+    lock = true; clearTimer();
+    UI.modal(`
+      <div class="modal-title">🏳️ 여기까지 할까?</div>
+      <div class="modal-sub">지금까지 받은 골드와 경험치는 그대로예요.<br>기록도 남아요!</div>
+      <div class="actions">
+        <button class="btn" data-close="yes">나갈래</button>
+        <button class="btn ghost" data-close="no">더 할래</button>
+      </div>`,
+      { onClose: v => { if (v === 'yes') o.onRetire(); else { lock = false; next(); } } });
+  }
 
   // 시간 초과: 오답과 같은 처리 + 정답 보여주기
   function timeUp() {

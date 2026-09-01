@@ -220,23 +220,29 @@ const Game = {
         monster: {
           id: m.id, name: `${kills + 1}번째 ${m.name}`, emoji: m.emoji,
           hp: Math.round(baseAtk(lv) * (A.hp.base + kills * A.hp.perKill)),
-          atk: Math.max(A.minAtk, Math.round(playerMaxHp() * (A.atk.base + kills * A.atk.perKill))),
+          // 기본HP 기준 — 최대HP 기준이면 HP를 올려주는 보상이 스스로 상쇄된다 (타워와 동일)
+          atk: Math.max(A.minAtk, Math.round(hpAt(lv) * (A.atk.base + kills * A.atk.perKill))),
         },
         words, pool: words, towerId: 'arena', floor: lv, arena: true,
+        timeLimit: Math.max(A.time.min, A.time.base - kills * A.time.perKill),
         onWin: () => { kills++; addGold(BAL.gold.arenaKill); saveState(); spawn(); },
-        onLose: () => end(),
+        onLose: () => end(false),
+        onRetire: () => end(true),
       });
     };
-    const end = () => {
-      Sfx.down();
+    // retired = 스스로 그만둠. 어느 쪽이든 기록과 보상은 남는다.
+    const end = (retired) => {
       const best = Math.max(state.player.arenaBest, kills), isNew = kills > state.player.arenaBest;
       state.player.arenaBest = best; state.player.hp = playerMaxHp(); saveState();
+      if (isNew && kills > 0) { Sfx.fanfare(); UI.confetti({ count: 90 }); }
+      else if (retired) Sfx.win(); else Sfx.down();
       UI.modal(`
-        <div class="modal-title">🏟️ 투기장 결과</div>
+        <div class="modal-title">${retired ? '🏳️ 여기까지!' : '🏟️ 투기장 결과'}</div>
         <div class="reward-row">${kills}마리 격파!</div>
-        <div class="modal-sub">${isNew ? '🎊 최고 기록 갱신!' : `최고 기록: ${best}마리`}<br>레벨을 올리면 더 많이 잡을 수 있어요</div>
+        <div class="modal-sub">${isNew && kills > 0 ? '🎊 최고 기록 갱신!' : `최고 기록: ${best}마리`}<br>
+          ${retired ? '받은 골드와 경험치는 그대로예요' : '레벨을 올리면 더 많이 잡을 수 있어요'}</div>
         <div class="actions"><button class="btn" data-close="ok">로비로</button></div>
-      `, { onClose: () => this.flushLevelUps(() => this.toLobby()) });
+      `, { cls: isNew && kills > 0 ? 'celebrate' : '', onClose: () => this.flushLevelUps(() => this.toLobby()) });
     };
     spawn();
   },

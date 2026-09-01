@@ -54,14 +54,15 @@ load('js/state.js', `\n;globalThis.S = {
 load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak };`);
 load('js/avatar.js', '\n;globalThis.AV = { AURAS, OUTFITS };');
 // cards.js는 UI/Sfx를 호출 시점에만 쓰므로 정의만으로는 안전하다
-sandbox.UI = { toast() {}, modal() { return { body: {}, close() {} }; }, confetti() {} };
+sandbox.UI = { toast() {}, modal(h, o) { sandbox.lastModal = { h, o }; return { body: {}, close() {} }; },
+  confetti() {}, show() {}, levelUpModal(u, cb) { cb && cb(); }, current: () => '' };
 sandbox.Sfx = new Proxy({}, { get: () => () => {} });
 load('js/cards.js', '\n;globalThis.C = Cards;');
 // 화면 모듈은 DOM을 쓰지만, 정의만으로는 안전하다 (start를 안 부르면 됨)
 sandbox.Maze = { start() {}, init() {} };
 sandbox.Vault = { start() {}, init() {} };
 sandbox.Runner = { start() {}, init() {}, stop() {} };
-sandbox.Battle = { start() {}, init() {} };
+sandbox.Battle = { start(o) { sandbox.lastBattle = o; }, init() {} };
 sandbox.Preview = { maybeShow(r, cb) { cb(); } };
 sandbox.Lobby = { render() {}, init() {} };
 sandbox.Art = { monster: () => '', pet: () => '', tower: () => '' };
@@ -351,6 +352,53 @@ G.floorClear = realClear;
 eq('일반 층은 스테이지 2개', plan.length, 2);
 eq('뽑은 스테이지를 순서대로 전부 지난다', visited.join(','), plan.join(','));
 eq('마지막 스테이지가 끝나면 층 클리어로 간다', cleared, 1);
+
+// ===================================================================
+section('투기장');
+// "그만두고 싶은데 죽으려니 한참 걸린다"가 문제였다.
+// 오래 버틸수록 조여들고, 언제든 보상을 챙겨 나올 수 있어야 한다.
+// ===================================================================
+{
+  const A = BAL.arena;
+  const t = k => Math.max(A.time.min, A.time.base - k * A.time.perKill);
+  const atk = k => A.atk.base + k * A.atk.perKill;
+
+  ok('투기장 제한시간이 일반 배틀보다 짧다', A.time.base < BAL.battle.timeLimit,
+    A.time.base + '초 vs ' + BAL.battle.timeLimit + '초');
+  ok('오래 버틸수록 제한시간이 줄어든다', t(20) < t(0), t(0) + '초 → ' + t(20) + '초');
+  eq('제한시간에 하한이 있다 (무한정 짧아지지 않는다)', t(9999), A.time.min);
+  ok('하한도 경고 시간보다는 길다 (경고가 문제 전체를 덮지 않게)',
+    A.time.min > BAL.battle.warnAt, A.time.min + '초 > 경고 ' + BAL.battle.warnAt + '초');
+  ok('오래 버틸수록 몬스터가 세진다', atk(20) > atk(0));
+
+  // 몇 번 맞으면 죽나: 처음엔 여유, 뒤로 갈수록 조임
+  S.loadState(); S.state.player.lv = 12;
+  const hits = k => Math.ceil(S.playerMaxHp() / Math.max(A.minAtk, Math.round(S.hpAt(12) * atk(k))));
+  ok('처음 몇 마리는 여유가 있다 (8~15번)', hits(0) >= 8 && hits(0) <= 15, hits(0) + '번');
+  ok('20마리쯤에서는 조여든다 (4번 이하)', hits(20) <= 4, hits(20) + '번');
+
+  // 투기장 판이 실제로 시간·포기 버튼을 넘겨주는가
+  sandbox.window.TOWERS.forEach(tw => W.allWords(tw).slice(0, 3).forEach(w => { S.wordStat(tw.id, w.w).seen = 1; }));
+  sandbox.lastBattle = null;
+  G.startArena();
+  const b = sandbox.lastBattle;
+  ok('투기장이 시작된다', !!b);
+  ok('투기장 판에 제한시간이 실려 있다', b && b.timeLimit === t(0), b && String(b.timeLimit));
+  ok('투기장 판에 포기 콜백이 있다', b && typeof b.onRetire === 'function');
+  ok('일반 층 배틀에는 포기가 없다 (도중에 나가면 안 되니까)',
+    (() => { sandbox.lastBattle = null; G.startFloor('main', 5); return !sandbox.lastBattle.onRetire; })());
+
+  // 포기해도 기록이 남아야 한다
+  S.loadState(); S.state.player.arenaBest = 0;
+  sandbox.window.TOWERS.forEach(tw => W.allWords(tw).slice(0, 3).forEach(w => { S.wordStat(tw.id, w.w).seen = 1; }));
+  G.startArena();
+  sandbox.lastBattle.onWin(); sandbox.lastBattle.onWin();   // 2마리 잡고
+  sandbox.lastBattle.onRetire();                            // 그만두기
+  eq('포기해도 잡은 수가 기록에 남는다', S.state.player.arenaBest, 2);
+  ok('포기 결과창이 "여기까지"로 뜬다', /여기까지/.test(sandbox.lastModal.h));
+  eq('나가면 HP가 회복된다', S.state.player.hp, S.playerMaxHp());
+}
+S.loadState();
 
 // ===================================================================
 section('오라 마일스톤');
