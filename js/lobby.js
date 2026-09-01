@@ -36,7 +36,7 @@ const Lobby = (() => {
     const goals = Cards.auraGoals(), nx = goals.find(g => !g.owned);
     if (!nx) return '<div class="aura-tease done">✨ 오라를 전부 모았어요!</div>';
     const left = Math.max(0, nx.need.cards - nx.cards);
-    const what = left ? `카드 ${left}장` : `티어 ${nx.need.tier}+ 타워 정복`;
+    const what = left ? `카드 ${left}장` : `난이도 ${tierFire(nx.need.tier)} 이상 타워 정복`;
     return `<div class="aura-tease">${AURAS[nx.id].emoji} <b>${AURAS[nx.id].name}</b>까지 ${what}</div>`;
   }
 
@@ -46,7 +46,7 @@ const Lobby = (() => {
     const rg = towerRange(t), lv = state.player.lv;
     const cardsHave = words.filter(w => Cards.has(t.id, w.w)).length;
     const pendHave = Cards.pendingFor(t.id).length;
-    const lvTag = `권장 Lv.${rg[0]}~${rg[1]} · ` +
+    const lvTag = `난이도 ${tierFire(towerTier(t))} · 권장 Lv.${rg[0]}~${rg[1]} · ` +
       (lv < rg[0] ? '<b class="warn">⚠️ 아직 어려워요</b>' : lv > rg[1] ? '<b class="easy">😎 여유로워요</b>' : '<b class="fit">👍 딱 맞아요</b>');
     const stars = words.reduce((a, w) => a + wordStat(t.id, w.w).stars, 0);
     const pct = Math.round(prog.cleared / total * 100);
@@ -232,7 +232,7 @@ const Lobby = (() => {
     return ['none', ...goals.map(g => g.id)].map(id => {
       if (owned(id)) return `<button class="opt-btn ${sel === id ? 'sel' : ''}" data-aura="${id}">${AURAS[id].emoji} ${AURAS[id].name}</button>`;
       const g = goals.find(x => x.id === id);
-      const cond = g.cardsOk && !g.tierOk ? `티어 ${g.need.tier}+ 정복` : `🃏 ${g.need.cards}장`;
+      const cond = g.cardsOk && !g.tierOk ? `난이도 ${tierFire(g.need.tier)} 정복` : `🃏 ${g.need.cards}장`;
       return `<button class="opt-btn locked" data-aurapv="${id}">🔒 ${AURAS[id].emoji} ${cond}</button>`;
     }).join('');
   }
@@ -244,7 +244,7 @@ const Lobby = (() => {
     const left = Math.max(0, nx.need.cards - nx.cards);
     return `<div class="toggle-desc">✨ ${got} / ${goals.length} · 다음 <b>${AURAS[nx.id].emoji} ${AURAS[nx.id].name}</b>까지 ` +
       (left ? `카드 <b>${left}장</b>` : '') +
-      (!nx.tierOk ? `${left ? ' + ' : ''}티어 <b>${nx.need.tier} 이상</b> 타워 정복` : '') + '</div>';
+      (!nx.tierOk ? `${left ? ' + ' : ''}난이도 <b>${tierFire(nx.need.tier)} 이상</b> 타워 정복` : '') + '</div>';
   }
 
   function charCreator(force) {

@@ -196,6 +196,10 @@ function clearPct(type) {
 // 몬스터는 clamp(내 레벨, 구간)으로 만들어지므로,
 // 구간을 훌쩍 넘긴 레벨로 저렙 타워에 가면 그 차이가 그대로 초과 화력이 된다.
 function towerTier(tower) { return (tower && tower.tier) || BAL.monster.defaultTier; }
+// "티어 1.5"는 아이가 알아볼 수 없다. 화면에는 항상 이 표시를 쓴다.
+//   1.0 → 🔥 · 1.5 → 🔥🔥 · 2.0 → 🔥🔥🔥
+// 오라 해금 조건(AURAS[].need.tier)도 같은 표시로 보여줘야 어느 타워를 깨야 할지 알 수 있다.
+function tierFire(tier) { return '🔥'.repeat(Math.max(1, Math.round((tier || 1) * 2) - 1)); }
 function towerRange(tower) { return (tower && tower.lvRange) || BAL.monster.defaultRange; }
 function refLv(tower) {
   const r = towerRange(tower);

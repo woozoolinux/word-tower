@@ -178,8 +178,8 @@ const Cards = (() => {
     const owned = hasAura(id);
     const g = auraGoals().find(x => x.id === id);
     const cond = g
-      ? `🃏 카드 ${g.need.cards}장${g.need.tier ? ` + 티어 ${g.need.tier} 이상 타워 정복` : ''}<br>
-         <span class="dim">지금 ${g.cards}장${g.need.tier ? (g.tierOk ? ' · 티어 조건 달성' : ` · 티어 ${g.need.tier} 이상 타워를 아직 못 깼어요`) : ''}</span>`
+      ? `🃏 카드 ${g.need.cards}장${g.need.tier ? ` + 난이도 ${tierFire(g.need.tier)} 이상 타워 정복` : ''}<br>
+         <span class="dim">지금 ${g.cards}장${g.need.tier ? (g.tierOk ? ' · 난이도 조건 달성' : ` · ${tierList(g.need.tier)}`) : ''}</span>`
       : '';
     UI.modal(`
       <div class="modal-title">${AURAS[id].emoji} ${AURAS[id].name}</div>
@@ -210,7 +210,7 @@ const Cards = (() => {
     const chips = goals.map(g => {
       const A = AURAS[g.id];
       const label = g.owned ? '획득!'
-        : g.cardsOk && !g.tierOk ? `티어 ${g.need.tier}+ 정복`
+        : g.cardsOk && !g.tierOk ? `${tierFire(g.need.tier)} 정복`
           : `🃏 ${g.need.cards}`;
       return `<button class="aura-chip ${g.owned ? 'got' : ''}" data-aurapv="${g.id}">
         <span class="ae">${A.emoji}</span><span class="an">${esc(A.name)}</span><span class="ac">${label}</span></button>`;
@@ -272,6 +272,11 @@ const Cards = (() => {
     });
     return best;
   }
+  // 이 난이도 조건을 채워 줄 수 있는 타워가 어느 것인지 이름으로 알려준다
+  function tierList(minTier) {
+    const ts = window.TOWERS.filter(t => towerTier(t) >= minTier).map(t => t.name);
+    return ts.length ? `${ts.join(' 또는 ')}를 꼭대기까지 깨면 돼요` : '아직 그만한 난이도의 타워가 없어요';
+  }
   // 오라 10종의 조건과 진행도. 도감에서도 이걸 그대로 보여준다.
   function auraGoals() {
     const cards = count(), tier = clearedTier();
@@ -324,7 +329,7 @@ const Cards = (() => {
         const q = AURAS[r.aura].need;
         UI.modal(`
           <div class="modal-title">✨ 오라 해금!</div>
-          <div class="modal-sub">카드 ${q.cards}장을 모았어요${q.tier ? ` · 티어 ${q.tier} 이상 타워도 정복했고요` : ''}</div>
+          <div class="modal-sub">카드 ${q.cards}장을 모았어요${q.tier ? ` · 난이도 ${tierFire(q.tier)} 이상 타워도 정복했고요` : ''}</div>
           <div class="creator-preview">${Avatar.html(120, { aura: r.aura, pet: '', weapon: false })}</div>
           <div class="unlock"><span class="big">${AURAS[r.aura].emoji}</span><div><div>새 오라: <b>${AURAS[r.aura].name}</b></div>
             <div class="toggle-desc">골드로는 살 수 없어요! 🎨 꾸미기에서 바꿀 수 있어요</div></div></div>
@@ -348,5 +353,5 @@ const Cards = (() => {
     })();
   }
 
-  return { RARITY, rarityOf, key, has, isPending, buildTest, spellTest, grantDirect, auraGoals, clearedTier, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
+  return { RARITY, rarityOf, key, has, isPending, buildTest, spellTest, grantDirect, auraGoals, clearedTier, tierList, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
 })();

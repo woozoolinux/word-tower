@@ -48,7 +48,7 @@ fs.readdirSync(path.join(ROOT, 'data')).filter(f => f.endsWith('.js')).sort()
 load('js/state.js', `\n;globalThis.S = {
   loadState, saveState, resetState, importCode, exportCode, backupInfo, restoreBackup,
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
-  refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION,
+  refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire,
   get state() { return state; }, set state(v) { state = v; },
 };`);
 load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview };`);
@@ -256,6 +256,23 @@ ok('지금 콘텐츠로 열 수 있는 오라가 있다', reachable > 0, `${reac
 ok('한 번에 다 주지는 않는다 (다음 타워의 목표가 남는다)', reachable < total, `${reachable} / ${total}종`);
 ok('열리는 오라가 단원 수보다 훨씬 적다 (남발 방지)',
   reachable * 2 <= unitTotal, `오라 ${reachable}종 · 단원 ${unitTotal}개`);
+
+// 난이도 표시(🔥)는 티어를 아이가 읽을 수 있게 바꾼 것이다.
+// 오라 조건과 타워 카드가 같은 표시를 써야 "어느 타워를 깨야 하는지" 알 수 있다.
+eq('티어 1.0 → 🔥', S.tierFire(1), '🔥');
+eq('티어 1.5 → 🔥🔥', S.tierFire(1.5), '🔥🔥');
+eq('티어 2.0 → 🔥🔥🔥', S.tierFire(2), '🔥🔥🔥');
+let notUp = null;
+for (let t = 1; t < 4; t += 0.5) if (S.tierFire(t + 0.5).length < S.tierFire(t).length) notUp = 'tier ' + t;
+ok('티어가 높을수록 🔥이 늘어난다', !notUp, notUp);
+
+// 난이도 조건이 어떤 타워로도 못 채우면 영영 못 여는 오라가 된다
+const tierNeeds = [...new Set(C.auraGoals().filter(g => g.need.tier).map(g => g.need.tier))];
+const dead = tierNeeds.filter(t => !sandbox.window.TOWERS.some(x => (x.tier || 1) >= t));
+ok('난이도 조건을 채워 줄 타워가 전부 존재한다', !dead.length,
+  dead.map(t => S.tierFire(t) + ' (tier ' + t + ')').join(', '));
+tierNeeds.forEach(t => ok(`난이도 ${S.tierFire(t)} 조건이 어느 타워를 뜻하는지 안내된다`,
+  /꼭대기까지/.test(C.tierList(t))));
 
 // 카드가 늘어난다고 열린 오라가 줄어들면 안 된다
 let prevN = -1, notMono = null;
