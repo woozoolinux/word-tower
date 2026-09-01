@@ -19,7 +19,7 @@ window.TOWERS.push({
   desc: '숲 · 단어 96개 · 4단원',
   emoji: '🐺',
   roof: '#4d5663',
-  tier: 1.48,                  // 늑대(DS-C) 반 3권 — 곰 탑 1(1.5) 바로 아래
+  tier: 1.40,                  // 늑대(DS-C) 반 3권
   lvRange: [6, 22],
   clearBonus: { type: 'hp', pct: 0.14, title: '숲의 그림자' },
   units: [

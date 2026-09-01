@@ -11,7 +11,7 @@ window.TOWERS.push({
   desc: '숲 · 단어 96개 · 4단원',
   emoji: '🐺',
   roof: '#3f4855',
-  tier: 1.49,                  // 늑대(DS-C) 반 4권 — 곰 탑 1(1.5) 바로 아래
+  tier: 1.42,                  // 늑대(DS-C) 반 4권
   lvRange: [7, 23],
   clearBonus: { type: 'atk', pct: 0.14, title: '늑대의 송곳니' },
   units: [
@@ -33,7 +33,7 @@ window.TOWERS.push({
       { w: 'move around', m: '돌아다니다', pos: 'phr', past: 'moved around' },
       { w: 'hide', m: '숨다', pos: 'v', past: 'hid' },
       { w: 'scared', m: '겁먹은', pos: 'adj' },
-      { w: 'take away', m: '치우다', pos: 'phr', past: 'took away' },
+      { w: 'take away', m: '제거하다', pos: 'phr', past: 'took away' },
       { w: 'float', m: '둥둥 뜨다', pos: 'v', past: 'floated' },
       { w: 'ride', m: '~를 타다', pos: 'v', past: 'rode' },
       { w: 'swing', m: '휘두르다', pos: 'v', past: 'swung' },

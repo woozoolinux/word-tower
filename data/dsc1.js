@@ -8,7 +8,8 @@ window.TOWERS.push({
   desc: '숲 · 단어 96개 · 4단원',
   emoji: '🐺',
   roof: '#6f7a8a',
-  tier: 1.4,                   // 늑대(DS-C) 반 1권 — 곰 탑보다 한 단계 아래
+  // DS-C(늑대)는 권이 많아 1.36부터 0.02씩. 곰 탑 1(1.5) 아래에 8권까지 들어간다.
+  tier: 1.36,                  // 늑대(DS-C) 반 1권
   lvRange: [4, 20],
   clearBonus: { type: 'hp', pct: 0.12, title: '숲의 추적자' },
   units: [

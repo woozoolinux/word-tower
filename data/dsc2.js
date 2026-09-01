@@ -14,7 +14,7 @@ window.TOWERS.push({
   desc: '숲 · 단어 95개 · 4단원',
   emoji: '🐺',
   roof: '#5c6675',
-  tier: 1.45,                  // 늑대(DS-C) 반 2권 — 등급은 같고 권수만큼만 미세하게
+  tier: 1.38,                  // 늑대(DS-C) 반 2권
   lvRange: [5, 21],
   clearBonus: { type: 'atk', pct: 0.12, title: '숲의 사냥꾼' },
   units: [
