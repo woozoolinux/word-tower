@@ -240,6 +240,65 @@ const allW = sandbox.window.TOWERS.flatMap(t => W.allWords(t).map(w => `${t.id}:
 eq('타워 안에서 단어 키가 겹치지 않는다', new Set(allW).size, allW.length);
 
 // ===================================================================
+section('성장 곡선 — 게임 전체가 말이 되는가');
+// 개별 수치가 아니라 "다 합쳤을 때 놀 만한가"를 본다.
+// 이 셋은 각각 실제로 게임을 망가뜨린 적이 있는 항목이다.
+// ===================================================================
+{
+  const towers = sandbox.window.TOWERS.slice().sort((a, b) => (a.tier || 1) - (b.tier || 1));
+  const allPt = towers.reduce((a, t) => a + W.allWords(t).reduce((x, w) => x + C.RARITY[C.rarityOf(w)].pt, 0), 0);
+
+  // ① 필살기가 보스를 한 방에 지우면 배틀이 사라진다.
+  //    카드를 다 모을수록 게임이 없어지면 안 된다 (공부한 보상이 게임을 파괴).
+  const ultMul = Math.min(BAL.battle.ultMax, BAL.battle.ultBase + allPt * BAL.battle.ultPerCardPt);
+  let oneShot = null, tooWeak = null;
+  towers.forEach(t => {
+    const r = S.towerRange(t), F = W.floorList(t).length;
+    S.state.player.lv = r[1]; S.state.player.weapon = 'dragon';
+    const ult = S.playerAtk() * ultMul;
+    if (ult >= S.monsterHp(F, true, t)) oneShot = t.name;
+    if (ult < S.monsterHp(F, false, t)) tooWeak = t.name;   // 일반 몬스터는 한 방이어야 통쾌하다
+  });
+  ok('카드를 다 모아도 필살기가 보스를 한 방에 지우지 못한다', !oneShot, oneShot);
+  ok('필살기가 일반 몬스터는 한 방에 지운다 (통쾌함)', !tooWeak, tooWeak);
+  ok('카드가 아무리 늘어도 필살기에 상한이 있다',
+    BAL.battle.ultBase + 99999 * BAL.battle.ultPerCardPt > BAL.battle.ultMax);
+
+  // ② 콘텐츠를 다 깨도 권장 레벨에 못 닿으면 뒤쪽 타워가 벽이 된다.
+  const bf = sandbox.byFloorX;
+  let totalExp = 0;
+  towers.forEach(t => W.floorList(t).forEach((pl, i) => {
+    const f = i + 1, tier = S.towerTier(t);
+    totalExp += pl.type === 'boss'
+      ? Math.round(bf(BAL.exp.bossClear, f) * tier) + Math.round(bf(BAL.exp.battleCorrect, f)) * 14
+      : Math.round(bf(BAL.exp.battleCorrect, f)) * 10 + Math.round(bf(BAL.exp.mazeDoor, f))
+        + Math.round(bf(BAL.exp.runnerMission, f)) * BAL.runner.missions
+        + Math.round(bf(BAL.exp.floorClear, f) * tier);
+  }));
+  let lv = 1, acc = 0;
+  while (acc + S.expToNext(lv) <= totalExp) { acc += S.expToNext(lv); lv++; }
+  const topRange = Math.max(...towers.map(t => S.towerRange(t)[1]));
+  ok('콘텐츠를 한 번씩 깨면 가장 높은 권장 레벨 근처까지 간다',
+    lv >= topRange - 3, `Lv${lv} · 최고 권장 Lv${topRange}`);
+  ok('그렇다고 전부 훌쩍 넘기지도 않는다 (남는 목표가 있다)', lv <= topRange + 6, `Lv${lv}`);
+
+  // ③ 몇 번 틀리면 죽는가. 너무 많으면 긴장이 없고, 너무 적으면 좌절한다.
+  let loose = null, harsh = null;
+  towers.forEach(t => {
+    const r = S.towerRange(t), F = W.floorList(t).length;
+    [[1, r[0]], [F, r[0]]].forEach(([f, atLv]) => {
+      S.state.player.lv = atLv;
+      const hits = Math.ceil(S.playerMaxHp() / S.monsterAtk(f, false, t));
+      if (hits > 12) loose = `${t.name} ${f}층 ${hits}번`;
+      if (hits < 3) harsh = `${t.name} ${f}층 ${hits}번`;
+    });
+  });
+  ok('몬스터에게 12번 넘게 맞아도 안 죽는 층은 없다 (긴장감)', !loose, loose);
+  ok('3번 만에 죽는 층도 없다 (좌절 방지)', !harsh, harsh);
+}
+S.loadState();
+
+// ===================================================================
 section('층 스테이지 조합');
 // 매 층이 같은 순서면 45층을 버티기 어렵다. 층마다 조합이 달라져야 한다.
 // ===================================================================
@@ -338,13 +397,22 @@ let notUp = null;
 for (let t = 1; t < 4; t += 0.5) if (S.tierFire(t + 0.5).length < S.tierFire(t).length) notUp = 'tier ' + t;
 ok('티어가 높을수록 🔥이 늘어난다', !notUp, notUp);
 
-// 난이도 조건이 어떤 타워로도 못 채우면 영영 못 여는 오라가 된다
-const tierNeeds = [...new Set(C.auraGoals().filter(g => g.need.tier).map(g => g.need.tier))];
-const dead = tierNeeds.filter(t => !sandbox.window.TOWERS.some(x => (x.tier || 1) >= t));
-ok('난이도 조건을 채워 줄 타워가 전부 존재한다', !dead.length,
-  dead.map(t => S.tierFire(t) + ' (tier ' + t + ')').join(', '));
-tierNeeds.forEach(t => ok(`난이도 ${S.tierFire(t)} 조건이 어느 타워를 뜻하는지 안내된다`,
-  /꼭대기까지/.test(C.tierList(t))));
+// 난이도 조건은 (a) 지금 깰 수 있거나 (b) 다음 타워를 만들 이유이거나 둘 중 하나다.
+// 어느 쪽이든 "어느 타워를 깨야 하는지" 또는 "아직 그런 타워가 없다"를 말해줘야 한다.
+const tierNeeds = [...new Set(C.auraGoals().filter(g => g.need.tier).map(g => g.need.tier))].sort((a, b) => a - b);
+
+const nowOk = tierNeeds.filter(t => t <= maxTier);
+ok('지금 타워로 채울 수 있는 난이도 조건이 있다', nowOk.length > 0,
+  tierNeeds.map(t => S.tierFire(t) + '(' + t + ')').join(' · '));
+const tierGoals = C.auraGoals().filter(g => g.need.tier);
+ok('난이도 조건이 붙은 오라의 절반 이상은 지금 열 수 있다',
+  tierGoals.filter(g => g.need.tier <= maxTier).length * 2 >= tierGoals.length,
+  tierGoals.filter(g => g.need.tier <= maxTier).length + ' / ' + tierGoals.length + '종');
+tierNeeds.forEach(t => {
+  const msg = C.tierList(t);
+  ok(`난이도 ${S.tierFire(t)}(tier ${t}) 조건을 안내한다`,
+    t <= maxTier ? /꼭대기까지/.test(msg) : /아직/.test(msg), msg);
+});
 
 // 카드가 늘어난다고 열린 오라가 줄어들면 안 된다
 let prevN = -1, notMono = null;

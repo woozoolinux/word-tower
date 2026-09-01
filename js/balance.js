@@ -22,7 +22,10 @@ const BAL = {
   player: {
     hpBase: 100, hpPerLv: 12,      // 기본 HP = hpBase + (Lv−1) × hpPerLv
     atkBase: 10, atkPerLv: 3,      // 기본 공격력 = atkBase + Lv × atkPerLv (무기 제외)
-    expBase: 40, expPow: 1.4, expFlat: 20,  // 다음 레벨까지 = ⌊expBase × Lv^expPow⌋ + expFlat
+    // 다음 레벨까지 = ⌊expBase × Lv^expPow⌋ + expFlat
+    // 곡선이 가파르면 고레벨에서 같은 층을 수십 번 반복해야 한다.
+    // 기준: 지금 콘텐츠(55층)를 한 번씩 깨면 Lv25, 타워가 11개까지 늘면 Lv52.
+    expBase: 22, expPow: 1.15, expFlat: 15,
   },
 
   // ---------- 몬스터 ----------
@@ -35,7 +38,9 @@ const BAL = {
     defaultTier: 1,                // 타워에 tier가 없을 때
     hp:     { base: 3.5, perFloor: 0.2 },   // × 기준레벨 공격력 × 티어
     bossHp: { base: 10,  perFloor: 0.5 },
-    atk:    { base: 0.06, perFloor: 0.004 },// × 기본HP(내Lv) × 티어
+    // × 기본HP(내Lv) × 티어. 몇 번 틀리면 죽는지가 이 숫자로 정해진다.
+    // 0.06일 땐 바벨 1층에서 17번을 틀려야 죽어서 긴장감이 없었다 → 10번으로.
+    atk:    { base: 0.09, perFloor: 0.005 },
     bossAtkMul: 1.25,
     minAtk: 3,
   },
@@ -43,7 +48,7 @@ const BAL = {
   // ---------- 실수 벌칙 ----------
   // 기본HP(내Lv) 대비 비율 × 타워 티어.
   // 최대HP가 아니라 기본HP 기준인 이유: 최대HP를 올려주는 보상이 스스로 상쇄되면 안 된다.
-  hazard: { mazeWrongKey: 0.05, runnerBump: 0.06, vaultWrongCard: 0.05, min: 2 },
+  hazard: { mazeWrongKey: 0.07, runnerBump: 0.08, vaultWrongCard: 0.07, min: 2 },
 
   // ---------- 배틀 ----------
   battle: {
@@ -53,9 +58,13 @@ const BAL = {
     critMul: 1.5,
     doubleMul: 0.5,       // 더블 어택(Lv3)의 추가 타격 배율
     chargeNeed: 3,        // 연속 정답 몇 번이면 필살기 준비
-    ultBase: 2,           // 필살기 위력 = 공격력 × (ultBase + 카드포인트 × ultPerCardPt)
-    ultPerCardPt: 1 / 25, //   → 카드 0장이면 2배, 172pt 전부 모으면 8.9배
-    ultSkillMul: 1.5,     // Lv20 '필살 강화'
+    // 필살기 위력 = 공격력 × min(ultMax, ultBase + 카드포인트 × ultPerCardPt) × (필살강화)
+    // 1/25이던 시절엔 카드를 다 모으면 20.6배라 최종 보스까지 한 방에 지워졌다.
+    // 공부를 열심히 할수록 게임이 사라지는 구조여서, 완만하게 + 상한을 뒀다.
+    ultBase: 2,
+    ultPerCardPt: 1 / 120,//   0장 2.0배 · 절반 3.9배 · 지금 콘텐츠 전부 5.9배
+    ultMax: 6,            //   타워가 계속 늘어도 여기서 멈춘다
+    ultSkillMul: 1.5,     // Lv20 '필살 강화' (상한 적용 후에 곱한다)
   },
 
   // ---------- 층 구성 ----------

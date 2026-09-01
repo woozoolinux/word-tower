@@ -15,8 +15,8 @@ window.TOWERS.push({
   desc: '숲의 왕 · 단어 47개 · 4단원',
   emoji: '🐻',
   roof: '#55402c',
-  tier: 2.5,
-  lvRange: [25, 48],
+  tier: 1.6,                   // 곰(DS-D) 반 3권
+  lvRange: [7, 26],
   clearBonus: { type: 'hp', pct: 0.25, title: '숲의 지배자' },
   units: [
     { unit: 1, words: [

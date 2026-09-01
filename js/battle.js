@@ -35,7 +35,9 @@ const Battle = (() => {
       (shieldReady() ? '<span class="shield-badge">🛡️ 실드 준비됨</span>' : '');
   }
   function ultDamage() {
-    return Math.round(playerAtk() * (B.ultBase + Cards.points() * B.ultPerCardPt) * (hasSkill('ulti') ? B.ultSkillMul : 1));
+    // 카드가 아무리 많아도 ultMax에서 멈춘다 (보스를 한 방에 지우지 않게)
+    const byCards = Math.min(B.ultMax, B.ultBase + Cards.points() * B.ultPerCardPt);
+    return Math.round(playerAtk() * byCards * (hasSkill('ulti') ? B.ultSkillMul : 1));
   }
   function heroAttack(cls) {
     const h = $('battle-hero');

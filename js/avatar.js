@@ -21,7 +21,8 @@ const OUTFITS = {
 // 왜 타워별 배정이 아닌가: 단원마다 하나씩 주면 타워를 추가할 때마다 오라를 그만큼
 // 새로 그려야 하고, 재사용하면 "새 오라!"라며 이미 가진 걸 주게 된다.
 // 전체 진행도에 걸어 두면 스테이지를 아무리 늘려도 이 목록을 안 건드려도 된다.
-// 대신 드물게 나온다 — 지금 콘텐츠(192장)로 7종까지, 나머지 3종은 다음 타워의 목표다.
+// 대신 드물게 나온다 — 지금 콘텐츠(239장)로 8종까지, 나머지 2종은 다음 타워의 목표다.
+// tier 조건은 동물 표의 실제 등급을 가리켜야 한다 (곰 1.5 · 독수리 1.7 · 사자 2.1 …).
 const AURAS = {
   none:    { name: '없음',        emoji: '⬜' },
   sparkle: { name: '반짝이 오라', emoji: '✨', need: { cards: 15 } },
@@ -30,10 +31,10 @@ const AURAS = {
   fairy:   { name: '요정 날개',   emoji: '🦋', need: { cards: 90 } },
   flame:   { name: '불꽃 오라',   emoji: '🔥', need: { cards: 120, tier: 1.5 } },
   thunder: { name: '번개 오라',   emoji: '⚡', need: { cards: 150, tier: 1.5 } },
-  angel:   { name: '천사 날개',   emoji: '🪽', need: { cards: 180, tier: 2 } },
-  rainbow: { name: '무지개 오라', emoji: '🌈', need: { cards: 210, tier: 2 } },
-  moon:    { name: '달빛 오라',   emoji: '🌙', need: { cards: 250, tier: 2 } },
-  dragon:  { name: '용의 오라',   emoji: '🐉', need: { cards: 300, tier: 2 } },
+  angel:   { name: '천사 날개',   emoji: '🪽', need: { cards: 180, tier: 1.5 } },
+  rainbow: { name: '무지개 오라', emoji: '🌈', need: { cards: 210, tier: 1.5 } },
+  moon:    { name: '달빛 오라',   emoji: '🌙', need: { cards: 250, tier: 1.7 } },  // 독수리 이상
+  dragon:  { name: '용의 오라',   emoji: '🐉', need: { cards: 300, tier: 2.1 } },  // 사자 이상
 };
 
 const Aura = (() => {
