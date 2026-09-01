@@ -175,10 +175,15 @@ const Cards = (() => {
   }
   // 잠긴 오라도 미리 보여준다 — 목표가 눈에 보여야 모으고 싶어진다
   function previewAura(id) {
-    const owned = state.player.owned.auras.indexOf(id) >= 0;
+    const owned = hasAura(id);
+    const g = auraGoals().find(x => x.id === id);
+    const cond = g
+      ? `🃏 카드 ${g.need.cards}장${g.need.tier ? ` + 티어 ${g.need.tier} 이상 타워 정복` : ''}<br>
+         <span class="dim">지금 ${g.cards}장${g.need.tier ? (g.tierOk ? ' · 티어 조건 달성' : ` · 티어 ${g.need.tier} 이상 타워를 아직 못 깼어요`) : ''}</span>`
+      : '';
     UI.modal(`
       <div class="modal-title">${AURAS[id].emoji} ${AURAS[id].name}</div>
-      <div class="modal-sub">${owned ? '이미 가지고 있어요! 🎨 꾸미기에서 바꿀 수 있어요' : '이 단원의 단어 카드를 전부 모으면 열려요'}</div>
+      <div class="modal-sub">${owned ? '이미 가지고 있어요! 🎨 꾸미기에서 바꿀 수 있어요' : cond}</div>
       <div class="creator-preview">${Avatar.html(150, { aura: id, pet: '', weapon: false })}</div>
       <div class="actions">
         ${owned ? '<button class="btn" data-close="wear">지금 착용</button>' : ''}
@@ -199,6 +204,23 @@ const Cards = (() => {
     </div>`;
   }
 
+  // 오라 10종의 목표를 한눈에. 목표가 눈에 보여야 모으고 싶어진다.
+  function auraStrip() {
+    const goals = auraGoals();
+    const chips = goals.map(g => {
+      const A = AURAS[g.id];
+      const label = g.owned ? '획득!'
+        : g.cardsOk && !g.tierOk ? `티어 ${g.need.tier}+ 정복`
+          : `🃏 ${g.need.cards}`;
+      return `<button class="aura-chip ${g.owned ? 'got' : ''}" data-aurapv="${g.id}">
+        <span class="ae">${A.emoji}</span><span class="an">${esc(A.name)}</span><span class="ac">${label}</span></button>`;
+    }).join('');
+    const nx = goals.find(g => !g.owned);
+    return `<div class="star-summary">✨ 오라 ${goals.filter(g => g.owned).length} / ${goals.length}` +
+      (nx ? ` · 다음 ${AURAS[nx.id].emoji}까지 🃏 ${Math.max(0, nx.need.cards - nx.cards)}장` : ' · 전부 모았어요!') +
+      `</div><div class="aura-strip">${chips}</div>`;
+  }
+
   function book(towerId) {
     let cur = towerId || window.TOWERS[0].id;
     const html = () => {
@@ -208,16 +230,16 @@ const Cards = (() => {
         `<button class="btn small ${x.id === cur ? '' : 'ghost'}" data-tab="${x.id}">${esc(x.name)}</button>`).join('');
       const units = t.units.map(u => {
         const s = unitStat(t, u.unit), doneU = s.have >= s.total;
-        const aid = auraFor(t, u.unit);
-        const rw = aid ? `<button class="unit-reward ${doneU ? 'got' : ''}" data-aurapv="${aid}">${AURAS[aid].emoji} ${AURAS[aid].name}${doneU ? ' 획득!' : ' 👁'}</button>` : '';
+        const rw = `<span class="unit-reward ${doneU ? 'got' : ''}">💰 ${Math.round(BAL.gold.unitComplete * towerTier(t))}${doneU ? ' 획득!' : ''}</span>`;
         return `<h4>Unit ${u.unit} <span class="unit-prog">${s.have} / ${s.total}</span> ${rw}</h4>
           <div class="bar exp"><div class="bar-fill" style="width:${s.have / s.total * 100}%"></div></div>
           <div class="card-grid">${u.words.map(w => cardHtml(cur, w, has(cur, w.w))).join('')}</div>`;
       }).join('');
       return `<div class="modal-title">🃏 단어 도감</div>
         <div class="modal-sub">전체 ${count()}장 · ${points()}포인트 &nbsp;|&nbsp; 이 타워 ${owned} / ${ws.length}장</div>
+        ${auraStrip()}
         <div class="opt-row" style="justify-content:center;margin-bottom:6px">${tabs}</div>
-        <div class="toggle-desc" style="text-align:center">★★★ 단어에 <b>시험!</b>이 뜨면 눌러서 각인하세요<br>단원 제목 옆 <b>오라 배지</b>를 누르면 미리 볼 수 있어요 👁</div>
+        <div class="toggle-desc" style="text-align:center">★★★ 단어에 <b>시험!</b>이 뜨면 눌러서 각인하세요</div>
         ${units}
         <div class="actions"><button class="btn ghost small" data-close="x">닫기</button></div>`;
     };
@@ -236,24 +258,41 @@ const Cards = (() => {
     });
   }
 
-  // 단원을 완성하면 오라가 열리고, 타워를 전부 모으면 칭호 + 영구 보너스가 붙는다
-  function auraFor(tower, unit) {
-    const i = tower.units.findIndex(u => u.unit === unit);
-    return (tower.auras && tower.auras[i]) || null;
+  // ---------- 보상 ----------
+  // 오라는 타워에 매여 있지 않다. 전체 카드 수 + "이 티어 이상 타워를 끝까지 깼는가"로 열린다.
+  // (js/avatar.js의 AURAS[].need 참고. 왜 이렇게 바꿨는지도 거기 적어 뒀다)
+  const hasAura = id => state.player.owned.auras.indexOf(id) >= 0;
+
+  // 끝까지 깬 타워 중 가장 높은 티어
+  function clearedTier() {
+    let best = 0;
+    window.TOWERS.forEach(t => {
+      const prog = state.towers[t.id];
+      if (prog && prog.cleared >= floorList(t).length) best = Math.max(best, towerTier(t));
+    });
+    return best;
   }
+  // 오라 10종의 조건과 진행도. 도감에서도 이걸 그대로 보여준다.
+  function auraGoals() {
+    const cards = count(), tier = clearedTier();
+    return Object.keys(AURAS).filter(id => AURAS[id].need).map(id => {
+      const q = AURAS[id].need, tierOk = tier >= (q.tier || 0);
+      return { id, need: q, cards, tier, tierOk, cardsOk: cards >= q.cards, owned: hasAura(id), reached: cards >= q.cards && tierOk };
+    }).sort((a, b) => a.need.cards - b.need.cards);
+  }
+
   function pendingRewards(towerId) {
     const t = towerById(towerId), out = [];
     if (!t) return out;
+    // (1) 단원을 다 모으면 골드 (오라는 아래 마일스톤에서 따로 나온다)
     t.units.forEach(u => {
-      const s = unitStat(t, u.unit);
-      const k = t.id + ':' + u.unit;
-      if (s.have >= s.total && !state.player.setBonus[k]) {
-        const a = auraFor(t, u.unit);
-        if (a) out.push({ kind: 'aura', key: k, aura: a, unit: u.unit, tower: t });
-      }
+      const s = unitStat(t, u.unit), k = t.id + ':' + u.unit;
+      if (s.have >= s.total && !state.player.setBonus[k]) out.push({ kind: 'unit', key: k, unit: u.unit, tower: t });
     });
-    const all = allWords(t);
-    if (all.every(w => has(t.id, w.w)) && t.clearBonus && !state.player.towerClear[t.id]) {
+    // (2) 카드 마일스톤을 넘으면 오라 (어느 타워에서 모았든 상관없다)
+    auraGoals().filter(g => g.reached && !g.owned).forEach(g => out.push({ kind: 'aura', aura: g.id }));
+    // (3) 타워의 카드를 전부 모으면 칭호 + 영구 보너스
+    if (allWords(t).every(w => has(t.id, w.w)) && t.clearBonus && !state.player.towerClear[t.id]) {
       out.push({ kind: 'tower', tower: t });
     }
     return out;
@@ -264,16 +303,28 @@ const Cards = (() => {
     (function next() {
       if (!list.length) { cb && cb(); return; }
       const r = list.shift();
-      if (r.kind === 'aura') {
-        state.player.setBonus[r.key] = r.aura;
-        if (state.player.owned.auras.indexOf(r.aura) < 0) state.player.owned.auras.push(r.aura);
-        const wasNone = !state.player.aura || state.player.aura === 'none';
-        if (wasNone) state.player.aura = r.aura;
-        saveState();
-        Sfx.fanfare(); UI.confetti({ count: 120, colors: ['#ffc83d', '#8f7bff', '#ffffff'] });
+      if (r.kind === 'unit') {
+        state.player.setBonus[r.key] = true;
+        const g = Math.round(BAL.gold.unitComplete * towerTier(r.tower));
+        addGold(g); saveState();
+        Sfx.fanfare(); UI.confetti({ count: 90, colors: ['#ffc83d', '#3ee0c4', '#ffffff'] });
+        const nx = auraGoals().find(x => !x.owned);
         UI.modal(`
           <div class="modal-title">🎉 Unit ${r.unit} 완성!</div>
           <div class="modal-sub">${esc(r.tower.name)}의 Unit ${r.unit} 단어를 전부 모았어요</div>
+          <div class="reward-row">💰 +${g}</div>
+          ${nx ? `<div class="star-summary">다음 오라 ${AURAS[nx.id].emoji} ${AURAS[nx.id].name}까지 🃏 ${Math.max(0, nx.need.cards - nx.cards)}장</div>` : ''}
+          <div class="actions"><button class="btn" data-close="ok">좋아!</button></div>`,
+          { cls: 'celebrate', onClose: () => { Lobby.render(); next(); } });
+      } else if (r.kind === 'aura') {
+        if (!hasAura(r.aura)) state.player.owned.auras.push(r.aura);
+        if (!state.player.aura || state.player.aura === 'none') state.player.aura = r.aura;
+        saveState();
+        Sfx.fanfare(); UI.confetti({ count: 140, colors: ['#ffc83d', '#8f7bff', '#ffffff'] });
+        const q = AURAS[r.aura].need;
+        UI.modal(`
+          <div class="modal-title">✨ 오라 해금!</div>
+          <div class="modal-sub">카드 ${q.cards}장을 모았어요${q.tier ? ` · 티어 ${q.tier} 이상 타워도 정복했고요` : ''}</div>
           <div class="creator-preview">${Avatar.html(120, { aura: r.aura, pet: '', weapon: false })}</div>
           <div class="unlock"><span class="big">${AURAS[r.aura].emoji}</span><div><div>새 오라: <b>${AURAS[r.aura].name}</b></div>
             <div class="toggle-desc">골드로는 살 수 없어요! 🎨 꾸미기에서 바꿀 수 있어요</div></div></div>
@@ -297,5 +348,5 @@ const Cards = (() => {
     })();
   }
 
-  return { RARITY, rarityOf, key, has, isPending, buildTest, spellTest, grantDirect, auraFor, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
+  return { RARITY, rarityOf, key, has, isPending, buildTest, spellTest, grantDirect, auraGoals, clearedTier, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
 })();

@@ -12,6 +12,7 @@ const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
 const errors = [];
+let auraLine = '';
 const warns = [];
 const err = (where, msg) => errors.push(`${where}: ${msg}`);
 const warn = (where, msg) => warns.push(`${where}: ${msg}`);
@@ -125,17 +126,9 @@ towers.forEach((t, ti) => {
     if (ws.length > 1) warn(at, `뜻 "${m}"을 쓰는 단어가 ${ws.length}개 (${ws.join(', ')}) — 서로 오답 보기가 될 수 없어요`);
   });
 
-  // auras: 단원 순서대로 매핑되므로 units보다 짧으면 뒤쪽 단원은 보상이 없다
-  if (t.auras !== undefined) {
-    if (!Array.isArray(t.auras)) err(at, 'auras는 배열이어야 해요');
-    else {
-      if (AURAS) t.auras.forEach((a, i) => {
-        if (!AURAS[a]) err(at, `auras[${i}] "${a}" — js/avatar.js의 AURAS에 없는 오라예요`);
-      });
-      if (t.auras.length < t.units.length)
-        warn(at, `auras ${t.auras.length}개 < units ${t.units.length}개 — 뒤쪽 ${t.units.length - t.auras.length}개 단원은 완성해도 보상이 없어요`);
-    }
-  } else warn(at, 'auras가 없어요 — 단원을 완성해도 오라가 안 열려요');
+  // 오라는 이제 타워가 아니라 전체 카드 수로 열린다 (js/avatar.js의 AURAS[].need)
+  if (t.auras !== undefined)
+    warn(at, 'auras 필드는 더 이상 쓰지 않아요 — 오라는 전체 카드 마일스톤으로 열려요. 지워도 됩니다');
 
   // clearBonus: state.js clearPct()가 type으로 찾는다
   if (t.clearBonus !== undefined) {
@@ -150,6 +143,31 @@ towers.forEach((t, ti) => {
 });
 
 if (!towers.length) err('data/', '타워가 하나도 없어요');
+
+// ---------- 오라 마일스톤이 지금 콘텐츠로 닿을 수 있나 ----------
+// 스테이지를 늘리면 뒤쪽 오라가 열린다. 하나도 못 닿으면 목표가 아니라 벽이다.
+if (AURAS) {
+  const RARITY_PT = { legend: 5, epic: 3, rare: 2, common: 1 };
+  const ptOf = w => {
+    const letters = w.w.replace(/[^A-Za-z]/g, '').length;
+    if (letters >= 11) return RARITY_PT.legend;
+    if (letters >= 8 || /[\s-]/.test(w.w)) return RARITY_PT.epic;
+    return letters >= 5 ? RARITY_PT.rare : RARITY_PT.common;
+  };
+  let totalCards = 0, totalPt = 0, maxTier = 0;
+  towers.forEach(t => {
+    maxTier = Math.max(maxTier, t.tier || 1);
+    (t.units || []).forEach(u => (u.words || []).forEach(w => { if (w && w.w) { totalCards++; totalPt += ptOf(w); } }));
+  });
+  const goals = Object.keys(AURAS).filter(id => AURAS[id].need)
+    .map(id => ({ id, q: AURAS[id].need })).sort((a, b) => a.q.cards - b.q.cards);
+  const reach = goals.filter(g => g.q.cards <= totalCards && (g.q.tier || 0) <= maxTier);
+  auraLine = `✨ 오라 ${goals.length}종 중 ${reach.length}종이 지금 콘텐츠(카드 ${totalCards}장 ${totalPt}pt, 최고 티어 ${maxTier})로 도달 가능`;
+  if (!reach.length) err('js/avatar.js', '지금 콘텐츠로 열 수 있는 오라가 하나도 없어요 — 조건이 너무 높아요');
+  else if (reach.length === goals.length) warn('js/avatar.js', '오라를 전부 열 수 있어요 — 다음 타워를 위한 목표가 남아 있지 않아요');
+  goals.forEach(g => { if (g.q.tier && g.q.tier > maxTier && g.q.cards <= totalCards)
+    warn('js/avatar.js', `${g.id}: 카드는 닿지만 티어 ${g.q.tier} 이상 타워가 없어요`); });
+}
 
 // ---------- index.html 스크립트 태그 검사 ----------
 // v 번호를 하나 빠뜨리면 낡은 파일이 섞여 로드돼 게임이 반쯤 깨진다
@@ -179,7 +197,9 @@ const towerLine = towers.map(t => {
 }).join('\n');
 
 console.log(`\n🏰 타워 ${towers.length}개 (${dataFiles.length}개 파일)\n${towerLine}`);
-console.log(`📄 index.html 스크립트 ${tagged.size}개${versions.length === 1 ? ` · 캐시 v${versions[0]}` : ''}\n`);
+console.log(`📄 index.html 스크립트 ${tagged.size}개${versions.length === 1 ? ` · 캐시 v${versions[0]}` : ''}`);
+if (auraLine) console.log(auraLine);
+console.log('');
 
 if (warns.length) { console.log(`⚠️  주의 ${warns.length}개`); warns.forEach(w => console.log('   ' + w)); console.log(''); }
 if (errors.length) { console.log(`❌ 오류 ${errors.length}개`); errors.forEach(e => console.log('   ' + e)); console.log(''); process.exit(1); }

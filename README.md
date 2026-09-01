@@ -71,7 +71,7 @@ node tools/bump.js      # 캐시 번호 v+1 + 검사까지 한 번에
 
 ```bash
 node tools/validate.js   # 타워 데이터 + index.html 검사
-node tools/test.js       # 회귀 테스트 51개 (밸런스·층 구성·출제·카드·저장)
+node tools/test.js       # 회귀 테스트 66개 (밸런스·층 구성·출제·카드·오라·저장)
 ```
 
 검사 내용 — 타워 id 중복·형식, 단어 중복, 단원 번호 중복, 단어 8개 미만,

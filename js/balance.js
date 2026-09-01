@@ -87,6 +87,7 @@ const BAL = {
     floorClear: { base: 20, perFloor: 3 },
     bossClear:  { base: 60, perFloor: 8 },
     petDupBonus: 80,      // 이미 가진 펫이 또 드랍될 때
+    unitComplete: 150,    // 단원의 카드를 전부 모았을 때 (× 타워 티어). 오라는 따로 마일스톤
     replayMul: 0.3,       // 이미 깬 층 재도전 시 골드 (경험치는 그대로 — 다시 푸는 건 공부니까)
   },
 

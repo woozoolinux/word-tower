@@ -8,8 +8,6 @@ window.TOWERS.push({
   roof: '#8f7bff',
   tier: 1,
   lvRange: [1, 12],
-  // 단원을 완성할 때마다 하나씩 열리는 오라
-  auras: ['sparkle', 'fairy', 'comet', 'flame', 'aqua', 'rainbow'],
   clearBonus: { type: 'atk', pct: 0.10, title: '기초의 달인' },
   units: [
     { unit: 1, words: [

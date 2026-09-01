@@ -12,19 +12,28 @@ const OUTFITS = {
 
 
 // 오라: 옷과 다른 슬롯이라 상점 코스튬과 겹치지 않고, 캐릭터 주변에서 움직여 어디서든 보인다.
-// 단원 세트를 완성해야만 얻는다 (골드로 못 삼).
+// 골드로는 못 산다. 오직 카드를 모아야 열린다.
+//
+// need = 해금 조건. 타워에 매여 있지 않고 **전체 카드 수**로 열린다.
+//   cards: 지금까지 모은 카드 총 장수 (어느 타워에서 모았든 상관없다)
+//   tier:  이 티어 이상인 타워를 끝까지 깼을 것 (상위 오라는 어려운 타워를 거쳐야 나온다)
+//
+// 왜 타워별 배정이 아닌가: 단원마다 하나씩 주면 타워를 추가할 때마다 오라를 그만큼
+// 새로 그려야 하고, 재사용하면 "새 오라!"라며 이미 가진 걸 주게 된다.
+// 전체 진행도에 걸어 두면 스테이지를 아무리 늘려도 이 목록을 안 건드려도 된다.
+// 대신 드물게 나온다 — 지금 콘텐츠(192장)로 7종까지, 나머지 3종은 다음 타워의 목표다.
 const AURAS = {
   none:    { name: '없음',        emoji: '⬜' },
-  sparkle: { name: '반짝이 오라', emoji: '✨' },
-  fairy:   { name: '요정 날개',   emoji: '🦋' },
-  comet:   { name: '유성 자국',   emoji: '💫' },
-  flame:   { name: '불꽃 오라',   emoji: '🔥' },
-  aqua:    { name: '물결 오라',   emoji: '🌊' },
-  rainbow: { name: '무지개 오라', emoji: '🌈' },
-  angel:   { name: '천사 날개',   emoji: '🪽' },
-  thunder: { name: '번개 오라',   emoji: '⚡' },
-  moon:    { name: '달빛 오라',   emoji: '🌙' },
-  dragon:  { name: '용의 오라',   emoji: '🐉' },
+  sparkle: { name: '반짝이 오라', emoji: '✨', need: { cards: 15 } },
+  aqua:    { name: '물결 오라',   emoji: '🌊', need: { cards: 35 } },
+  comet:   { name: '유성 자국',   emoji: '💫', need: { cards: 60 } },
+  fairy:   { name: '요정 날개',   emoji: '🦋', need: { cards: 90 } },
+  flame:   { name: '불꽃 오라',   emoji: '🔥', need: { cards: 120, tier: 1.5 } },
+  thunder: { name: '번개 오라',   emoji: '⚡', need: { cards: 150, tier: 1.5 } },
+  angel:   { name: '천사 날개',   emoji: '🪽', need: { cards: 180, tier: 2 } },
+  rainbow: { name: '무지개 오라', emoji: '🌈', need: { cards: 210, tier: 2 } },
+  moon:    { name: '달빛 오라',   emoji: '🌙', need: { cards: 250, tier: 2 } },
+  dragon:  { name: '용의 오라',   emoji: '🐉', need: { cards: 300, tier: 2 } },
 };
 
 const Aura = (() => {

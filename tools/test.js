@@ -43,8 +43,8 @@ const load = (f, tail = '') =>
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8') + tail, ctx, { filename: f });
 
 load('js/balance.js', '\n;globalThis.BALX = BAL; globalThis.byFloorX = byFloor;');
-load('data/main-tower.js');
-load('data/jeongsang.js');
+fs.readdirSync(path.join(ROOT, 'data')).filter(f => f.endsWith('.js')).sort()
+  .forEach(f => load('data/' + f));
 load('js/state.js', `\n;globalThis.S = {
   loadState, saveState, resetState, importCode, exportCode, backupInfo, restoreBackup,
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
@@ -127,9 +127,9 @@ ok('일반 층 두 개가 단원을 빠짐없이 나눠 갖는다',
   h0.length + h1.length === u1.length && new Set([...h0, ...h1].map(w => w.w)).size === u1.length);
 
 let emptyFloor = null;
-W.towerById('jeongsang1') && [main, dsd1].forEach(t =>
+sandbox.window.TOWERS.forEach(t =>
   W.floorList(t).forEach((f, i) => { if (!W.floorWords(t, i + 1).length) emptyFloor = `${t.id} ${i + 1}층`; }));
-ok('단어가 하나도 없는 층은 없다', !emptyFloor, emptyFloor);
+ok('어느 타워에도 단어가 빈 층이 없다', !emptyFloor, emptyFloor);
 
 // ===================================================================
 section('출제');
@@ -178,7 +178,7 @@ eq('11글자 이상 → 전설', C.rarityOf({ w: 'double-decker' }), 'legend');
 
 // 각인 시험: 타일을 정답 순서대로 놓으면 반드시 원래 단어가 나와야 한다
 let broken = null, noBlank = null;
-[...W.allWords(main), ...W.allWords(dsd1)].forEach(word => {
+sandbox.window.TOWERS.flatMap(t => W.allWords(t)).forEach(word => {
   [false, true].forEach(hard => {
     const t = C.buildTest(word, hard);
     const openIdx = t.slots.map((s, i) => i).filter(i => !t.slots[i].fixed);
@@ -215,12 +215,68 @@ S.state.player.cards = {};
 section('타워 데이터와 오라');
 // ===================================================================
 sandbox.window.TOWERS.forEach(t => {
-  const bad = (t.auras || []).filter(a => !AV.AURAS[a]);
-  ok(`${t.id}: auras가 전부 실재하는 오라`, !bad.length, bad.join(', '));
   ok(`${t.id}: clearBonus type이 atk/hp`, !t.clearBonus || ['atk', 'hp'].includes(t.clearBonus.type));
+  ok(`${t.id}: 낡은 auras 필드가 없다`, t.auras === undefined);
 });
 const allW = sandbox.window.TOWERS.flatMap(t => W.allWords(t).map(w => `${t.id}:${w.w}`));
 eq('타워 안에서 단어 키가 겹치지 않는다', new Set(allW).size, allW.length);
+
+// ===================================================================
+section('오라 마일스톤');
+// 오라는 타워에 매여 있지 않다. 전체 카드 수 + 티어 조건으로 열린다.
+// 이래야 스테이지를 늘려도 오라를 그만큼 새로 그릴 필요가 없다.
+// ===================================================================
+Object.keys(store).forEach(k => delete store[k]);
+S.loadState();
+const P = () => S.state.player;
+const everyWord = sandbox.window.TOWERS.flatMap(t => W.allWords(t));
+const unitTotal = sandbox.window.TOWERS.reduce((a, t) => a + t.units.length, 0);
+const maxTier = Math.max(...sandbox.window.TOWERS.map(t => t.tier || 1));
+const grantAll = k => { P().cards = {}; everyWord.slice(0, k).forEach(w => C.grant(w.towerId, w)); };
+const reachedN = () => C.auraGoals().filter(g => g.reached).length;
+
+const goals0 = C.auraGoals();
+eq('오라 목표가 카드 수 오름차순', goals0.map(g => g.need.cards).join(),
+  goals0.map(g => g.need.cards).slice().sort((a, b) => a - b).join());
+eq('카드 0장이면 아무 오라도 안 열린다', reachedN(), 0);
+
+// 카드를 전부 모았지만 아직 아무 타워도 끝까지 못 깬 상태
+grantAll(everyWord.length);
+eq('클리어한 타워가 없으면 티어 0', C.clearedTier(), 0);
+ok('카드를 다 모으면 티어 조건 없는 오라는 전부 열린다',
+  C.auraGoals().filter(g => !g.need.tier).every(g => g.reached));
+ok('티어 조건이 붙은 오라는 타워를 깨기 전엔 안 열린다',
+  C.auraGoals().filter(g => g.need.tier).every(g => !g.reached));
+
+// 타워를 끝까지 깬 뒤
+sandbox.window.TOWERS.forEach(t => { S.towerProg(t.id).cleared = W.floorList(t).length; });
+eq('타워를 다 깬 뒤의 최고 티어', C.clearedTier(), maxTier);
+const total = C.auraGoals().length, reachable = reachedN();
+ok('지금 콘텐츠로 열 수 있는 오라가 있다', reachable > 0, `${reachable}종`);
+ok('한 번에 다 주지는 않는다 (다음 타워의 목표가 남는다)', reachable < total, `${reachable} / ${total}종`);
+ok('열리는 오라가 단원 수보다 훨씬 적다 (남발 방지)',
+  reachable * 2 <= unitTotal, `오라 ${reachable}종 · 단원 ${unitTotal}개`);
+
+// 카드가 늘어난다고 열린 오라가 줄어들면 안 된다
+let prevN = -1, notMono = null;
+[0, 20, 50, 100, 150, everyWord.length].forEach(k => {
+  grantAll(k);
+  const cur = reachedN();
+  if (cur < prevN) notMono = `카드 ${k}장에서 줄어듦`;
+  prevN = cur;
+});
+ok('카드를 모을수록 열리는 오라가 늘기만 한다', !notMono, notMono);
+
+// 보상 큐: 단원 완성은 골드, 오라는 마일스톤
+P().cards = {}; P().owned.auras = ['none']; P().setBonus = {};
+W.allWords(main).filter(w => w.unit === 1).forEach(w => C.grant('main', w));
+const rw = C.pendingRewards('main');
+ok('단원을 다 모으면 골드 보상이 대기한다', rw.some(r => r.kind === 'unit' && r.unit === 1));
+ok('단원 완성만으로는 오라가 나오지 않는다 (마일스톤에 못 미치면)',
+  C.count() >= AV.AURAS.sparkle.need.cards || !rw.some(r => r.kind === 'aura'));
+ok('같은 단원 보상을 두 번 주지 않는다',
+  (() => { C.pendingRewards('main').forEach(r => { if (r.kind === 'unit') P().setBonus[r.key] = true; });
+    return !C.pendingRewards('main').some(r => r.kind === 'unit' && r.unit === 1); })());
 
 // ===================================================================
 section('저장 / 백업');
