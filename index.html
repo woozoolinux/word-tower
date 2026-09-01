@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=24">
+<link rel="stylesheet" href="css/style.css?v=25">
 </head>
 <body>
 <div id="app">
@@ -60,6 +60,22 @@
     <div id="battle-player" class="player-box"></div>
   </section>
 
+  <!-- 금고 방 -->
+  <section id="screen-vault" class="screen">
+    <div class="topbar">
+      <button class="btn ghost small" id="vault-quit">← 로비</button>
+      <div class="topbar-title" id="vault-floor">1층</div>
+      <div class="topbar-right"></div>
+    </div>
+    <div class="panel vault-hud">
+      <div id="vault-msg"></div>
+      <div id="vault-hp"></div>
+    </div>
+    <div id="vault-locks" class="vault-locks"></div>
+    <div id="vault-cards" class="vault-cards"></div>
+    <p class="hint-text">🔐 카드를 고른 뒤 뜻에 맞는 자물쇠에 꽂아요. 틀리면 카드가 부서져요!</p>
+  </section>
+
   <!-- 러너 -->
   <section id="screen-runner" class="screen">
     <div class="topbar">
@@ -84,24 +100,25 @@
 <div id="toast-root"></div>
 
 <!-- 타워 데이터 (타워를 추가하려면 여기에 한 줄 추가) -->
-<script src="data/main-tower.js?v=24"></script>
-<script src="data/jeongsang.js?v=24"></script>
-<script src="data/dsd2.js?v=24"></script>
+<script src="data/main-tower.js?v=25"></script>
+<script src="data/jeongsang.js?v=25"></script>
+<script src="data/dsd2.js?v=25"></script>
 
 <!-- 게임 -->
-<script src="js/balance.js?v=24"></script>
-<script src="js/state.js?v=24"></script>
-<script src="js/words.js?v=24"></script>
-<script src="js/audio.js?v=24"></script>
-<script src="js/art.js?v=24"></script>
-<script src="js/cards.js?v=24"></script>
-<script src="js/preview.js?v=24"></script>
-<script src="js/avatar.js?v=24"></script>
-<script src="js/ui.js?v=24"></script>
-<script src="js/lobby.js?v=24"></script>
-<script src="js/maze.js?v=24"></script>
-<script src="js/battle.js?v=24"></script>
-<script src="js/runner.js?v=24"></script>
-<script src="js/main.js?v=24"></script>
+<script src="js/balance.js?v=25"></script>
+<script src="js/state.js?v=25"></script>
+<script src="js/words.js?v=25"></script>
+<script src="js/audio.js?v=25"></script>
+<script src="js/art.js?v=25"></script>
+<script src="js/cards.js?v=25"></script>
+<script src="js/preview.js?v=25"></script>
+<script src="js/avatar.js?v=25"></script>
+<script src="js/ui.js?v=25"></script>
+<script src="js/lobby.js?v=25"></script>
+<script src="js/maze.js?v=25"></script>
+<script src="js/battle.js?v=25"></script>
+<script src="js/vault.js?v=25"></script>
+<script src="js/runner.js?v=25"></script>
+<script src="js/main.js?v=25"></script>
 </body>
 </html>

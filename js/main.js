@@ -27,6 +27,39 @@ const Game = {
   // 이미 깬 층을 다시 돌면 보상이 크게 준다 (반복 파밍 방지)
   gainGold(n) { addGold(Math.max(1, Math.round(n * (this.run ? this.run.mul : 1)))); },
 
+  // ---------- 스테이지 파이프라인 ----------
+  // 층은 스테이지를 이어 붙인 것이다. 어떤 조합이 나올지는 층마다 달라진다.
+  // (예전엔 미로가 러너를 직접 불렀다. 화면이 화면을 부르면 조합을 바꿀 수 없다)
+  // 미니게임을 추가하려면 여기 등록 + BAL.stages 목록에 id 추가.
+  STAGES: {
+    maze:   { name: '미로',    go: (r, done) => Maze.start(r, done) },
+    vault:  { name: '금고 방', go: (r, done) => Vault.start(r, done) },
+    runner: { name: '러너',    go: (r, done) => Runner.start(r, done) },
+  },
+  lastExplore: null,
+  pickStages() {
+    const s = BAL.stages;
+    let pool = s.explore;
+    // 같은 탐험 파트가 연달아 나오면 조합을 나눈 의미가 없다
+    if (s.avoidRepeat && pool.length > 1) {
+      const other = pool.filter(x => x !== this.lastExplore);
+      if (other.length) pool = other;
+    }
+    const explore = pick(pool);
+    this.lastExplore = explore;
+    return [explore, pick(s.finish)];
+  },
+  // 다음 스테이지로. 남은 게 없으면 층 클리어.
+  nextStage() {
+    const r = this.run;
+    if (!r) { this.toLobby(); return; }
+    const id = r.stages[r.stageIdx++];
+    if (!id) { this.floorClear(); return; }
+    const st = this.STAGES[id];
+    if (!st) { this.nextStage(); return; }   // 없는 id는 건너뛴다 (데이터 오타 방어)
+    st.go(r, () => this.nextStage());
+  },
+
   startFloor(towerId, n) {
     const tower = towerById(towerId), floors = floorList(tower);
     if (n < 1 || n > floors.length) n = 1;
@@ -37,10 +70,11 @@ const Game = {
     this.run = {
       towerId, tower, floor: n, plan, words, pool, total: floors.length,
       tier: towerTier(tower), mul: n <= prog0.cleared ? BAL.gold.replayMul : 1,
+      stages: plan.type === 'boss' ? [] : this.pickStages(), stageIdx: 0,
     };
     state.player.hp = playerMaxHp(); saveState();
     if (plan.type === 'boss') this.startBoss();
-    else Preview.maybeShow(this.run, () => Maze.start(this.run));
+    else Preview.maybeShow(this.run, () => this.nextStage());
   },
   startBoss() {
     const r = this.run, base = BOSSES[r.plan.bossIdx % BOSSES.length];
@@ -231,7 +265,7 @@ function buildSky() {
 window.addEventListener('DOMContentLoaded', () => {
   loadState();
   buildSky();
-  Lobby.init(); Maze.init(); Battle.init(); Runner.init();
+  Lobby.init(); Maze.init(); Battle.init(); Vault.init(); Runner.init();
   Lobby.render();
   if (typeof Avatar === 'undefined') {
     // 오래된 캐시로 새 파일이 안 실린 경우

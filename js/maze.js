@@ -2,7 +2,7 @@
 // 미로 층: 열쇠(영어)를 주워 문(한글 뜻)을 연다. 몬스터 → 배틀, 상자 → 골드, 열린 문 → 러너.
 const Maze = (() => {
   const CW = BAL.maze.cols, CH = BAL.maze.rows, W = CW * 2 + 1, H = CH * 2 + 1;
-  let run, grid, px, py, keys, door, monsters, chest, holding, seen, opened, busy, trail, face, doorBlocks;
+  let run, onDone, grid, px, py, keys, door, monsters, chest, holding, seen, opened, busy, trail, face, doorBlocks;
   const gridEl = () => document.getElementById('maze-grid');
   const cellsEl = () => gridEl().querySelector('.maze-cells');
   const k = (x, y) => x + ',' + y;
@@ -53,8 +53,8 @@ const Maze = (() => {
     return out;
   }
 
-  function start(r) {
-    run = r; busy = false; holding = []; opened = false; seen = new Set();
+  function start(r, done) {
+    run = r; onDone = done; busy = false; holding = []; opened = false; seen = new Set();
     gen(); px = 1; py = 1; trail = null; face = 1;
     gridEl().innerHTML =
       `<div class="maze-cells" style="grid-template-columns:repeat(${W},1fr);grid-template-rows:repeat(${H},1fr);aspect-ratio:${W}/${H}"></div>` +
@@ -156,7 +156,7 @@ const Maze = (() => {
       Sfx.coin(); UI.toast(`🎁 보물상자! +${g}G`, 'gold');
     } else if (c === door && opened) {
       busy = true; render();
-      setTimeout(() => { UI.toast('🪜 계단이다! 달려!', 'good'); Runner.start(run); }, 450); return;
+      setTimeout(() => { UI.toast('🪜 계단이다! 다음 구간으로!', 'good'); onDone(); }, 450); return;
     }
     render();
   }

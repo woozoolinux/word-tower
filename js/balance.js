@@ -43,7 +43,7 @@ const BAL = {
   // ---------- 실수 벌칙 ----------
   // 기본HP(내Lv) 대비 비율 × 타워 티어.
   // 최대HP가 아니라 기본HP 기준인 이유: 최대HP를 올려주는 보상이 스스로 상쇄되면 안 된다.
-  hazard: { mazeWrongKey: 0.05, runnerBump: 0.06, min: 2 },
+  hazard: { mazeWrongKey: 0.05, runnerBump: 0.06, vaultWrongCard: 0.05, min: 2 },
 
   // ---------- 배틀 ----------
   battle: {
@@ -58,6 +58,16 @@ const BAL = {
     ultSkillMul: 1.5,     // Lv20 '필살 강화'
   },
 
+  // ---------- 층 구성 ----------
+  // 한 층 = 탐험 파트 하나 + 마무리 파트 하나. 층마다 여기서 뽑는다.
+  // 미니게임을 늘리려면 이 목록에 id를 넣기만 하면 된다 (Game.STAGES에 등록된 것).
+  // 매 층이 똑같은 순서면 45층을 버티기 어렵다 — 개수보다 조합이 다양성을 만든다.
+  stages: {
+    explore: ['maze', 'vault'],   // 저강도. 시간 압박 없이 판단하는 구간
+    finish:  ['runner'],          // 고강도. 반사신경으로 마무리하는 구간
+    avoidRepeat: true,            // 직전 층과 같은 탐험 파트가 연달아 나오지 않게
+  },
+
   // ---------- 미로 ----------
   maze: {
     cols: 6, rows: 5,     // 방 개수 (실제 격자는 cols×2+1 × rows×2+1)
@@ -65,6 +75,17 @@ const BAL = {
     sight: 2,             // 안개가 걷히는 반경(맨해튼 거리)
     keys: 4,              // 바닥에 뿌리는 열쇠 수 (정답 1 + 오답 3)
     minKeyDist: 4,        // 시작점에서 이만큼 떨어진 곳에만 열쇠를 둔다
+  },
+
+  // ---------- 금고 방 ----------
+  // 자물쇠(뜻)에 카드(영어)를 꽂는다. 틀리면 그 카드가 부서져 영영 못 쓴다.
+  // 미로 문이 "하나를 고르는" 것이라면, 금고는 "여럿을 동시에 놓고 배치하는" 것이다.
+  vault: {
+    locks: 4,             // 자물쇠 수
+    extraCards: 2,        // 섞어 넣는 오답 카드 (이만큼은 틀려도 된다)
+    guardAt: 2,           // 이 개수째 자물쇠를 열면 금고지기가 깨어난다 (0이면 없음)
+    perFloor: 0.06,       // 층이 오를수록 자물쇠가 늘어난다 (locks + floor×perFloor, 최대 maxLocks)
+    maxLocks: 6,
   },
 
   // ---------- 러너 ----------
@@ -83,6 +104,8 @@ const BAL = {
   // 층 클리어·보스·상자는 타워 티어를 곱한다. 한 층 대략 130G.
   gold: {
     battleCorrect: 1, mazeDoor: 2, runnerMission: 3, coin: 3, arenaKill: 3,
+    vaultLock: 3,         // 자물쇠 하나 열 때마다
+    vaultClear: 25,       // 전부 열면 보너스 (× 티어)
     chest:      { base: 15, perFloor: 3 },
     floorClear: { base: 20, perFloor: 3 },
     bossClear:  { base: 60, perFloor: 8 },
@@ -96,6 +119,7 @@ const BAL = {
     battleCorrect:  { base: 2,  perFloor: 0.6 },
     mazeDoor:       { base: 3,  perFloor: 0.6 },
     runnerMission:  { base: 2,  perFloor: 0.6 },
+    vaultLock:      { base: 3,  perFloor: 0.6 },
     floorClear:     { base: 20, perFloor: 3 },
     bossClear:      { base: 50, perFloor: 6 },
   },

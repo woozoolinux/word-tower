@@ -439,6 +439,35 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .dpad .down { grid-column: 2; grid-row: 3; }
 .dpad-btn.big { padding: 14px; font-size: 20px; flex: 1; }
 
+/* ---------- 금고 방 ---------- */
+.vault-hud { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+#vault-msg { font-size:14px; }
+#vault-msg .en { font-family:var(--font-en); color:var(--gold); }
+
+.vault-locks { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:14px; }
+.lock {
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:12px 8px; border:none; border-radius:14px; cursor:pointer;
+  background:var(--panel); color:var(--ink); font-family:inherit;
+  box-shadow:0 3px 0 var(--panel2); transition:transform .1s;
+}
+.lock:active { transform:translateY(2px); box-shadow:0 1px 0 var(--panel2); }
+.lock .lk-icon { font-size:22px; line-height:1.1; }
+.lock .lk-ko { font-size:14px; font-weight:600; text-align:center; }
+.lock .lk-en { font-family:var(--font-en); font-size:12px; font-weight:700; min-height:14px; }
+.lock.open { background:var(--mint); box-shadow:0 3px 0 var(--mint-dark); }
+
+.vault-cards { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+.vcard {
+  padding:11px 15px; border:none; border-radius:12px; cursor:pointer;
+  background:#fff9ec; color:#2a2450;
+  font-family:var(--font-en); font-size:16px; font-weight:600;
+  box-shadow:0 3px 0 #d9cca8; transition:transform .1s;
+}
+.vcard:active { transform:translateY(2px); box-shadow:0 1px 0 #d9cca8; }
+.vcard.sel { background:var(--gold); box-shadow:0 3px 0 var(--gold-dark); transform:translateY(-2px); }
+.vcard.broken { background:#4a4560; color:#8a83a5; text-decoration:line-through; box-shadow:none; cursor:default; }
+
 /* ---------- 배틀 ---------- */
 .battle-arena { position: relative; text-align: center; padding: 8px 0 4px; min-height: 210px; }
 /* 내 캐릭터가 전장에 서 있다가 정답이면 달려가 벤다 */

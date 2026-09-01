@@ -57,6 +57,24 @@ load('js/avatar.js', '\n;globalThis.AV = { AURAS, OUTFITS };');
 sandbox.UI = { toast() {}, modal() { return { body: {}, close() {} }; }, confetti() {} };
 sandbox.Sfx = new Proxy({}, { get: () => () => {} });
 load('js/cards.js', '\n;globalThis.C = Cards;');
+// 화면 모듈은 DOM을 쓰지만, 정의만으로는 안전하다 (start를 안 부르면 됨)
+sandbox.Maze = { start() {}, init() {} };
+sandbox.Vault = { start() {}, init() {} };
+sandbox.Runner = { start() {}, init() {}, stop() {} };
+sandbox.Battle = { start() {}, init() {} };
+sandbox.Preview = { maybeShow(r, cb) { cb(); } };
+sandbox.Lobby = { render() {}, init() {} };
+sandbox.Art = { monster: () => '', pet: () => '', tower: () => '' };
+sandbox.Avatar = { html: () => '', image: () => null };
+sandbox.performance = { now: () => 0 };
+sandbox.requestAnimationFrame = () => 0;
+sandbox.window.addEventListener = () => {};
+sandbox.document.createElement = () => ({ style: {}, classList: { add() {}, remove() {} }, setAttribute() {}, appendChild() {} });
+sandbox.document.querySelector = () => null;
+sandbox.document.querySelectorAll = () => [];
+sandbox.document.getElementById = () => null;
+sandbox.document.body = { insertBefore() {}, firstChild: null };
+load('js/main.js', '\n;globalThis.G = Game;');
 
 const { BALX: BAL, byFloorX: byFloor, S, W, C, AV } = sandbox;
 S.loadState();
@@ -220,6 +238,60 @@ sandbox.window.TOWERS.forEach(t => {
 });
 const allW = sandbox.window.TOWERS.flatMap(t => W.allWords(t).map(w => `${t.id}:${w.w}`));
 eq('타워 안에서 단어 키가 겹치지 않는다', new Set(allW).size, allW.length);
+
+// ===================================================================
+section('층 스테이지 조합');
+// 매 층이 같은 순서면 45층을 버티기 어렵다. 층마다 조합이 달라져야 한다.
+// ===================================================================
+const G = sandbox.G;
+ok('탐험 파트가 2개 이상 등록돼 있다', BAL.stages.explore.length >= 2, BAL.stages.explore.join(', '));
+ok('마무리 파트가 1개 이상 등록돼 있다', BAL.stages.finish.length >= 1);
+
+const unknown = [...BAL.stages.explore, ...BAL.stages.finish].filter(id => !G.STAGES[id]);
+ok('BAL.stages의 id가 전부 Game.STAGES에 등록돼 있다', !unknown.length, unknown.join(', '));
+ok('등록된 스테이지에 전부 go()가 있다',
+  Object.values(G.STAGES).every(s => typeof s.go === 'function' && s.name));
+
+const seen = {};
+let badLen = null, sameTwice = 0, prev = null;
+for (let i = 0; i < 400; i++) {
+  const st = G.pickStages();
+  if (st.length !== 2) badLen = st.join(',');
+  if (!BAL.stages.explore.includes(st[0])) badLen = '탐험 아님: ' + st[0];
+  if (!BAL.stages.finish.includes(st[1])) badLen = '마무리 아님: ' + st[1];
+  if (prev && st[0] === prev) sameTwice++;
+  prev = st[0];
+  seen[st.join(' → ')] = (seen[st.join(' → ')] || 0) + 1;
+}
+ok('조합은 항상 [탐험, 마무리] 두 개', !badLen, badLen);
+eq('같은 탐험 파트가 연달아 나오지 않는다', sameTwice, 0);
+ok('모든 조합이 실제로 나온다',
+  Object.keys(seen).length === BAL.stages.explore.length * BAL.stages.finish.length,
+  Object.keys(seen).join(' · '));
+
+// 보스 층은 스테이지 없이 곧장 배틀
+S.loadState();
+G.startFloor('main', 5);
+eq('보스 층은 스테이지를 뽑지 않는다', G.run.stages.length, 0);
+
+// 파이프라인이 등록된 스테이지를 순서대로 전부 지나 층 클리어까지 가는가.
+// (예전엔 미로가 러너를 직접 불렀다 — 그러면 조합을 바꿀 수 없다)
+const visited = [];
+const realGo = {}, realClear = G.floorClear;
+Object.keys(G.STAGES).forEach(id => {
+  realGo[id] = G.STAGES[id].go;
+  G.STAGES[id].go = (r, done) => { visited.push(id); done(); };   // 바로 끝내고 다음으로
+});
+let cleared = 0;
+G.floorClear = () => { cleared++; };
+G.startFloor('main', 1);
+const plan = G.run ? G.run.stages : [];
+Object.keys(G.STAGES).forEach(id => { G.STAGES[id].go = realGo[id]; });
+G.floorClear = realClear;
+
+eq('일반 층은 스테이지 2개', plan.length, 2);
+eq('뽑은 스테이지를 순서대로 전부 지난다', visited.join(','), plan.join(','));
+eq('마지막 스테이지가 끝나면 층 클리어로 간다', cleared, 1);
 
 // ===================================================================
 section('오라 마일스톤');

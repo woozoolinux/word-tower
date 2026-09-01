@@ -5,10 +5,10 @@ const Runner = (() => {
   const LANES = BAL.runner.lanes;                       // 난이도 수치는 js/balance.js
   const PX = 90, BAND = 58, LANE_H = 74, MSG_H = 26;    // 화면 배치(px)
   const HGT = BAND + LANES * LANE_H + MSG_H;
-  let cv, ctx, run, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs, pimg, bgOff, stars, bldgs, bgSpan;
+  let cv, ctx, run, onDone, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs, pimg, bgOff, stars, bldgs, bgSpan;
 
-  function start(r) {
-    run = r; UI.show('runner');
+  function start(r, done) {
+    run = r; onDone = done; UI.show('runner');
     cv = document.getElementById('runner-canvas'); ctx = cv.getContext('2d'); resize();
     lane = 1; curY = laneY(1);
     const ws = shuffle(run.words); missions = [];
@@ -135,7 +135,7 @@ const Runner = (() => {
     stop();
     const ov = document.getElementById('runner-overlay'); ov.textContent = 'GOAL!'; ov.classList.add('show');
     Sfx.win(); saveState();
-    setTimeout(() => { ov.classList.remove('show'); Game.floorClear(); }, 900);
+    setTimeout(() => { ov.classList.remove('show'); onDone(); }, 900);
   }
 
   function roundRect(x, y, w, h, r) {
