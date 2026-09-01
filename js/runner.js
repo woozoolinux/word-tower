@@ -2,7 +2,8 @@
 // 계단 러너: 3레인 자동 달리기. 미션 뜻에 맞는 영어 타일에 부딪히면 수집.
 const Runner = (() => {
   // 화면 구성: [미션 띠] + [레인 3개] + [메시지 줄]
-  const LANES = 3, PX = 90, BAND = 58, LANE_H = 74, MSG_H = 26;
+  const LANES = BAL.runner.lanes;                       // 난이도 수치는 js/balance.js
+  const PX = 90, BAND = 58, LANE_H = 74, MSG_H = 26;    // 화면 배치(px)
   const HGT = BAND + LANES * LANE_H + MSG_H;
   let cv, ctx, run, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs, pimg, bgOff, stars, bldgs, bgSpan;
 
@@ -11,10 +12,10 @@ const Runner = (() => {
     cv = document.getElementById('runner-canvas'); ctx = cv.getContext('2d'); resize();
     lane = 1; curY = laneY(1);
     const ws = shuffle(run.words); missions = [];
-    while (missions.length < 4) missions = missions.concat(ws);
-    missions = missions.slice(0, 4);
+    while (missions.length < BAL.runner.missions) missions = missions.concat(ws);
+    missions = missions.slice(0, BAL.runner.missions);
     mi = 0; tiles = []; coins = []; particles = []; missed = 0; msgs = []; pimg = Avatar.image();
-    speed = 115 + run.floor * 5; // 아이 반응속도 고려해 여유있게
+    speed = byFloor(BAL.runner.speed, run.floor);
     dashLeft = hasSkill('dash') ? 1 : 0;
     active = false; waveActive = false; groundOff = 0; bgOff = 0; initBg();
     hud(); draw();
@@ -74,7 +75,7 @@ const Runner = (() => {
 
   function spawnWave() {
     const word = missions[mi];
-    const ds = distractors(word, run.pool, 2, 'w');
+    const ds = distractors(word, run.pool, LANES - 1, 'w');
     const ws = shuffle([word.w, ...ds.map(d => d.w)]);
     const W = width();
     ws.forEach((w, i) => tiles.push({ w, lane: i, x: W + 30 + rnd(90), correct: w === word.w, width: Math.max(72, w.length * 13 + 26) }));
@@ -99,7 +100,7 @@ const Runner = (() => {
       if (t.lane === lane && t.x < PX + 20 && t.x + t.width > PX - 20) { t.hit = true; if (t.correct) collect(t); else bump(t); if (!active) return; }
     }
     for (const c of coins) {
-      if (!c.got && c.lane === lane && Math.abs(c.x - PX) < 24) { c.got = true; Game.gainGold(3); Sfx.coin(); burst(c.x, laneY(c.lane), '#ffc83d'); }
+      if (!c.got && c.lane === lane && Math.abs(c.x - PX) < 24) { c.got = true; Game.gainGold(BAL.gold.coin); Sfx.coin(); burst(c.x, laneY(c.lane), '#ffc83d'); }
     }
     if (waveActive && tiles.every(t => t.hit || t.x + t.width < -10)) {
       if (!tiles.some(t => t.collected)) { missed++; say('앗, 놓쳤다! 한 번 더!', '#ffc83d'); }
@@ -113,7 +114,7 @@ const Runner = (() => {
   function collect(t) {
     t.collected = true; Sfx.ok(); burst(PX, laneY(lane), '#3ee0c4');
     recordResult(run.towerId, missions[mi], true, false);
-    Game.gainExpQuiet(Math.round(2 + run.floor * 0.6)); Game.gainGold(3);
+    Game.gainExpQuiet(Math.round(byFloor(BAL.exp.runnerMission, run.floor))); Game.gainGold(BAL.gold.runnerMission);
     tiles.forEach(x => x.hit = true);
     mi++;
     if (mi >= missions.length) { finish(); return; }
@@ -122,7 +123,7 @@ const Runner = (() => {
   function bump(t) {
     recordResult(run.towerId, missions[mi], false, false);
     if (dashLeft > 0) { dashLeft--; say('⚡ 대시!', '#8f7bff'); burst(PX, laneY(lane), '#8f7bff'); return; }
-    const dmg = hazardDmg(0.06, run.tower); state.player.hp -= dmg; Sfx.bad();
+    const dmg = hazardDmg(BAL.hazard.runnerBump, run.tower); state.player.hp -= dmg; Sfx.bad();
     burst(PX, laneY(lane), '#ff6b7a'); UI.shake(cv.parentElement);
     say(`💥 ${t.w} ❌  -${dmg}`, '#ff6b7a');
     saveState(); hud();

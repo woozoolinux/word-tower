@@ -36,7 +36,7 @@ const Game = {
     const prog0 = towerProg(towerId);
     this.run = {
       towerId, tower, floor: n, plan, words, pool, total: floors.length,
-      tier: towerTier(tower), mul: n <= prog0.cleared ? 0.3 : 1,
+      tier: towerTier(tower), mul: n <= prog0.cleared ? BAL.gold.replayMul : 1,
     };
     state.player.hp = playerMaxHp(); saveState();
     if (plan.type === 'boss') this.startBoss();
@@ -80,8 +80,8 @@ const Game = {
     state.player.hp = playerMaxHp();
     UI.toast("📖 복습 배틀! 허수아비는 때리지 않아요", "good");
     Battle.start({
-      monster: { id: "slime", name: "연습 허수아비", emoji: "👾", hp: playerAtk() * 10, atk: 0 },
-      words: shuffle(words).slice(0, 12), pool: allWords(tower), towerId: tower.id, floor: 1, practice: true,
+      monster: { id: "slime", name: "연습 허수아비", emoji: "👾", hp: playerAtk() * BAL.cards.practiceHpMul, atk: 0 },
+      words: shuffle(words).slice(0, BAL.cards.practiceWords), pool: allWords(tower), towerId: tower.id, floor: 1, practice: true,
       onWin: () => this.afterPractice(tower),
       onLose: () => this.afterPractice(tower),
     });
@@ -94,7 +94,7 @@ const Game = {
   // 각인 시험: 층이 끝난 뒤 최대 2장까지 바로, 나머지는 도감에서
   flushCardTests(towerId, cb) {
     const done = () => Cards.claimRewards(towerId, () => { Lobby.render(); cb && cb(); });
-    const pend = Cards.pendingFor(towerId).slice(0, 2);
+    const pend = Cards.pendingFor(towerId).slice(0, BAL.cards.testsPerFloor);
     if (!pend.length) { done(); return; }
     Cards.runTests(pend, done);
   },
@@ -103,8 +103,8 @@ const Game = {
     const r = this.run;
     if (!r) { this.toLobby(); return; } // 관문에 막혀 층이 시작되지 않은 경우
     const boss = r.plan.type === 'boss';
-    const gold = Math.round((boss ? 60 + r.floor * 8 : 20 + r.floor * 3) * r.tier * r.mul);
-    const exp = Math.round((boss ? 50 + r.floor * 6 : 20 + r.floor * 3) * r.tier);
+    const gold = Math.round(byFloor(boss ? BAL.gold.bossClear : BAL.gold.floorClear, r.floor) * r.tier * r.mul);
+    const exp = Math.round(byFloor(boss ? BAL.exp.bossClear : BAL.exp.floorClear, r.floor) * r.tier);
     addGold(gold); this.gainExpQuiet(exp);
     const prog = towerProg(r.towerId);
     if (r.floor >= prog.floor) prog.floor = r.floor + 1;
@@ -115,7 +115,7 @@ const Game = {
       if (!state.player.owned.pets.includes(petId)) {
         state.player.owned.pets.push(petId); if (!state.player.pet) state.player.pet = petId;
         drop = `<div class="unlock"><span class="big">${PETS[petId].emoji}</span><div>보스가 떨어뜨렸다: <b>${PETS[petId].name}</b> 펫!<div class="toggle-desc">상점에서 데려갈 펫을 고를 수 있어요</div></div></div>`;
-      } else { const b = Math.round(80 * r.tier * r.mul); addGold(b); drop = `<div class="reward-row">🎁 보너스 +${b}G</div>`; }
+      } else { const b = Math.round(BAL.gold.petDupBonus * r.tier * r.mul); addGold(b); drop = `<div class="reward-row">🎁 보너스 +${b}G</div>`; }
       if (r.mul < 1) drop += '<div class="star-summary">이미 깬 층이라 골드는 줄었어요 (경험치는 그대로!)</div>';
     }
     saveState();
@@ -174,8 +174,9 @@ const Game = {
   startArena() {
     let words = [];
     window.TOWERS.forEach(t => allWords(t).forEach(w => { if (wordStat(t.id, w.w).seen > 0) words.push(w); }));
-    if (words.length < 8) { UI.toast('타워에서 단어를 8개 이상 만난 뒤에 도전할 수 있어요!'); return; }
+    if (words.length < BAL.arena.minWords) { UI.toast(`타워에서 단어를 ${BAL.arena.minWords}개 이상 만난 뒤에 도전할 수 있어요!`); return; }
     let kills = 0;
+    const A = BAL.arena;
     this.run = null;
     state.player.hp = playerMaxHp();
     const spawn = () => {
@@ -184,11 +185,11 @@ const Game = {
       Battle.start({
         monster: {
           id: m.id, name: `${kills + 1}번째 ${m.name}`, emoji: m.emoji,
-          hp: Math.round(baseAtk(lv) * (2 + kills * 0.35)),
-          atk: Math.max(3, Math.round(playerMaxHp() * (0.05 + kills * 0.012))),
+          hp: Math.round(baseAtk(lv) * (A.hp.base + kills * A.hp.perKill)),
+          atk: Math.max(A.minAtk, Math.round(playerMaxHp() * (A.atk.base + kills * A.atk.perKill))),
         },
         words, pool: words, towerId: 'arena', floor: lv, arena: true,
-        onWin: () => { kills++; addGold(3); saveState(); spawn(); },
+        onWin: () => { kills++; addGold(BAL.gold.arenaKill); saveState(); spawn(); },
         onLose: () => end(),
       });
     };

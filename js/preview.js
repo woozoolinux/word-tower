@@ -3,7 +3,7 @@
 // 처음 보는 단어가 배틀에서 갑자기 나오면 학습이 아니라 찍기가 되므로 먼저 보여준다.
 // 자신 있으면 그 자리에서 "이건 알아!" 도전으로 카드를 바로 딸 수 있다 (정규 시험보다 어렵다).
 const Preview = (() => {
-  const MIN_LOOK = 800; // 이만큼 지나야 '다음'이 켜진다 (마구 넘기기 방지)
+  const MIN_LOOK = BAL.preview.minLook; // 이만큼 지나야 '다음'이 켜진다 (마구 넘기기 방지)
 
   function maybeShow(run, cb) {
     if (!state.settings.preview) return cb();

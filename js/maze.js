@@ -1,7 +1,7 @@
 'use strict';
 // 미로 층: 열쇠(영어)를 주워 문(한글 뜻)을 연다. 몬스터 → 배틀, 상자 → 골드, 열린 문 → 러너.
 const Maze = (() => {
-  const CW = 6, CH = 5, W = CW * 2 + 1, H = CH * 2 + 1;
+  const CW = BAL.maze.cols, CH = BAL.maze.rows, W = CW * 2 + 1, H = CH * 2 + 1;
   let run, grid, px, py, keys, door, monsters, chest, holding, seen, opened, busy, trail, face, doorBlocks;
   const gridEl = () => document.getElementById('maze-grid');
   const cellsEl = () => gridEl().querySelector('.maze-cells');
@@ -23,7 +23,7 @@ const Maze = (() => {
       if (!moved) stack.pop();
     }
     // 벽 몇 개를 더 뚫어서 갈림길(루프)을 만든다 — 덜 외길
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < BAL.maze.extraLoops; i++) {
       const x = 1 + 2 * rnd(CW), y = 1 + 2 * rnd(CH);
       const [dx, dy] = pick([[1, 0], [0, 1]]);
       if (x + 2 * dx < W - 1 && y + 2 * dy < H - 1) grid[y + dy][x + dx] = 0;
@@ -66,9 +66,9 @@ const Maze = (() => {
     door = (doorBlocks ? de : cs.filter(c => c !== '1,1')).reduce((a, b) => dist[a] >= dist[b] ? a : b);
     const doorWord = pickWord(run.towerId, run.words);
     run.doorWord = doorWord;
-    const ds = distractors(doorWord, run.pool, 3, 'w');
+    const ds = distractors(doorWord, run.pool, BAL.maze.keys - 1, 'w');
     const used = new Set([door, '1,1']);
-    const spots = shuffle(cs.filter(c => dist[c] >= 4 && !used.has(c)));
+    const spots = shuffle(cs.filter(c => dist[c] >= BAL.maze.minKeyDist && !used.has(c)));
     keys = {};
     [doorWord, ...ds].forEach(w => { const c = spots.pop(); if (!c) return; used.add(c); keys[c] = { w: w.w, correct: w.w === doorWord.w }; });
     const correctCell = Object.keys(keys).find(c => keys[c].correct);
@@ -108,7 +108,8 @@ const Maze = (() => {
   }
 
   function reveal() {
-    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (Math.abs(dx) + Math.abs(dy) <= 2) seen.add(k(px + dx, py + dy));
+    const r = BAL.maze.sight;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.abs(dx) + Math.abs(dy) <= r) seen.add(k(px + dx, py + dy));
   }
 
   function render() {
@@ -151,7 +152,7 @@ const Maze = (() => {
       busy = true; render();
       setTimeout(() => encounter(c), 350); return;
     } else if (chest === c) {
-      chest = null; const g = Math.round((15 + run.floor * 3) * run.tier); Game.gainGold(g); saveState();
+      chest = null; const g = Math.round(byFloor(BAL.gold.chest, run.floor) * run.tier); Game.gainGold(g); saveState();
       Sfx.coin(); UI.toast(`🎁 보물상자! +${g}G`, 'gold');
     } else if (c === door && opened) {
       busy = true; render();
@@ -177,12 +178,12 @@ const Maze = (() => {
     if (key.correct) {
       opened = true; Sfx.door();
       recordResult(run.towerId, run.doorWord, true, false);
-      Game.gainExpQuiet(Math.round(3 + run.floor * 0.6)); Game.gainGold(2);
+      Game.gainExpQuiet(Math.round(byFloor(BAL.exp.mazeDoor, run.floor))); Game.gainGold(BAL.gold.mazeDoor);
       UI.toast('🔓 문이 열렸다! 계단으로 가자', 'good');
     } else {
       Sfx.bad();
       recordResult(run.towerId, run.doorWord, false, false);
-      const dmg = hazardDmg(0.05, run.tower); state.player.hp -= dmg;
+      const dmg = hazardDmg(BAL.hazard.mazeWrongKey, run.tower); state.player.hp -= dmg;
       UI.shake(gridEl());
       UI.toast(`💥 삐-! "${key.w}"은(는) "${run.doorWord.m}"이(가) 아니야. 열쇠가 부서졌다! -${dmg}`, 'bad');
       if (state.player.hp <= 0) { busy = true; setTimeout(() => Game.playerDown(), 500); return; }

@@ -1,0 +1,272 @@
+#!/usr/bin/env node
+'use strict';
+// 브라우저 없이 도는 회귀 테스트.
+//   node tools/test.js
+//
+// 왜 있나: 밸런스 수식이나 층 구성을 손댈 때 "어디가 어떻게 무너졌는지"를
+// 아이가 플레이하다 발견하는 게 아니라 여기서 먼저 알기 위해서다.
+// 특히 밸런스 표는 PLAN.md의 검증 수치를 그대로 코드로 옮긴 것이라,
+// 여기가 깨지면 기획 문서와 게임이 어긋났다는 뜻이다.
+
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const ROOT = path.join(__dirname, '..');
+let pass = 0;
+const fails = [];
+let group = '';
+
+function section(name) { group = name; console.log(`\n${name}`); }
+function ok(name, cond, detail) {
+  if (cond) { pass++; console.log(`  ✅ ${name}`); }
+  else { fails.push(`${group} → ${name}${detail ? `\n       ${detail}` : ''}`); console.log(`  ❌ ${name}${detail ? `  (${detail})` : ''}`); }
+}
+function eq(name, got, want) { ok(name, got === want, `받음 ${got} · 기대 ${want}`); }
+
+// ---------- 게임 코드를 브라우저 없이 올린다 ----------
+const store = {};
+const sandbox = {
+  window: { TOWERS: [] }, console, Math, Date, JSON,
+  localStorage: {
+    getItem: k => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: k => { delete store[k]; },
+  },
+  btoa: s => Buffer.from(s, 'binary').toString('base64'),
+  atob: s => Buffer.from(s, 'base64').toString('binary'),
+  unescape, escape,
+  document: {}, speechSynthesis: undefined,
+};
+const ctx = vm.createContext(sandbox);
+const load = (f, tail = '') =>
+  vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8') + tail, ctx, { filename: f });
+
+load('js/balance.js', '\n;globalThis.BALX = BAL; globalThis.byFloorX = byFloor;');
+load('data/main-tower.js');
+load('data/jeongsang.js');
+load('js/state.js', `\n;globalThis.S = {
+  loadState, saveState, resetState, importCode, exportCode, backupInfo, restoreBackup,
+  expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
+  refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION,
+  get state() { return state; }, set state(v) { state = v; },
+};`);
+load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview };`);
+load('js/avatar.js', '\n;globalThis.AV = { AURAS, OUTFITS };');
+// cards.js는 UI/Sfx를 호출 시점에만 쓰므로 정의만으로는 안전하다
+sandbox.UI = { toast() {}, modal() { return { body: {}, close() {} }; }, confetti() {} };
+sandbox.Sfx = new Proxy({}, { get: () => () => {} });
+load('js/cards.js', '\n;globalThis.C = Cards;');
+
+const { BALX: BAL, byFloorX: byFloor, S, W, C, AV } = sandbox;
+S.loadState();
+const main = W.towerById('main');
+const dsd1 = W.towerById('jeongsang1');
+
+// ===================================================================
+section('밸런스 회귀 — PLAN.md 「밸런스 규칙」 검증표');
+// 이 표가 깨지면 수식을 바꾼 것이다. 의도한 변경이면 PLAN.md도 같이 고칠 것.
+// ===================================================================
+const hits = (atk, hp) => Math.ceil(hp / atk);
+
+S.state.player.lv = 8;
+S.state.player.weapon = 'flame';   // +75%
+eq('Lv8 + 불꽃검 공격력', S.playerAtk(), 60);
+
+eq('바벨 5층 몬스터를 3방에', hits(S.playerAtk(), S.monsterHp(5, false, main)), 3);
+eq('DSD1 5층 몬스터를 4방에', hits(S.playerAtk(), S.monsterHp(5, false, dsd1)), 4);
+eq('DSD1 5층 보스를 10방에', hits(S.playerAtk(), S.monsterHp(5, true, dsd1)), 10);
+
+S.state.player.lv = 50;
+eq('Lv50이 바벨 5층 몬스터를 1방에 (의도된 통쾌함)', hits(S.playerAtk(), S.monsterHp(5, false, main)), 1);
+
+S.state.player.lv = 8;
+ok('티어가 높은 타워가 더 아프다',
+  S.monsterAtk(5, false, dsd1) > S.monsterAtk(5, false, main),
+  `DSD1 ${S.monsterAtk(5, false, dsd1)} vs 바벨 ${S.monsterAtk(5, false, main)}`);
+ok('보스가 일반 몬스터보다 세게 때린다', S.monsterAtk(5, true, main) > S.monsterAtk(5, false, main));
+
+// 몬스터는 내 성장의 70%만 따라온다 → 레벨을 올릴수록 같은 층이 계속 쉬워져야 한다.
+// (정수 타격수는 너무 거칠어서, 설계 의도 그대로 "필요 타격 비율"로 본다)
+const ratio = (lv, t) => { S.state.player.lv = lv; return S.monsterHp(5, false, t) / S.playerAtk(); };
+let worse = null;
+for (let lv = 5; lv < 24; lv++) if (ratio(lv + 1, dsd1) >= ratio(lv, dsd1)) worse = `Lv${lv} → Lv${lv + 1}`;
+ok('레벨을 올리면 같은 층이 반드시 쉬워진다 (몬스터가 앞지르지 않는다)', !worse, worse);
+ok('설계 구간 전체에서 체감할 만큼 쉬워진다',
+  ratio(5, dsd1) / ratio(24, dsd1) >= 1.2,
+  `Lv5 ${ratio(5, dsd1).toFixed(2)}방 → Lv24 ${ratio(24, dsd1).toFixed(2)}방 (${(ratio(5, dsd1) / ratio(24, dsd1)).toFixed(2)}배)`);
+
+// 구간을 넘어선 레벨은 초과 화력이 그대로 나와야 한다 (PLAN: clamp)
+ok('설계 구간을 넘기면 갑자기 쉬워진다 (clamp의 통쾌함)',
+  ratio(24, dsd1) / ratio(48, dsd1) > 1.7,
+  `Lv24 ${ratio(24, dsd1).toFixed(2)}방 → Lv48 ${ratio(48, dsd1).toFixed(2)}방`);
+
+// 최대HP를 올려주는 보상이 스스로 상쇄되면 안 된다 (적 피해는 기본HP 기준)
+S.state.player.lv = 10;
+const dmgBefore = S.monsterAtk(5, false, main);
+S.state.player.towerClear = { jeongsang1: true };   // 최대HP +15%
+ok('HP 보너스를 받아도 적 피해는 그대로 (보상이 상쇄되지 않음)',
+  S.monsterAtk(5, false, main) === dmgBefore && S.playerMaxHp() > S.hpAt(10));
+S.state.player.towerClear = {};
+
+ok('레벨이 오르면 다음 레벨까지 필요한 경험치가 늘어난다', S.expToNext(10) > S.expToNext(3));
+
+// ===================================================================
+section('층 구성');
+// ===================================================================
+const floors = W.floorList(main);
+eq('바벨 6단원 → 15층 (단원당 2층 + 2단원마다 보스)', floors.length, 15);
+eq('5층은 보스 (2단원 = 일반 4층 뒤)', floors[4].type, 'boss');
+ok('마지막 층은 반드시 보스', floors[floors.length - 1].type === 'boss');
+ok('보스 층은 그때까지의 단원을 전부 출제',
+  W.floorWords(main, 5).every(w => w.unit <= floors[4].upTo) && W.floorWords(main, 5).length > W.floorWords(main, 1).length);
+
+const u1 = W.allWords(main).filter(w => w.unit === 1);
+const h0 = W.floorWords(main, 1), h1 = W.floorWords(main, 2);
+ok('일반 층 두 개가 단원을 빠짐없이 나눠 갖는다',
+  h0.length + h1.length === u1.length && new Set([...h0, ...h1].map(w => w.w)).size === u1.length);
+
+let emptyFloor = null;
+W.towerById('jeongsang1') && [main, dsd1].forEach(t =>
+  W.floorList(t).forEach((f, i) => { if (!W.floorWords(t, i + 1).length) emptyFloor = `${t.id} ${i + 1}층`; }));
+ok('단어가 하나도 없는 층은 없다', !emptyFloor, emptyFloor);
+
+// ===================================================================
+section('출제');
+// ===================================================================
+const pool = W.allWords(main);
+let badChoices = 0, dupChoices = 0;
+for (let i = 0; i < 300; i++) {
+  const q = W.makeQuestion(pool[i % pool.length], pool, i % 2 ? 'm2w' : 'w2m');
+  if (q.choices.length !== BAL.quiz.choices) badChoices++;
+  if (new Set(q.choices).size !== q.choices.length) dupChoices++;
+  if (!q.choices.includes(q.answer)) badChoices++;
+}
+eq('보기는 항상 4개이고 정답이 들어 있다', badChoices, 0);
+eq('같은 보기가 두 번 나오지 않는다', dupChoices, 0);
+
+// 뜻이 같은 단어(동의어)가 서로 오답으로 나오면 정답이 두 개가 된다
+const syn = pool.find(w => pool.some(x => x !== w && x.m === w.m));
+if (syn) {
+  const bad = [];
+  for (let i = 0; i < 200; i++) {
+    const q = W.makeQuestion(syn, pool, 'm2w');
+    if (q.choices.filter(c => pool.find(x => x.w === c && x.m === syn.m)).length > 1) bad.push(q.choices);
+  }
+  eq(`동의어("${syn.m}")가 서로 오답 보기로 나오지 않는다`, bad.length, 0);
+} else {
+  ok('바벨에 동의어 없음 — 검사 생략', true);
+}
+
+// ★이 낮은 단어가 더 자주 나와야 한다
+S.state.towers = {};
+const wA = pool[0], wB = pool[1];
+S.wordStat('main', wA.w).stars = 0;
+S.wordStat('main', wB.w).stars = 3;
+let cntA = 0;
+for (let i = 0; i < 4000; i++) if (W.pickWord('main', [wA, wB]).w === wA.w) cntA++;
+ok('★이 낮은 단어가 더 자주 출제된다', cntA > 2400, `★0 단어가 ${(cntA / 40).toFixed(0)}% 등장`);
+
+// ===================================================================
+section('단어 카드');
+// ===================================================================
+eq('4글자 이하 → 일반', C.rarityOf({ w: 'buy' }), 'common');
+eq('5~7글자 → 희귀', C.rarityOf({ w: 'palace' }), 'rare');
+eq('8~10글자 → 영웅', C.rarityOf({ w: 'raindrop' }), 'epic');
+eq('띄어 쓴 구 → 영웅', C.rarityOf({ w: 'in fact' }), 'epic');
+eq('11글자 이상 → 전설', C.rarityOf({ w: 'double-decker' }), 'legend');
+
+// 각인 시험: 타일을 정답 순서대로 놓으면 반드시 원래 단어가 나와야 한다
+let broken = null, noBlank = null;
+[...W.allWords(main), ...W.allWords(dsd1)].forEach(word => {
+  [false, true].forEach(hard => {
+    const t = C.buildTest(word, hard);
+    const openIdx = t.slots.map((s, i) => i).filter(i => !t.slots[i].fixed);
+    if (openIdx.length < 2) noBlank = `${word.w}(빈칸 ${openIdx.length}개)`;
+    // 빈칸마다 알맞은 타일을 하나씩 꺼내 맞춰 본다
+    const left = t.tiles.slice();
+    const built = t.slots.map(s => {
+      if (s.fixed) return s.ch;
+      const i = left.indexOf(s.ch);
+      if (i < 0) return ' ';
+      left.splice(i, 1); return s.ch;
+    }).join('');
+    if (built !== word.w) broken = `${word.w}${hard ? ' (이건 알아!)' : ''}`;
+  });
+});
+ok('모든 단어의 각인 시험이 정답으로 완성될 수 있다', !broken, broken);
+ok('빈칸이 2개 미만인 시험은 없다 (너무 쉬운 문제 방지)', !noBlank, noBlank);
+
+const hardT = C.buildTest({ w: 'palace', m: '궁전' }, true);
+const softT = C.buildTest({ w: 'palace', m: '궁전' }, false);
+ok('"이건 알아!"는 도움 글자를 주지 않는다', hardT.slots.every(s => !s.fixed));
+ok('"이건 알아!"가 정규 시험보다 타일이 많다 (더 어렵다)',
+  hardT.tiles.length > softT.tiles.length, `${hardT.tiles.length} vs ${softT.tiles.length}`);
+
+// 보스 관문
+S.state.player.cards = {};
+eq('카드가 없으면 보스 관문이 막힌다', C.gateInfo(main, 2).ok, false);
+const need2 = C.gateInfo(main, 2);
+W.allWords(main).filter(w => w.unit <= 2).slice(0, need2.need).forEach(w => C.grant('main', w));
+eq(`카드 ${need2.need}장(60%)을 모으면 열린다`, C.gateInfo(main, 2).ok, true);
+S.state.player.cards = {};
+
+// ===================================================================
+section('타워 데이터와 오라');
+// ===================================================================
+sandbox.window.TOWERS.forEach(t => {
+  const bad = (t.auras || []).filter(a => !AV.AURAS[a]);
+  ok(`${t.id}: auras가 전부 실재하는 오라`, !bad.length, bad.join(', '));
+  ok(`${t.id}: clearBonus type이 atk/hp`, !t.clearBonus || ['atk', 'hp'].includes(t.clearBonus.type));
+});
+const allW = sandbox.window.TOWERS.flatMap(t => W.allWords(t).map(w => `${t.id}:${w.w}`));
+eq('타워 안에서 단어 키가 겹치지 않는다', new Set(allW).size, allW.length);
+
+// ===================================================================
+section('저장 / 백업');
+// ===================================================================
+Object.keys(store).forEach(k => delete store[k]);   // 앞 테스트가 남긴 저장 비우기
+S.loadState();
+eq('빈 저장 → 새 게임', S.state.player.lv, 1);
+eq('새 게임의 세이브 버전', S.state.version, S.SAVE_VERSION);
+
+S.state.player.lv = 7; S.state.player.gold = 999; S.saveState();
+S.loadState();
+ok('저장한 뒤 다시 읽으면 그대로', S.state.player.lv === 7 && S.state.player.gold === 999);
+const code = S.exportCode();
+
+store['wordtower_save_v1'] = '{망가진 json';
+S.loadState();
+eq('손상된 저장 → 새 게임으로 복구', S.state.player.lv, 1);
+ok('손상 직전 원본을 백업에 보관', !!store['wordtower_backup']);
+
+S.state.player.lv = 3; S.state.player.name = '우주'; S.saveState();
+S.importCode(code);
+ok('저장 코드 불러오기', S.state.player.lv === 7 && S.state.player.gold === 999);
+ok('덮어쓰기 직전 상태가 백업에 남는다', S.backupInfo().lv === 3);
+S.restoreBackup();
+ok('백업 되돌리기', S.state.player.lv === 3 && S.state.player.name === '우주');
+ok('되돌리기도 되돌릴 수 있다', S.backupInfo().lv === 7);
+S.resetState();
+ok('초기화 직전 상태도 백업된다', S.state.player.lv === 1 && S.backupInfo().lv === 3);
+
+store['wordtower_save_v1'] = JSON.stringify({ version: 999, player: { name: '미래', lv: 50, cards: {} }, towers: {}, settings: {} });
+S.loadState();
+ok('더 새 버전에서 만든 세이브를 망가뜨리지 않는다', S.state.version === 999 && S.state.player.lv === 50);
+
+// 레벨업하면 HP가 가득 차야 한다
+S.loadState();
+S.state.player.lv = 1; S.state.player.exp = 0; S.state.player.hp = 1;
+const ups = S.addExp(99999);
+ok('경험치를 크게 얻으면 여러 레벨이 한 번에 오른다', ups.length > 1, `${ups.length}레벨`);
+eq('레벨업하면 HP가 가득 찬다', S.state.player.hp, S.playerMaxHp());
+
+// ===================================================================
+console.log(`\n${'─'.repeat(50)}`);
+if (fails.length) {
+  console.log(`\n❌ ${fails.length}개 실패 / ${pass + fails.length}개 중\n`);
+  fails.forEach(f => console.log(`   ${f}`));
+  console.log('');
+  process.exit(1);
+}
+console.log(`\n✅ ${pass}개 전부 통과\n`);

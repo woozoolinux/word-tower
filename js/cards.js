@@ -8,7 +8,7 @@ const RARITY = {
   epic:   { name: '영웅', pt: 3, color: '#8f7bff', pre: 3 },
   legend: { name: '전설', pt: 5, color: '#c9971c', pre: 0.4 },
 };
-const BOSS_GATE = 0.6; // 보스 층에 필요한 해당 단원 카드 비율
+
 
 const Cards = (() => {
   function rarityOf(word) {
@@ -57,7 +57,7 @@ const Cards = (() => {
   function gateInfo(tower, upTo) {
     const ws = allWords(tower).filter(w => w.unit <= upTo);
     const have = ws.filter(w => has(tower.id, w.w));
-    const need = Math.ceil(ws.length * BOSS_GATE);
+    const need = Math.ceil(ws.length * BAL.cards.bossGate);
     return { have: have.length, need, total: ws.length, ok: have.length >= need, missing: ws.filter(w => !has(tower.id, w.w)) };
   }
 
@@ -77,9 +77,7 @@ const Cards = (() => {
       filled: null,
     }));
     let tiles = slots.filter(s => !s.fixed).map(s => s.ch);
-    const decoy = hard
-      ? ({ common: 2, rare: 3, epic: 4, legend: 5 })[r]
-      : (r === 'legend' ? 3 : r === 'epic' ? 2 : 0);
+    const decoy = (hard ? BAL.cards.decoyHard : BAL.cards.decoyNormal)[r];
     if (decoy) {
       const used = new Set(word.w.toLowerCase().split(''));
       const extra = 'abcdefghiklmnoprstuwy'.split('').filter(c => !used.has(c));

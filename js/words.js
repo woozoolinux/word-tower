@@ -35,7 +35,7 @@ function floorWords(tower, n) {
 // 이 타워에서 틀렸던 단어(★<3)를 최대 2개 섞어 넣는다 — 복습
 function withReview(towerId, words, pool) {
   const have = new Set(words.map(w => w.w));
-  const review = shuffle(pool.filter(w => !have.has(w.w) && wordStat(towerId, w.w).wrong > 0 && wordStat(towerId, w.w).stars < 3)).slice(0, 2);
+  const review = shuffle(pool.filter(w => !have.has(w.w) && wordStat(towerId, w.w).wrong > 0 && wordStat(towerId, w.w).stars < 3)).slice(0, BAL.quiz.reviewPerFloor);
   return words.concat(review);
 }
 
@@ -45,7 +45,7 @@ function statFor(towerId, word) { return wordStat(word.towerId || towerId, word.
 function pickWord(towerId, words, excludeW) {
   let pool = words.filter(w => w.w !== excludeW);
   if (!pool.length) pool = words;
-  const weights = pool.map(w => 4 - Math.min(3, statFor(towerId, w).stars));
+  const weights = pool.map(w => BAL.quiz.starWeight - Math.min(3, statFor(towerId, w).stars));
   let r = Math.random() * weights.reduce((a, b) => a + b, 0);
   for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i]; }
   return pool[pool.length - 1];
@@ -63,10 +63,10 @@ function distractors(word, pool, n, field) {
 // mode: 'm2w' 뜻→영어 | 'w2m' 영어→뜻 | 'listen' 듣기→뜻
 function makeQuestion(word, pool, mode) {
   if (mode === 'm2w') {
-    const ds = distractors(word, pool, 3, 'w');
+    const ds = distractors(word, pool, BAL.quiz.choices - 1, 'w');
     return { mode, word, prompt: word.m, answer: word.w, choices: shuffle([word.w, ...ds.map(d => d.w)]), hint: word.w[0] };
   }
-  const ds = distractors(word, pool, 3, 'm');
+  const ds = distractors(word, pool, BAL.quiz.choices - 1, 'm');
   return { mode, word, prompt: word.w, answer: word.m, choices: shuffle([word.m, ...ds.map(d => d.m)]), hint: word.m[0] };
 }
 

@@ -1,8 +1,9 @@
 'use strict';
 // 배틀: 문제를 맞추면 공격, 빨리 맞추면 크리티컬, 틀리면 맞는다.
 const Battle = (() => {
-  const TIME_LIMIT = 10, WARN_AT = 3, CRIT_UNDER = 2.5; // 초
-  const CHARGE_NEED = 3;   // 연속 정답 3번이면 필살기 준비
+  const B = BAL.battle;    // 수치는 전부 js/balance.js
+  const TIME_LIMIT = B.timeLimit, WARN_AT = B.warnAt, CRIT_UNDER = B.critUnder; // 초
+  const CHARGE_NEED = B.chargeNeed;   // 이만큼 연속 정답이면 필살기 준비
   let o, mon, q, qStart, combo, helped, charge, lock, timer, warnTimer;
   const $ = id => document.getElementById(id);
 
@@ -34,7 +35,7 @@ const Battle = (() => {
       (shieldReady() ? '<span class="shield-badge">🛡️ 실드 준비됨</span>' : '');
   }
   function ultDamage() {
-    return Math.round(playerAtk() * (2 + Cards.points() / 25) * (hasSkill('ulti') ? 1.5 : 1));
+    return Math.round(playerAtk() * (B.ultBase + Cards.points() * B.ultPerCardPt) * (hasSkill('ulti') ? B.ultSkillMul : 1));
   }
   function heroAttack(cls) {
     const h = $('battle-hero');
@@ -115,11 +116,11 @@ const Battle = (() => {
       heroAttack(crit ? 'attack-crit' : 'attack');
       renderItems();
       if (crit) Sfx.crit(); else Sfx.ok();
-      Game.gainExpQuiet(Math.round(2 + (o.floor || 1) * 0.6)); Game.gainGold(1);
+      Game.gainExpQuiet(Math.round(byFloor(BAL.exp.battleCorrect, o.floor || 1))); Game.gainGold(BAL.gold.battleCorrect);
       setTimeout(() => {                       // 캐릭터가 닿는 순간에 데미지
-        hit(Math.round(playerAtk() * (crit ? 1.5 : 1)), crit ? 'CRITICAL!' : '', crit);
+        hit(Math.round(playerAtk() * (crit ? B.critMul : 1)), crit ? 'CRITICAL!' : '', crit);
         if (hasSkill('double') && combo >= 2 && combo % 2 === 0 && mon.hp > 0) {
-          setTimeout(() => { hit(Math.round(playerAtk() * 0.5), '🔥 더블!'); check(); }, 450);
+          setTimeout(() => { hit(Math.round(playerAtk() * B.doubleMul), '🔥 더블!'); check(); }, 450);
         } else check();
       }, 200);
     } else {
@@ -149,29 +150,16 @@ const Battle = (() => {
   }
 
   // 필살기: 스펠링을 맞히면 대미지 폭발. 틀려도 피해는 없다 (게이지만 소모)
+  // 시험 위젯은 각인 시험과 같은 것을 쓴다 (Cards.spellTest)
   function superAttack() {
     if (charge < CHARGE_NEED || lock) return;
     lock = true; clearTimer();
     const word = pickWord(o.towerId, o.words, q && q.word.w);
-    const t = Cards.buildTest(word);
-    const used = [];
-    const open = () => t.slots.map((s, i) => i).filter(i => !t.slots[i].fixed);
-    const render = () => `
-      <div class="modal-title">💥 필살기!</div>
-      <div class="modal-sub">스펠링을 맞히면 <b>${ultDamage()}</b> 데미지!<br>뜻: <b>${esc(word.m)}</b> <span class="dim">(틀려도 아프지 않아요)</span></div>
-      <div class="spell-slots">${t.slots.map((s, i) => {
-        const v = s.fixed ? s.ch : (used[open().indexOf(i)] !== undefined ? t.tiles[used[open().indexOf(i)]] : '');
-        const sep = /[\s-]/.test(s.ch);
-        return `<span class="slot ${s.fixed ? 'fixed' : ''} ${sep ? 'sep' : ''} ${v ? 'on' : ''}">${sep ? (s.ch === ' ' ? '&nbsp;' : s.ch) : esc(v || '')}</span>`;
-      }).join('')}</div>
-      <div class="spell-tiles">${t.tiles.map((c, i) =>
-        `<button class="tile ${used.indexOf(i) >= 0 ? 'used' : ''}" data-tile="${i}" ${used.indexOf(i) >= 0 ? 'disabled' : ''}>${esc(c)}</button>`).join('')}</div>
-      <div class="actions"><button class="btn ghost small" data-act="back">⌫ 하나 지우기</button></div>`;
-    const m = UI.modal(render(), { cls: 'spell' });
-    let settled = false;
-    const finish = ok => {
-      if (settled) return; settled = true;
-      charge = 0; m.close();
+    Cards.spellTest(word, {
+      title: '💥 필살기!',
+      sub: `스펠링을 맞히면 <b>${ultDamage()}</b> 데미지!<br>뜻: <b>${esc(word.m)}</b> <span class="dim">(틀려도 아프지 않아요)</span>`,
+    }, ok => {
+      charge = 0;
       if (ok) {
         recordResult(o.towerId, word, true, false);
         UI.flash(); Sfx.crit(); heroAttack('attack-ult');
@@ -182,23 +170,6 @@ const Battle = (() => {
         renderItems();
         setTimeout(next, 900);
       }
-    };
-    m.body.addEventListener('click', e => {
-      if (settled) return;
-      const tile = e.target.closest('[data-tile]');
-      if (tile) {
-        if (used.length >= open().length) return;
-        used.push(+tile.dataset.tile); Sfx.step();
-        m.body.innerHTML = render();
-        if (used.length === open().length) {
-          const slots = open();
-          const answer = t.slots.map((s, i) => s.fixed ? s.ch : t.tiles[used[slots.indexOf(i)]]).join('');
-          setTimeout(() => finish(answer.toLowerCase() === word.w.toLowerCase()), 260);
-        }
-        return;
-      }
-      const act = e.target.closest('[data-act]');
-      if (act && act.dataset.act === 'back') { used.pop(); m.body.innerHTML = render(); }
     });
   }
 
@@ -207,7 +178,7 @@ const Battle = (() => {
     if (kind === 'super') { superAttack(); return; }
     if (kind === 'potion') {
       if (it.potion <= 0) return; it.potion--;
-      const heal = Math.round(playerMaxHp() * 0.4);
+      const heal = Math.round(playerMaxHp() * BAL.items.potionHeal);
       state.player.hp = Math.min(playerMaxHp(), state.player.hp + heal); UI.toast(`🧪 HP +${heal}`, 'good'); Sfx.coin();
     } else if (lock) { return; }
     else if (kind === 'hint') {
@@ -216,7 +187,7 @@ const Battle = (() => {
     } else if (kind === 'erase') {
       if (it.erase <= 0) return; it.erase--; helped = true;
       const wrongs = [...document.querySelectorAll('#battle-choices .choice')].filter(b => b.textContent !== q.answer && !b.classList.contains('erased'));
-      shuffle(wrongs).slice(0, 2).forEach(b => { b.classList.add('erased'); b.disabled = true; });
+      shuffle(wrongs).slice(0, BAL.items.eraseCount).forEach(b => { b.classList.add('erased'); b.disabled = true; });
     }
     saveState(); renderItems(); renderBars();
   }

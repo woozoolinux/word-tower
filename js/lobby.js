@@ -181,13 +181,22 @@ const Lobby = (() => {
 
   // ---------- 저장 코드 ----------
   function saveCode() {
+    // 불러오기·초기화 직전 상태가 남아 있으면 되돌릴 길을 열어준다 (state.js keepBackup)
+    const b = backupInfo();
+    const backupBlock = b ? `<h4>🩹 백업</h4>
+      <div class="modal-sub" style="text-align:left">불러오기·초기화 직전의 상태를 하나 보관해 뒀어요.<br>
+        <b>${esc(b.name)} Lv.${b.lv} · 🃏 ${b.cards}장</b>
+        <span class="dim">(${new Date(b.at).toLocaleString('ko-KR')})</span></div>
+      <div class="actions"><button class="btn small coral" id="restore-btn">이 상태로 되돌리기</button></div>` : '';
     const m = UI.modal(`<div class="modal-title">💾 저장 코드</div>
       <div class="modal-sub">이 코드를 복사해 두면 다른 기기에서 이어할 수 있어요</div>
       <textarea class="code" id="export-code" readonly>${exportCode()}</textarea>
       <div class="actions"><button class="btn small" id="copy-btn">복사</button></div>
       <h4>불러오기</h4>
       <textarea class="code" id="import-code" placeholder="여기에 코드를 붙여넣어요"></textarea>
-      <div class="actions"><button class="btn small mint" id="import-btn">불러오기</button><button class="btn small ghost" data-close="x">닫기</button></div>`);
+      <div class="actions"><button class="btn small mint" id="import-btn">불러오기</button></div>
+      ${backupBlock}
+      <div class="actions"><button class="btn small ghost" data-close="x">닫기</button></div>`);
     m.body.addEventListener('click', e => {
       if (e.target.id === 'copy-btn') {
         const ta = m.body.querySelector('#export-code'); ta.select();
@@ -196,6 +205,11 @@ const Lobby = (() => {
       if (e.target.id === 'import-btn') {
         try { importCode(m.body.querySelector('#import-code').value); m.close(); render(); UI.toast('불러왔어요!', 'good'); }
         catch (err) { UI.toast('코드가 올바르지 않아요', 'bad'); }
+      }
+      if (e.target.id === 'restore-btn') {
+        if (!confirm(`${b.name} Lv.${b.lv} 상태로 되돌릴까요? 지금 진행은 다시 백업에 보관돼요.`)) return;
+        try { restoreBackup(); m.close(); render(); UI.toast('되돌렸어요!', 'good'); }
+        catch (err) { UI.toast('백업을 되살릴 수 없어요', 'bad'); }
       }
     });
   }
