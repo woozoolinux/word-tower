@@ -274,6 +274,13 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   color: var(--ink); border-radius: 999px; padding: 2px 12px; font-size: 13px; margin-bottom: 4px;
 }
 
+/* 잠긴 오라: 꾸미기에서 조건만 보여준다 */
+.opt-btn.locked { opacity:.5; font-family:var(--font-en); font-size:12px; }
+/* 로비의 다음 오라 한 줄 */
+.aura-tease { margin-top:4px; font-size:11.5px; color:var(--ink-dim); }
+.aura-tease b { color:var(--gold); }
+.aura-tease.done b, .aura-tease.done { color:var(--gold); }
+
 /* 오라 진행 띠 (도감 상단) — 목표가 눈에 보여야 모으고 싶어진다 */
 .aura-strip { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:6px 0 12px; }
 .aura-chip {

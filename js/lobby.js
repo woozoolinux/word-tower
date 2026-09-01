@@ -13,6 +13,7 @@ const Lobby = (() => {
           <div class="char-name">${esc(p.name)} <span class="lv-badge">Lv.${p.lv}</span></div>
           ${UI.hpBar(p.exp, need, 'exp')}
           <div class="stat-row"><span>⚔️ ${playerAtk()}</span><span>❤️ ${playerMaxHp()}</span><span>💰 ${p.gold}</span><span>🃏 ${Cards.count()}</span></div>
+          ${auraTease()}
         </div>
       </header>
       <h2 class="sec-title">🏰 타워</h2>
@@ -28,6 +29,15 @@ const Lobby = (() => {
         <button class="btn small ghost" data-act="save">💾 저장코드</button>
       </div>
       <p class="footer-note">진행 상황은 이 브라우저에 자동 저장돼요.</p>`;
+  }
+
+  // 로비에 다음 오라까지 얼마 남았는지 한 줄 — 목표가 늘 보이게
+  function auraTease() {
+    const goals = Cards.auraGoals(), nx = goals.find(g => !g.owned);
+    if (!nx) return '<div class="aura-tease done">✨ 오라를 전부 모았어요!</div>';
+    const left = Math.max(0, nx.need.cards - nx.cards);
+    const what = left ? `카드 ${left}장` : `티어 ${nx.need.tier}+ 타워 정복`;
+    return `<div class="aura-tease">${AURAS[nx.id].emoji} <b>${AURAS[nx.id].name}</b>까지 ${what}</div>`;
   }
 
   function towerCard(t) {
@@ -215,6 +225,28 @@ const Lobby = (() => {
   }
 
   // ---------- 캐릭터 만들기 / 꾸미기 ----------
+  // 오라 선택지. 못 가진 것도 흐리게 보여준다 — 목표가 눈에 보여야 모으고 싶어진다.
+  function auraOptions(sel) {
+    const goals = Cards.auraGoals();
+    const owned = id => state.player.owned.auras.indexOf(id) >= 0;
+    return ['none', ...goals.map(g => g.id)].map(id => {
+      if (owned(id)) return `<button class="opt-btn ${sel === id ? 'sel' : ''}" data-aura="${id}">${AURAS[id].emoji} ${AURAS[id].name}</button>`;
+      const g = goals.find(x => x.id === id);
+      const cond = g.cardsOk && !g.tierOk ? `티어 ${g.need.tier}+ 정복` : `🃏 ${g.need.cards}장`;
+      return `<button class="opt-btn locked" data-aurapv="${id}">🔒 ${AURAS[id].emoji} ${cond}</button>`;
+    }).join('');
+  }
+  // 다음 목표 한 줄 — 얼마나 남았는지
+  function auraNext() {
+    const goals = Cards.auraGoals(), got = goals.filter(g => g.owned).length;
+    const nx = goals.find(g => !g.owned);
+    if (!nx) return `<div class="toggle-desc">✨ 오라 ${got} / ${goals.length} · 전부 모았어요!</div>`;
+    const left = Math.max(0, nx.need.cards - nx.cards);
+    return `<div class="toggle-desc">✨ ${got} / ${goals.length} · 다음 <b>${AURAS[nx.id].emoji} ${AURAS[nx.id].name}</b>까지 ` +
+      (left ? `카드 <b>${left}장</b>` : '') +
+      (!nx.tierOk ? `${left ? ' + ' : ''}티어 <b>${nx.need.tier} 이상</b> 타워 정복` : '') + '</div>';
+  }
+
   function charCreator(force) {
     const p = state.player;
     const temp = Object.assign(Avatar.defaults(), p.avatar || {});
@@ -238,8 +270,9 @@ const Lobby = (() => {
       <h4>옷</h4>
       <div class="opt-row">${p.owned.outfits.map(id => `<button class="opt-btn ${outfit === id ? 'sel' : ''}" data-outfit="${id}">${OUTFITS[id].emoji} ${OUTFITS[id].name}</button>`).join('')}
         <span class="toggle-desc">새 코스튬은 🛒 상점에!</span></div>
-      <h4>✨ 오라 <span class="toggle-desc">단원을 완성하면 열려요</span></h4>
-      <div class="opt-row">${p.owned.auras.map(id => `<button class="opt-btn ${aura === id ? 'sel' : ''}" data-aura="${id}">${AURAS[id].emoji} ${AURAS[id].name}</button>`).join('')}</div>
+      <h4>✨ 오라 <span class="toggle-desc">카드를 모으면 열려요 · 🔒을 누르면 미리 볼 수 있어요</span></h4>
+      ${auraNext()}
+      <div class="opt-row">${auraOptions(aura)}</div>
       ${p.titles.length ? `<h4>🎖️ 칭호</h4>
       <div class="opt-row"><button class="opt-btn ${title ? '' : 'sel'}" data-title="">없음</button>
         ${p.titles.map(t => `<button class="opt-btn ${title === t ? 'sel' : ''}" data-title="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}
@@ -249,6 +282,8 @@ const Lobby = (() => {
     const m = UI.modal(html());
     const rerender = () => { m.body.innerHTML = html(); m.rebind(); };
     m.body.addEventListener('click', e => {
+      const pv = e.target.closest('[data-aurapv]');
+      if (pv) { Cards.previewAura(pv.dataset.aurapv); return; }   // 잠긴 오라 — 보기만
       const b = e.target.closest('[data-style],[data-hair],[data-skin],[data-outfit],[data-aura],[data-title],[data-preset],#cr-ok');
       if (!b) return;
       const inp = m.body.querySelector('#cr-name'); if (inp) name = inp.value;
