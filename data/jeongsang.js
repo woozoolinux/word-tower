@@ -1,15 +1,35 @@
-// 📗 Useful Expressions DSD1 — 이번 달 학습 단어 (Vocabulary 1~4)
+// 🐻 곰 탑 1 — 이번 달 학습 단어 (Vocabulary 1~4)
 // past: 과거형(지금은 표시 안 함, 나중에 과거형 퀴즈 모드용)
+//
+// ── 동물 월드: 등급 → 동물, 권수 → 숫자 ──────────────────────────
+// 등급이 오를수록 센 동물. 숲(DS) → 야생(LS) → 전설(MS)로 세계가 바뀐다.
+// 새 타워를 만들 땐 아래 표에서 tier / lvRange를 그대로 가져다 쓰면 된다.
+//
+//   #   반     이름            세계        tier   lvRange
+//   1   IS     🐣 병아리 탑    새싹 들판   1.0    [1, 10]
+//   2   DS-A   🐰 토끼 탑      숲          1.15   [2, 13]
+//   3   DS-B   🦊 여우 탑      숲          1.3    [3, 17]
+//   4   DS-C   🐺 늑대 탑      숲          1.4    [4, 20]
+//   5   DS-D   🐻 곰 탑        숲의 왕     1.5    [5, 24]   ← 이 파일
+//   6   LS-A   🦅 독수리 탑    야생        1.7    [8, 28]
+//   7   LS-B   🐆 표범 탑      야생        1.9    [11, 32]
+//   8   LS-C   🦁 사자 탑      야생        2.1    [14, 36]
+//   9   LS-D   🐅 호랑이 탑    야생의 왕   2.3    [17, 40]
+//  10   MS-A   🐉 드래곤 탑    전설        2.6    [21, 46]
+//  11   MS-B   🔥 불사조 탑    전설의 정점 3.0    [25, 52]
+//
+// 같은 등급의 2·3권은 이름 뒤 숫자만 바꾼다 (예: 🐻 곰 탑 2).
+// ───────────────────────────────────────────────────────────────
 window.TOWERS = window.TOWERS || [];
 window.TOWERS.push({
-  id: 'jeongsang1',
-  name: '📗 DSD1 타워',
-  desc: 'Useful Expressions DSD1 · Vocabulary 1~4',
-  emoji: '📗',
-  roof: '#3ee0c4',
+  id: 'jeongsang1',              // 저장 키 — 이름이 바뀌어도 진행이 유지되도록 그대로 둔다
+  name: '🐻 곰 탑 1',
+  desc: '숲의 왕 · 단어 48개 · 4단원',
+  emoji: '🐻',
+  roof: '#8d6a4f',
   tier: 1.5,
   lvRange: [5, 24],
-  clearBonus: { type: 'hp', pct: 0.15, title: 'DSD1 마스터' },
+  clearBonus: { type: 'hp', pct: 0.15, title: '숲의 파수꾼' },
   units: [
     { unit: 1, words: [
       { w: 'raindrop', m: '빗방울', pos: 'n' },

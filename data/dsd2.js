@@ -5,13 +5,13 @@
 window.TOWERS = window.TOWERS || [];
 window.TOWERS.push({
   id: 'jeongsang2',
-  name: '📘 DSD2 타워',
-  desc: 'Useful Expressions DSD2 · Vocabulary 1~8',
-  emoji: '📘',
-  roof: '#4a6cd4',
+  name: '🐻 곰 탑 2',
+  desc: '숲의 왕 · 단어 96개 · 8단원',
+  emoji: '🐻',
+  roof: '#6d5039',
   tier: 2.0,
   lvRange: [15, 36],
-  clearBonus: { type: 'atk', pct: 0.20, title: 'DSD2 마스터' },
+  clearBonus: { type: 'atk', pct: 0.20, title: '숲의 수호자' },
   units: [
     { unit: 1, words: [
       { w: 'field', m: '들판', pos: 'n' },
