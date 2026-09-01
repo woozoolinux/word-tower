@@ -195,14 +195,17 @@ const Runner = (() => {
       ctx.fillStyle = i < mi ? '#3ee0c4' : 'rgba(255,255,255,.22)';
       ctx.fill();
     }
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    // 가운데 정렬 — 왼쪽 끝에 있으면 시선이 안 간다.
+    // 좌우로 진행 점만큼 자리를 비워 두어 긴 뜻이 점을 덮지 않게 한다.
+    const pad = dotsW + 24;
+    const maxW = Math.max(90, W - pad * 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = '13px Jua, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.fillText('찾아라', 16, BAND / 2 - 13);
-    const maxW = W - 32 - dotsW;
-    let fs = 28;
+    ctx.fillText('찾아라', W / 2, BAND / 2 - 14);
+    let fs = 31;
     do { ctx.font = `${fs}px Jua, sans-serif`; fs -= 1; } while (ctx.measureText(m.m).width > maxW && fs > 13);
     ctx.fillStyle = '#ffc83d';
-    ctx.fillText(m.m, 16, BAND / 2 + 10);
+    ctx.fillText(m.m, W / 2, BAND / 2 + 10);
   }
 
   function up() { if (active) lane = Math.max(0, lane - 1); }
