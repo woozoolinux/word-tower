@@ -197,7 +197,7 @@ const Cards = (() => {
     const r = rarityOf(word), R = RARITY[r];
     const st = wordStat(towerId, word.w);
     const pending = isPending(towerId, word.w);
-    return `<div class="wcard r-${r} ${owned ? 'owned' : 'locked'} ${pending ? 'pending' : ''}" ${pending ? `data-test="${esc(towerId)}:${esc(word.w)}"` : ''}>
+    return `<div class="wcard r-${r} ${owned ? 'owned' : 'locked'} ${pending ? 'pending' : ''}" ${pending ? `data-test="${esc(towerId)}:${esc(word.w)}"` : owned ? `data-say="${esc(word.w)}"` : ''}>
       <div class="wc-en">${owned ? esc(word.w) : (pending ? '시험!' : '?')}</div>
       <div class="wc-ko">${esc(word.m)}</div>
       <div class="wc-foot"><span class="wc-r" style="color:${R.color}">${R.name}</span><span class="stars">${starsText(st.stars)}</span></div>
@@ -239,7 +239,7 @@ const Cards = (() => {
         <div class="modal-sub">전체 ${count()}장 · ${points()}포인트 &nbsp;|&nbsp; 이 타워 ${owned} / ${ws.length}장</div>
         ${auraStrip()}
         <div class="opt-row" style="justify-content:center;margin-bottom:6px">${tabs}</div>
-        <div class="toggle-desc" style="text-align:center">★★★ 단어에 <b>시험!</b>이 뜨면 눌러서 각인하세요</div>
+        <div class="toggle-desc" style="text-align:center">★★★ 단어에 <b>시험!</b>이 뜨면 눌러서 각인하세요${canSpeak() ? '<br>가진 카드를 누르면 발음을 들려줘요 🔊' : ''}</div>
         ${units}
         <div class="actions"><button class="btn ghost small" data-close="x">닫기</button></div>`;
     };
@@ -250,6 +250,8 @@ const Cards = (() => {
       if (tab) { cur = tab.dataset.tab; refresh(); return; }
       const pv = e.target.closest('[data-aurapv]');
       if (pv) { previewAura(pv.dataset.aurapv); return; }
+      const say = e.target.closest('[data-say]');          // 가진 카드 → 발음 듣기
+      if (say) { speak(say.dataset.say); return; }
       const card = e.target.closest('[data-test]');
       if (card) {
         const k = card.dataset.test, w = findWord(k);

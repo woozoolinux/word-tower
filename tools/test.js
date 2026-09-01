@@ -51,7 +51,7 @@ load('js/state.js', `\n;globalThis.S = {
   refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire,
   get state() { return state; }, set state(v) { state = v; },
 };`);
-load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview };`);
+load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak };`);
 load('js/avatar.js', '\n;globalThis.AV = { AURAS, OUTFITS };');
 // cards.js는 UI/Sfx를 호출 시점에만 쓰므로 정의만으로는 안전하다
 sandbox.UI = { toast() {}, modal() { return { body: {}, close() {} }; }, confetti() {} };
@@ -366,6 +366,39 @@ ok('단원 완성만으로는 오라가 나오지 않는다 (마일스톤에 못
 ok('같은 단원 보상을 두 번 주지 않는다',
   (() => { C.pendingRewards('main').forEach(r => { if (r.kind === 'unit') P().setBonus[r.key] = true; });
     return !C.pendingRewards('main').some(r => r.kind === 'unit' && r.unit === 1); })());
+
+// ===================================================================
+section('발음 읽어주기 설정');
+// 발음(학습 도움)과 듣기 문제(난이도)는 다른 것이다.
+// 예전엔 하나로 묶여 있어서, 발음을 들으려면 난이도를 올려야 했다.
+// ===================================================================
+Object.keys(store).forEach(k => delete store[k]);
+S.loadState();
+eq('새 게임은 발음 읽어주기가 켜져 있다', S.state.settings.say, true);
+eq('새 게임은 듣기 문제가 꺼져 있다', S.state.settings.listen, false);
+
+// 발음 설정이 없던 옛 저장을 읽으면 켜진 채로 채워져야 한다 (안 그러면 조용해진다)
+store['wordtower_save_v1'] = JSON.stringify({
+  version: 1, player: { name: '옛날', lv: 4, cards: {} }, towers: {},
+  settings: { listen: false, sound: true, preview: true },
+});
+S.loadState();
+eq('발음 설정이 없던 옛 저장도 켜진 채로 채워진다', S.state.settings.say, true);
+eq('옛 저장의 다른 설정은 그대로', S.state.settings.listen, false);
+eq('옛 저장의 진행은 유지된다', S.state.player.lv, 4);
+
+// 둘은 서로 영향을 주지 않아야 한다
+S.state.settings.say = false;
+eq('발음을 꺼도 듣기 문제는 그대로', S.state.settings.listen, false);
+S.state.settings.listen = true;
+eq('듣기 문제를 켜도 발음 설정은 그대로', S.state.settings.say, false);
+
+// TTS가 없는 환경(노드)에서도 죽지 않아야 한다
+eq('TTS 없는 기기에서는 canSpeak()가 false', W.canSpeak(), false);
+ok('TTS 없는 기기에서 speak()가 예외를 던지지 않는다',
+  (() => { try { W.speak('apple'); return true; } catch (e) { return false; } })());
+
+ok('발음 속도가 1.0보다 느리다 (아이가 따라 말할 수 있게)', BAL.speech.rate < 1, String(BAL.speech.rate));
 
 // ===================================================================
 section('저장 / 백업');

@@ -33,7 +33,7 @@ const Preview = (() => {
           <div class="pv-en">${esc(w.w)}</div>
           <div class="pv-ko">${esc(w.m)}</div>
           <div class="pv-meta">${w.pos ? esc(w.pos) + '.' : ''} <span class="stars">${starsText(st.stars)}</span>${owned ? ' 🃏' : ''}</div>
-          ${state.settings.listen ? '<button class="speak-mini" data-act="say">🔊 들어보기</button>' : ''}
+          ${canSpeak() ? '<button class="speak-mini" data-act="say">🔊 다시 듣기</button>' : ''}
         </div>
         <div class="pv-dots">${words.map((_, n) => `<i class="${n < i ? 'done' : n === i ? 'now' : ''}"></i>`).join('')}</div>
         <div class="actions">
@@ -51,15 +51,18 @@ const Preview = (() => {
     }
 
     function summaryView() {
+      // 요약에서도 눌러서 다시 들을 수 있다 (헷갈리는 것만 골라 듣게)
       const chips = run.words.map(w => {
         const owned = Cards.has(run.towerId, w.w);
-        return `<span class="star-chip ${owned ? 'owned' : ''}"><span class="en">${esc(w.w)}</span> ${esc(w.m)} ` +
+        return `<span class="star-chip ${owned ? 'owned' : ''}" data-act="sayword" data-word="${esc(w.w)}">` +
+          `<span class="en">${esc(w.w)}</span> ${esc(w.m)} ` +
           (owned ? '🃏' : `<span class="stars">${starsText(wordStat(run.towerId, w.w).stars)}</span>`) + '</span>';
       }).join('');
       return `
         <div class="modal-title">🗺️ 정찰 완료!</div>
         <div class="modal-sub">${run.floor}층에서 만날 단어 ${run.words.length}개</div>
         <div class="star-list">${chips}</div>
+        ${canSpeak() ? '<div class="toggle-desc" style="text-align:center">단어를 누르면 발음을 다시 들려줘요 🔊</div>' : ''}
         <div class="actions"><button class="btn" data-act="go">⚔️ 출발!</button></div>`;
     }
 
@@ -70,7 +73,9 @@ const Preview = (() => {
       if (summary) return;
       armed = false;
       const w = words[i];
-      if (state.settings.listen) setTimeout(() => speak(w.w), 250);
+      // 정찰은 "처음 만나는 단어"를 보여주는 자리다. 눈으로만 익히면 발음이 통째로 빠진다.
+      // 듣기 문제(난이도 옵션)와 무관하게, 설정에서 끄지 않는 한 읽어준다.
+      if (state.settings.say) setTimeout(() => speak(w.w), BAL.preview.sayDelay);
       setTimeout(() => {
         armed = true;
         const b = m.body.querySelector('[data-act="next"]');
@@ -91,6 +96,9 @@ const Preview = (() => {
       switch (act.dataset.act) {
         case 'say':
           speak(w.w); break;
+
+        case 'sayword':                       // 요약에서 단어 칩을 누른 경우
+          speak(act.dataset.word); break;
 
         case 'next':
           if (armed) advance(); break;

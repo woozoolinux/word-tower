@@ -76,7 +76,9 @@ function defaultState() {
       cards: {}, pendingCards: [], setBonus: {},
     },
     towers: {},
-    settings: { listen: false, sound: true, preview: true },
+    // say = 발음 자동 재생(학습 도움, 기본 ON) · listen = 듣기 문제(난이도, 기본 OFF)
+    // 둘은 다른 것이다. 발음을 들으려고 난이도를 올려야 하면 안 된다.
+    settings: { listen: false, sound: true, preview: true, say: true },
     createdAt: Date.now(),
   };
 }

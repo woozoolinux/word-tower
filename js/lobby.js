@@ -173,7 +173,8 @@ const Lobby = (() => {
   function settings() {
     const s = state.settings;
     const html = () => `<div class="modal-title">⚙️ 설정</div>
-      <div class="toggle-row"><div><div>🔊 듣기 문제</div><div class="toggle-desc">켜면 배틀에서 소리 듣고 뜻 고르기가 나와요</div></div><button class="toggle ${s.listen ? 'on' : ''}" data-t="listen" aria-label="듣기 문제"></button></div>
+      <div class="toggle-row"><div><div>🗣️ 발음 읽어주기</div><div class="toggle-desc">정찰에서 단어를 보여줄 때 자동으로 읽어줘요${canSpeak() ? '' : '<br><b class="warn">이 기기는 읽어주기를 지원하지 않아요</b>'}</div></div><button class="toggle ${s.say ? 'on' : ''}" data-t="say" aria-label="발음 읽어주기"></button></div>
+      <div class="toggle-row"><div><div>🎧 듣기 문제 <span class="tag off">어려움</span></div><div class="toggle-desc">배틀에서 글자 없이 소리만 듣고 뜻을 골라요</div></div><button class="toggle ${s.listen ? 'on' : ''}" data-t="listen" aria-label="듣기 문제"></button></div>
       <div class="toggle-row"><div><div>🎵 효과음</div></div><button class="toggle ${s.sound ? 'on' : ''}" data-t="sound" aria-label="효과음"></button></div>
       <div class="toggle-row"><div><div>🔍 정찰 (예습)</div><div class="toggle-desc">층에 들어가기 전에 단어를 미리 봐요</div></div><button class="toggle ${s.preview ? 'on' : ''}" data-t="preview" aria-label="정찰"></button></div>
       <div class="toggle-row"><div style="flex:1"><div>✏️ 이름</div><input class="name-input" id="name-input" value="${esc(state.player.name)}" maxlength="10"></div></div>
@@ -181,7 +182,13 @@ const Lobby = (() => {
     const m = UI.modal(html(), { onClose: () => { const v = m.body.querySelector('#name-input').value.trim(); if (v) state.player.name = v; saveState(); render(); } });
     m.body.addEventListener('click', e => {
       const t = e.target.closest('[data-t]');
-      if (t) { s[t.dataset.t] = !s[t.dataset.t]; t.classList.toggle('on', s[t.dataset.t]); saveState(); if (t.dataset.t === 'sound') Sfx.ok(); return; }
+      if (t) {
+        s[t.dataset.t] = !s[t.dataset.t];
+        t.classList.toggle('on', s[t.dataset.t]); saveState();
+        if (t.dataset.t === 'sound') Sfx.ok();
+        if (t.dataset.t === 'say' && s.say) speak('apple');   // 켜면 바로 들려준다
+        return;
+      }
       if (e.target.id === 'test-tts') { speak('apple'); return; }
       if (e.target.id === 'reset-btn') {
         if (confirm('정말 처음부터 시작할까요? 모든 진행과 골드가 사라져요.')) { resetState(); m.close(); render(); UI.toast('새로 시작!'); }

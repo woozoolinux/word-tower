@@ -54,7 +54,8 @@ const Battle = (() => {
       $('battle-prompt').innerHTML = `<button class="speak-btn" id="speak-btn">🔊 들어보기</button><div class="prompt-sub">듣고 뜻을 골라요</div>`;
     } else {
       $('battle-prompt').innerHTML = `<div class="prompt-main ${mode === 'm2w' ? 'ko' : 'en'}">${esc(q.prompt)}</div><div class="prompt-sub">${mode === 'm2w' ? '영어로는?' : '뜻은?'}</div>` +
-        (mode === 'w2m' && state.settings.listen ? '<button class="speak-mini" id="speak-btn">🔊</button>' : '');
+        // 영어가 이미 화면에 있는 문제(w2m)에서는 들려줘도 답이 새지 않는다 → 항상 제공
+        (mode === 'w2m' && canSpeak() ? '<button class="speak-mini" id="speak-btn">🔊</button>' : '');
     }
     $('battle-choices').innerHTML = q.choices.map(c => `<button class="choice ${mode === 'm2w' ? 'en' : 'ko'}">${esc(c)}</button>`).join('');
     $('battle-hint').textContent = '';

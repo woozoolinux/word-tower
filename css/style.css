@@ -239,6 +239,9 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .wcard.locked { background: var(--panel2); border-style: dashed; opacity: .75; }
 .wcard.locked .wc-en { color: #b8ae98; }
 .wcard.pending { background: var(--gold); border-color: var(--gold-dark); border-style: solid; opacity: 1; cursor: pointer; animation: pop .4s; }
+/* 가진 카드·정찰 요약 칩은 눌러서 발음을 들을 수 있다 */
+.wcard[data-say], .star-chip[data-word] { cursor: pointer; }
+.wcard[data-say]:active, .star-chip[data-word]:active { transform: scale(.95); }
 .wcard.pending .wc-en { color: var(--ink); font-family: var(--font-ko); }
 
 /* ---------- 🔍 정찰 (예습) ---------- */

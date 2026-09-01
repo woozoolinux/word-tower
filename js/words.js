@@ -82,12 +82,35 @@ function recordResult(towerId, word, correct, helped) {
 }
 function starsText(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
 
+// ---------- 발음 읽어주기 (브라우저 내장 TTS, 외부 API 없음) ----------
+// 한국어 기기에서는 lang만 지정하면 한국어 목소리가 영어를 읽어버리는 일이 있다
+// ("apple"을 "아플레"처럼). 그래서 영어 목소리를 직접 골라 준다.
+let _voices = [];
+function loadVoices() {
+  try { _voices = speechSynthesis.getVoices() || []; } catch (e) { _voices = []; }
+}
+if (typeof speechSynthesis !== 'undefined') {
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;   // 크롬은 목록이 늦게 채워진다
+}
+function englishVoice() {
+  if (!_voices.length) loadVoices();
+  const en = _voices.filter(v => /^en[-_]/i.test(v.lang));
+  if (!en.length) return null;
+  return en.find(v => /^en[-_]US/i.test(v.lang)) || en[0];
+}
+
 function speak(text) {
-  if (!('speechSynthesis' in window)) return;
+  if (typeof speechSynthesis === 'undefined') return;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US'; u.rate = 0.85;
+    const v = englishVoice();
+    if (v) u.voice = v;
+    u.lang = 'en-US';
+    u.rate = BAL.speech.rate;
     speechSynthesis.speak(u);
   } catch (e) { /* TTS 미지원 */ }
 }
+// 목소리가 아예 없으면 발음 기능을 조용히 접는다 (설정에서 안내용)
+function canSpeak() { return typeof speechSynthesis !== 'undefined'; }
