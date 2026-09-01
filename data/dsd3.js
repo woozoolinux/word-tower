@@ -4,6 +4,7 @@
 //
 // 책과 다르게 넣은 것 (이유는 README의 규칙 참고):
 //  · crash — 책에는 Voca 1에 명사(굉음), Voca 2에 동사(충돌하다)로 두 번 나온다.
+//    철자가 같아 카드 키가 겹치므로, 동사 쪽에 key: 'crash(v)'를 줘서 신원을 분리했다.
 //    게임은 영어 철자를 카드 키로 쓰기 때문에 같은 단어가 두 개면 카드가 하나로 합쳐진다.
 //    → Unit 1에 두 뜻을 합쳐서 한 번만 넣었다 (Unit 2는 11단어).
 //  · pass out — 책 뜻이 "의식을 잃다, 기절하다"인데 같은 단원의 faint(기절하다)와
@@ -23,7 +24,7 @@ window.TOWERS.push({
       { w: 'lie', m: '누워있다, 눕다', pos: 'v', past: 'lay' },
       { w: 'rob', m: '빼앗다, 약탈하다', pos: 'v', past: 'robbed' },
       { w: 'bomb', m: '폭탄', pos: 'n' },
-      { w: 'crash', m: '요란한 소리, 굉음 / 충돌하다', pos: 'n', past: 'crashed' },
+      { w: 'crash', m: '요란한 소리, 굉음', pos: 'n' },
       { w: 'mistake', m: '실수', pos: 'n' },
       { w: 'warn', m: '경고하다', pos: 'v', past: 'warned' },
       { w: 'fail', m: '실패하다', pos: 'v', past: 'failed' },
@@ -45,6 +46,7 @@ window.TOWERS.push({
       { w: 'straight', m: '곧장, 곧바로', pos: 'adv' },
       { w: 'opposite', m: '반대 (되는 사람, 것)', pos: 'n' },
       { w: 'whole', m: '전체의, 모든', pos: 'adj' },
+      { w: 'crash', key: 'crash(v)', m: '충돌하다', pos: 'v', past: 'crashed' },
     ]},
     { unit: 3, words: [
       { w: 'evil', m: '사악한', pos: 'adj' },

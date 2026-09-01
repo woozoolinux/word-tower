@@ -25,13 +25,13 @@ const Cards = (() => {
 
   // ★★★ 달성 → 시험 대기열에 올린다 (카드는 시험을 통과해야 받는다)
   function onMastered(towerId, word) {
-    const k = key(towerId, word.w);
+    const k = key(towerId, wkey(word));
     if (state.player.cards[k] || state.player.pendingCards.indexOf(k) >= 0) return;
     state.player.pendingCards.push(k);
     saveState();
   }
   function grant(towerId, word) {
-    const k = key(towerId, word.w);
+    const k = key(towerId, wkey(word));
     state.player.cards[k] = RARITY[rarityOf(word)].pt;
     const i = state.player.pendingCards.indexOf(k);
     if (i >= 0) state.player.pendingCards.splice(i, 1);
@@ -44,21 +44,21 @@ const Cards = (() => {
     const i = k.indexOf(':'), tid = k.slice(0, i), w = k.slice(i + 1);
     const t = towerById(tid);
     if (!t) return null;
-    return allWords(t).find(x => x.w === w) || null;
+    return allWords(t).find(x => wkey(x) === w) || null;
   }
   function pendingFor(towerId) {
     return state.player.pendingCards.filter(k => k.slice(0, k.indexOf(':')) === towerId).map(findWord).filter(Boolean);
   }
   function unitStat(tower, unit) {
     const ws = tower.units.find(u => u.unit === unit).words;
-    return { have: ws.filter(w => has(tower.id, w.w)).length, total: ws.length };
+    return { have: ws.filter(w => has(tower.id, wkey(w))).length, total: ws.length };
   }
   // 보스 층: 그 보스가 다루는 단원들의 카드를 일정 비율 이상 모아야 한다
   function gateInfo(tower, upTo) {
     const ws = allWords(tower).filter(w => w.unit <= upTo);
-    const have = ws.filter(w => has(tower.id, w.w));
+    const have = ws.filter(w => has(tower.id, wkey(w)));
     const need = Math.ceil(ws.length * BAL.cards.bossGate);
-    return { have: have.length, need, total: ws.length, ok: have.length >= need, missing: ws.filter(w => !has(tower.id, w.w)) };
+    return { have: have.length, need, total: ws.length, ok: have.length >= need, missing: ws.filter(w => !has(tower.id, wkey(w))) };
   }
 
   // ---------- 각인 시험 (스펠링) ----------
@@ -131,7 +131,7 @@ const Cards = (() => {
 
   // 정찰 도전 통과 → ★★★까지 채우고 카드 즉시 지급
   function grantDirect(towerId, word) {
-    const st = wordStat(towerId, word.w);
+    const st = statFor(towerId, word);
     st.stars = 3;
     grant(towerId, word);
   }
@@ -195,8 +195,8 @@ const Cards = (() => {
   // ---------- 도감 ----------
   function cardHtml(towerId, word, owned) {
     const r = rarityOf(word), R = RARITY[r];
-    const st = wordStat(towerId, word.w);
-    const pending = isPending(towerId, word.w);
+    const st = statFor(towerId, word);
+    const pending = isPending(towerId, wkey(word));
     return `<div class="wcard r-${r} ${owned ? 'owned' : 'locked'} ${pending ? 'pending' : ''}" ${pending ? `data-test="${esc(towerId)}:${esc(word.w)}"` : owned ? `data-say="${esc(word.w)}"` : ''}>
       <div class="wc-en">${owned ? esc(word.w) : (pending ? '시험!' : '?')}</div>
       <div class="wc-ko">${esc(word.m)}</div>
@@ -225,7 +225,7 @@ const Cards = (() => {
     let cur = towerId || window.TOWERS[0].id;
     const html = () => {
       const t = towerById(cur), ws = allWords(t);
-      const owned = ws.filter(w => has(cur, w.w)).length;
+      const owned = ws.filter(w => has(cur, wkey(w))).length;
       const tabs = window.TOWERS.map(x =>
         `<button class="btn small ${x.id === cur ? '' : 'ghost'}" data-tab="${x.id}">${esc(x.name)}</button>`).join('');
       const units = t.units.map(u => {
@@ -233,7 +233,7 @@ const Cards = (() => {
         const rw = `<span class="unit-reward ${doneU ? 'got' : ''}">💰 ${Math.round(BAL.gold.unitComplete * towerTier(t))}${doneU ? ' 획득!' : ''}</span>`;
         return `<h4>Unit ${u.unit} <span class="unit-prog">${s.have} / ${s.total}</span> ${rw}</h4>
           <div class="bar exp"><div class="bar-fill" style="width:${s.have / s.total * 100}%"></div></div>
-          <div class="card-grid">${u.words.map(w => cardHtml(cur, w, has(cur, w.w))).join('')}</div>`;
+          <div class="card-grid">${u.words.map(w => cardHtml(cur, w, has(cur, wkey(w)))).join('')}</div>`;
       }).join('');
       return `<div class="modal-title">🃏 단어 도감</div>
         <div class="modal-sub">전체 ${count()}장 · ${points()}포인트 &nbsp;|&nbsp; 이 타워 ${owned} / ${ws.length}장</div>
@@ -299,7 +299,7 @@ const Cards = (() => {
     // (2) 카드 마일스톤을 넘으면 오라 (어느 타워에서 모았든 상관없다)
     auraGoals().filter(g => g.reached && !g.owned).forEach(g => out.push({ kind: 'aura', aura: g.id }));
     // (3) 타워의 카드를 전부 모으면 칭호 + 영구 보너스
-    if (allWords(t).every(w => has(t.id, w.w)) && t.clearBonus && !state.player.towerClear[t.id]) {
+    if (allWords(t).every(w => has(t.id, wkey(w))) && t.clearBonus && !state.player.towerClear[t.id]) {
       out.push({ kind: 'tower', tower: t });
     }
     return out;

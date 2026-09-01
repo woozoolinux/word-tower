@@ -44,11 +44,11 @@ const Lobby = (() => {
     const prog = towerProg(t.id), total = floorList(t).length, done = prog.cleared >= total;
     const words = allWords(t);
     const rg = towerRange(t), lv = state.player.lv;
-    const cardsHave = words.filter(w => Cards.has(t.id, w.w)).length;
+    const cardsHave = words.filter(w => Cards.has(t.id, wkey(w))).length;
     const pendHave = Cards.pendingFor(t.id).length;
     const lvTag = `난이도 ${tierFire(towerTier(t))} · 권장 Lv.${rg[0]}~${rg[1]} · ` +
       (lv < rg[0] ? '<b class="warn">⚠️ 아직 어려워요</b>' : lv > rg[1] ? '<b class="easy">😎 여유로워요</b>' : '<b class="fit">👍 딱 맞아요</b>');
-    const stars = words.reduce((a, w) => a + wordStat(t.id, w.w).stars, 0);
+    const stars = words.reduce((a, w) => a + statFor(t.id, w).stars, 0);
     const pct = Math.round(prog.cleared / total * 100);
     const next = Math.min(prog.floor, total);
     return `<div class="tower-card panel" data-tower="${t.id}">

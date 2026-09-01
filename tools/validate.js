@@ -107,8 +107,12 @@ towers.forEach((t, ti) => {
       if (typeof w.w !== 'string') return;
 
       totalWords++;
-      if (seenW.has(w.w)) err(wat, `"${w.w}"가 ${seenW.get(w.w)}에도 있어요 — 카드가 하나로 합쳐지고 ★도 공유돼요`);
-      else seenW.set(w.w, `Unit ${u.unit}`);
+      // 같은 철자가 품사만 달리 두 번 나올 수 있다(crash 명사/동사).
+      // 그럴 땐 데이터에 서로 다른 key를 줘야 카드와 ★가 분리된다.
+      const wk = w.key || w.w;
+      if (seenW.has(wk)) err(wat, `"${w.w}"가 ${seenW.get(wk)}에도 있어요 — 카드가 하나로 합쳐지고 ★도 공유돼요` +
+        (w.key ? '' : ' (품사가 다른 같은 철자라면 한쪽에 key를 주세요)'));
+      else seenW.set(wk, `Unit ${u.unit}`);
 
       if (typeof w.m === 'string') {
         if (!byMeaning.has(w.m)) byMeaning.set(w.m, []);

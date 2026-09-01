@@ -207,7 +207,7 @@ const Game = {
   // 투기장: 지금까지 본 단어로 무한 배틀
   startArena() {
     let words = [];
-    window.TOWERS.forEach(t => allWords(t).forEach(w => { if (wordStat(t.id, w.w).seen > 0) words.push(w); }));
+    window.TOWERS.forEach(t => allWords(t).forEach(w => { if (statFor(t.id, w).seen > 0) words.push(w); }));
     if (words.length < BAL.arena.minWords) { UI.toast(`타워에서 단어를 ${BAL.arena.minWords}개 이상 만난 뒤에 도전할 수 있어요!`); return; }
     let kills = 0;
     const A = BAL.arena;

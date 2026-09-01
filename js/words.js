@@ -34,12 +34,15 @@ function floorWords(tower, n) {
 }
 // 이 타워에서 틀렸던 단어(★<3)를 최대 2개 섞어 넣는다 — 복습
 function withReview(towerId, words, pool) {
-  const have = new Set(words.map(w => w.w));
-  const review = shuffle(pool.filter(w => !have.has(w.w) && wordStat(towerId, w.w).wrong > 0 && wordStat(towerId, w.w).stars < 3)).slice(0, BAL.quiz.reviewPerFloor);
+  const have = new Set(words.map(wkey));
+  const review = shuffle(pool.filter(w => !have.has(wkey(w)) && statFor(towerId, w).wrong > 0 && statFor(towerId, w).stars < 3)).slice(0, BAL.quiz.reviewPerFloor);
   return words.concat(review);
 }
 
-function statFor(towerId, word) { return wordStat(word.towerId || towerId, word.w); }
+// 단어의 신원. 같은 철자가 품사만 다르게 두 번 나올 수 있어(crash 명사/동사)
+// 그럴 때만 데이터에 key를 따로 준다. key가 없으면 철자가 곧 신원.
+function wkey(w) { return w.key || w.w; }
+function statFor(towerId, word) { return wordStat(word.towerId || towerId, wkey(word)); }
 
 // ★이 낮은 단어가 더 자주 나오게 가중치 선택
 function pickWord(towerId, words, excludeW) {

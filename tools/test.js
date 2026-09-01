@@ -51,7 +51,7 @@ load('js/state.js', `\n;globalThis.S = {
   refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire,
   get state() { return state; }, set state(v) { state = v; },
 };`);
-load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak };`);
+load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak, wkey, statFor };`);
 load('js/avatar.js', '\n;globalThis.AV = { AURAS, OUTFITS };');
 // cards.js는 UI/Sfx를 호출 시점에만 쓰므로 정의만으로는 안전하다
 sandbox.UI = { toast() {}, modal(h, o) { sandbox.lastModal = { h, o }; return { body: {}, close() {} }; },
@@ -237,8 +237,20 @@ sandbox.window.TOWERS.forEach(t => {
   ok(`${t.id}: clearBonus type이 atk/hp`, !t.clearBonus || ['atk', 'hp'].includes(t.clearBonus.type));
   ok(`${t.id}: 낡은 auras 필드가 없다`, t.auras === undefined);
 });
-const allW = sandbox.window.TOWERS.flatMap(t => W.allWords(t).map(w => `${t.id}:${w.w}`));
+// 카드·★의 신원은 철자가 아니라 wkey(key가 있으면 key). 같은 철자를 품사별로 나눌 수 있다.
+const allW = sandbox.window.TOWERS.flatMap(t => W.allWords(t).map(w => `${t.id}:${W.wkey(w)}`));
 eq('타워 안에서 단어 키가 겹치지 않는다', new Set(allW).size, allW.length);
+{
+  const dup = sandbox.window.TOWERS.flatMap(t => {
+    const seen = new Map(), out = [];
+    W.allWords(t).forEach(w => {
+      if (seen.has(w.w) && !w.key && !seen.get(w.w).key) out.push(`${t.id}:${w.w}`);
+      seen.set(w.w, w);
+    });
+    return out;
+  });
+  eq('같은 철자를 두 번 쓸 땐 한쪽에 key가 있다', dup.length, 0);
+}
 
 // ===================================================================
 section('성장 곡선 — 게임 전체가 말이 되는가');

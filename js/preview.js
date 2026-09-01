@@ -9,7 +9,7 @@ const Preview = (() => {
     if (!state.settings.preview) return cb();
     if (run.plan.type === 'boss') return cb();  // 보스는 이미 배운 단어들
     if (run.mul < 1) return cb();               // 다시 도는 층은 생략
-    const words = run.words.filter(w => !Cards.has(run.towerId, w.w));
+    const words = run.words.filter(w => !Cards.has(run.towerId, wkey(w)));
     if (!words.length) return cb();
     show(run, words, cb);
   }
@@ -21,9 +21,9 @@ const Preview = (() => {
 
     function cardView() {
       const w = words[i], r = Cards.rarityOf(w), R = RARITY[r];
-      const st = wordStat(run.towerId, w.w);
-      const owned = Cards.has(run.towerId, w.w);
-      const pend = Cards.isPending(run.towerId, w.w);
+      const st = statFor(run.towerId, w);
+      const owned = Cards.has(run.towerId, wkey(w));
+      const pend = Cards.isPending(run.towerId, wkey(w));
       const canTry = !tried[w.w] && !owned;
       return `
         <div class="modal-title">🔍 정찰</div>
@@ -53,10 +53,10 @@ const Preview = (() => {
     function summaryView() {
       // 요약에서도 눌러서 다시 들을 수 있다 (헷갈리는 것만 골라 듣게)
       const chips = run.words.map(w => {
-        const owned = Cards.has(run.towerId, w.w);
+        const owned = Cards.has(run.towerId, wkey(w));
         return `<span class="star-chip ${owned ? 'owned' : ''}" data-act="sayword" data-word="${esc(w.w)}">` +
           `<span class="en">${esc(w.w)}</span> ${esc(w.m)} ` +
-          (owned ? '🃏' : `<span class="stars">${starsText(wordStat(run.towerId, w.w).stars)}</span>`) + '</span>';
+          (owned ? '🃏' : `<span class="stars">${starsText(statFor(run.towerId, w).stars)}</span>`) + '</span>';
       }).join('');
       return `
         <div class="modal-title">🗺️ 정찰 완료!</div>
