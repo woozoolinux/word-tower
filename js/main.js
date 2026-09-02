@@ -459,6 +459,7 @@ const Game = {
 
   toLobby() {
     Runner.stop();
+    if (typeof Dungeon !== 'undefined') Dungeon.stop();
     state.player.hp = playerMaxHp(); saveState();
     this.run = null;
     Lobby.render(); UI.show('lobby');

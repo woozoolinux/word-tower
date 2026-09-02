@@ -764,33 +764,16 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .dg-bar-fill { height: 100%; width: 100%; background: var(--mint); transition: width .1s linear; }
 .dg-bar-fill.warn { background: var(--coral); }
 
-.dg-field {
-  background: linear-gradient(#171331, #0d0a1e); border-radius: 18px; padding: 14px 14px 10px; margin-bottom: 14px;
+.dg-canvas-wrap { position: relative; border-radius: 18px; overflow: hidden; margin-bottom: 14px; }
+.dg-canvas-wrap canvas { display: block; width: 100%; }
+.dg-count {
+  position: absolute; right: 10px; top: 8px; font-size: 13px; font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,.7); background: rgba(0,0,0,.35); border-radius: 8px; padding: 3px 8px;
 }
-.dg-chase { display: flex; align-items: center; gap: 8px; }
-.dg-mon { flex: 0 0 auto; }
-.dg-mon .dg-beast-svg { width: 74px; height: auto; }
-.dg-chase { min-height: 68px; }
-.dg-dots { flex: 1; display: flex; gap: 6px; align-items: center; justify-content: center; }
-.dg-dots i {
-  width: 26px; height: 8px; border-radius: 4px; background: var(--coral);
-  box-shadow: 0 0 10px rgba(255,107,122,.6);
-}
-.dg-dots i.gone { background: rgba(255,255,255,.14); box-shadow: none; }
-.dg-me { flex: 0 0 auto; }
-.dg-me.hop { animation: dgHop .5s cubic-bezier(.3,1.6,.5,1); }
-@keyframes dgHop { 50% { transform: translate(10px, -16px); } }
-.dg-track { display: flex; align-items: center; gap: 4px; margin: 10px 0 4px; }
-.dg-tick { flex: 1; height: 7px; border-radius: 4px; background: rgba(255,255,255,.14); }
-.dg-tick.done { background: var(--gold); }
-.dg-tick.now { background: var(--mint); animation: dgNow 1s ease-in-out infinite; }
-@keyframes dgNow { 50% { opacity: .45; } }
-.dg-exit { font-size: 18px; }
-.dg-count { text-align: center; font-size: 13px; color: rgba(255,255,255,.6); font-variant-numeric: tabular-nums; }
 
 .dg-planks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .dg-plank {
-  border: 0; cursor: pointer; padding: 22px 10px; border-radius: 13px;
+  border: 0; cursor: pointer; padding: 16px 10px; border-radius: 13px;
   font-family: var(--font-en); font-size: 21px; line-height: 1.15; word-break: break-all;
   color: #fff6e0; text-shadow: 0 2px 4px rgba(0,0,0,.55);
   background: linear-gradient(#a37c50, #7d5f3c);

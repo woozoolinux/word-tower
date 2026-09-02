@@ -118,119 +118,261 @@ const Dungeon = (() => {
     return pool.length >= 4 ? pool : all.map(x => x.w);
   }
 
-  // ---------- 다리 ----------
-  let pool, plank, gap, used, q, timer, tick, lock, onEnd;
+  // ---------- 다리: 캔버스 추격 ----------
+  // 계단달리기와 같은 캔버스지만 방식이 다르다. 거기선 레인을 바꿔 타일을 줍고,
+  // 여기선 **끊긴 다리가 다가온다**. 시간이 게이지가 아니라 낭떠러지까지의 거리다.
+  // 글자는 캔버스가 아니라 아래 버튼에 둔다 — 폰에서 작은 글자를 정확히 누르게 하면 안 된다.
+  const HGT = 212, LINE = 150, GAPW = 78;   // 캔버스 높이 / 다리 높이 / 끊긴 폭
+  let cv, ctx, raf, last, active;
+  let pool, plank, gap, used, q, lock, phase, t, ph, bgOff, pimg, beastLunge, msg, shakeT, chosen, dust;
+
+  function width() { return cv.width / (window.devicePixelRatio || 1); }
+  function kidX() { return width() * 0.56; }   // 아이를 오른쪽에 두어야 뒤가 보인다
 
   function start() {
     pool = candidates();
-    if (pool.length < 4) { UI.toast(`타워에서 단어를 조금 더 만난 뒤에 올 수 있어요`, 'bad'); return; }
+    if (pool.length < 4) { UI.toast('타워에서 단어를 조금 더 만난 뒤에 올 수 있어요', 'bad'); return; }
     prologue(() => run());
   }
 
   function run() {
-    plank = 0; gap = D().gap; used = []; lock = false;
+    plank = 0; gap = D().gap; used = []; bgOff = 0; beastLunge = 0; msg = null; shakeT = 0; dust = [];
+    pimg = Avatar.image();
     UI.show('dungeon');
+    shell();
     next();
+    active = true; last = performance.now();
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(loop);
   }
+  function stop() { active = false; if (raf) cancelAnimationFrame(raf); raf = null; }
 
-  function el(id) { return document.getElementById(id); }
-
-  function render() {
-    const total = D().planks;
-    const dots = Array.from({ length: D().gap }, (_, i) =>
-      `<i class="${i < gap ? '' : 'gone'}"></i>`).join('');
-    el('screen-dungeon').innerHTML = `
+  function shell() {
+    document.getElementById('screen-dungeon').innerHTML = `
       <div class="dg-hud panel">
         <div class="dg-ask"><span class="dg-ask-label">이 뜻을 밟아라</span>
-          <b class="dg-ask-word">${esc(q.prompt)}</b></div>
-        <div class="dg-bar"><div class="dg-bar-fill" id="dg-time"></div></div>
+          <b class="dg-ask-word" id="dg-word">…</b></div>
       </div>
-      <div class="dg-field">
-        <div class="dg-chase">
-          <span class="dg-mon">${beast()}</span>
-          <span class="dg-dots">${dots}</span>
-          <span class="dg-me" id="dg-me">${UI.charHtml(50)}</span>
-        </div>
-        <div class="dg-track">${Array.from({ length: total }, (_, i) =>
-          `<span class="dg-tick ${i < plank ? 'done' : i === plank ? 'now' : ''}"></span>`).join('')}
-          <span class="dg-exit">🚪</span></div>
-        <div class="dg-count">${plank} / ${total}칸</div>
-      </div>
-      <div class="dg-planks" id="dg-planks">
-        ${q.choices.map(c => `<button class="dg-plank" data-pick="${esc(c)}">${esc(c)}</button>`).join('')}
-      </div>
-      <div class="dg-msg" id="dg-msg"></div>`;
-    el('dg-planks').onclick = e => {
+      <div class="dg-canvas-wrap"><canvas id="dg-cv"></canvas>
+        <div class="dg-count" id="dg-count"></div></div>
+      <div class="dg-planks" id="dg-planks"></div>`;
+    cv = document.getElementById('dg-cv'); ctx = cv.getContext('2d');
+    resize();
+    document.getElementById('dg-planks').onclick = e => {
       const b = e.target.closest('[data-pick]');
       if (b) pick(b, b.dataset.pick);
     };
-    startTimer();
   }
-
-  function startTimer() {
-    clearTimer();
-    const bar = el('dg-time'), limit = D().timeLimit * 1000;
-    const t0 = performance.now();
-    tick = setInterval(() => {
-      const left = Math.max(0, 1 - (performance.now() - t0) / limit);
-      if (bar) { bar.style.width = (left * 100) + '%'; bar.classList.toggle('warn', left < .34); }
-      if (left <= 0) { clearTimer(); timeUp(); }
-    }, 80);
+  function resize() {
+    if (!cv) return;
+    const w = cv.parentElement.clientWidth || 320, dpr = window.devicePixelRatio || 1;
+    cv.width = w * dpr; cv.height = HGT * dpr; cv.style.height = HGT + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-  function clearTimer() { if (tick) clearInterval(tick); tick = null; if (timer) clearTimeout(timer); timer = null; }
 
   function next() {
-    if (plank >= D().planks) { escape(); return; }
+    if (plank >= D().planks) { toDoor(); return; }
     const left = pool.filter(w => used.indexOf(wkey(w)) < 0);
     const src = left.length >= 4 ? left : pool;
     const word = src[(Math.random() * src.length) | 0];
     used.push(wkey(word));
     q = makeQuestion(word, pool, 'm2w');
-    lock = false;
-    render();
+    lock = false; phase = 'run'; t = 0; ph = 0; chosen = null; msg = null;
+    document.getElementById('dg-word').textContent = q.prompt;
+    document.getElementById('dg-count').textContent = `${plank} / ${D().planks}칸`;
+    document.getElementById('dg-planks').innerHTML = q.choices
+      .map(c => `<button class="dg-plank" data-pick="${esc(c)}">${esc(c)}</button>`).join('');
   }
 
   function pick(btn, val) {
-    if (lock) return;
-    lock = true; clearTimer();
+    if (lock || phase !== 'run') return;
+    lock = true;
     const ok = val === q.answer;
+    chosen = val;
     recordResult(q.word.towerId, q.word, ok, false);
-    if (ok) {
-      btn.classList.add('safe');
-      Sfx.ok(); plank++;
-      addGold(D().gold.perPlank);
-      const me = el('dg-me'); if (me) me.classList.add('hop');
-      say(`좋아! ${plank}칸째`, 'good');
-    } else {
-      btn.classList.add('broken');
-      Sfx.bad(); gap--;
-      const p = el('dg-planks'); if (p) UI.shake(p);
-      say(`부서졌다! 정답은 "${q.answer}"`, 'bad');
-    }
-    // 정답 발판은 항상 보여준다 — 틀린 채로 넘어가면 배우는 게 없다
+    document.querySelectorAll('[data-pick]').forEach(b => {
+      if (b.dataset.pick === q.answer) b.classList.add('safe');
+      else if (b === btn) b.classList.add('broken');
+      b.disabled = true;
+    });
+    if (ok) { Sfx.ok(); plank++; addGold(D().gold.perPlank); cross(); }
+    else { Sfx.bad(); miss(); }
+  }
+  function cross() { phase = 'cross'; ph = 0; msg = { t: '좋아!', cls: 'good' }; }
+  function miss() {
+    phase = 'fall'; ph = 0; gap--;
+    beastLunge = 1;
+    shakeT = .35;
+    msg = { t: `"${q.answer}" 였어!`, cls: 'bad' };
     document.querySelectorAll('[data-pick]').forEach(b => {
       if (b.dataset.pick === q.answer) b.classList.add('safe');
       b.disabled = true;
     });
-    timer = setTimeout(() => { if (gap <= 0) caught(); else next(); }, ok ? 620 : 1350);
+  }
+  function toDoor() { phase = 'door'; ph = 0; lock = true; }
+
+  // ---------- 진행 ----------
+  function loop(now) {
+    if (!active) return;
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    update(dt); draw();
+    raf = requestAnimationFrame(loop);
+  }
+  function update(dt) {
+    if (shakeT > 0) shakeT -= dt;
+    if (beastLunge > 0) beastLunge = Math.max(0, beastLunge - dt * 1.4);
+    dust = dust.filter(d => (d.life -= dt) > 0);
+    dust.forEach(d => { d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 220 * dt; });
+    if (phase === 'run') {
+      bgOff += 150 * dt;
+      if (gap <= 1 && Math.random() < dt * 2.2) shakeT = Math.max(shakeT, .1);
+      t += dt / D().timeLimit;
+      if (t >= 1 && !lock) { lock = true; timeUp(); }
+    } else if (phase === 'cross') {
+      bgOff += 210 * dt; ph += dt;
+      if (ph > .7) next();
+    } else if (phase === 'fall') {
+      ph += dt;
+      if (ph > 1.5) { if (gap <= 0) { stop(); caught(); } else next(); }
+    } else if (phase === 'door') {
+      bgOff += 230 * dt; ph += dt;
+      if (ph > 1.6) { stop(); escape(); }
+    }
   }
   function timeUp() {
-    if (lock) return;
-    lock = true; gap--;
-    Sfx.bad();
-    say(`너무 느려! 정답은 "${q.answer}"`, 'bad');
     recordResult(q.word.towerId, q.word, false, false);
-    document.querySelectorAll('[data-pick]').forEach(b => {
-      if (b.dataset.pick === q.answer) b.classList.add('safe');
-      b.disabled = true;
-    });
-    timer = setTimeout(() => { if (gap <= 0) caught(); else next(); }, 1350);
+    Sfx.bad(); miss();
   }
-  function say(t, cls) { const m = el('dg-msg'); if (m) { m.className = 'dg-msg ' + cls; m.textContent = t; } }
+  function puff(x, y, n) {
+    for (let i = 0; i < n; i++) dust.push({ x, y, vx: -70 - Math.random() * 90, vy: -18 - Math.random() * 40, r: 1.4 + Math.random() * 2.4, life: .3 + Math.random() * .25 });
+  }
+
+  // ---------- 그리기 ----------
+  function draw() {
+    const W = width(), K = kidX();
+    ctx.save();
+    if (shakeT > 0) ctx.translate((Math.random() - .5) * 7, (Math.random() - .5) * 7);
+    // 동굴
+    const g = ctx.createLinearGradient(0, 0, 0, HGT);
+    g.addColorStop(0, '#241c46'); g.addColorStop(.65, '#140f2c'); g.addColorStop(1, '#0a0718');
+    ctx.fillStyle = g; ctx.fillRect(-10, -10, W + 20, HGT + 20);
+    drawSpikes(W);
+
+    // 낭떠러지: t가 1에 가까울수록 발밑으로 다가온다
+    const edge = phase === 'run' ? K + (1 - t) * (W - K + 30) : (phase === 'fall' ? K : W + 60);
+    drawBridge(W, K, edge);
+    drawBeast(K);
+    // 횃불 불빛 (아이 주변만 따뜻하게)
+    const lg = ctx.createRadialGradient(K, LINE - 18, 6, K, LINE - 18, 118);
+    lg.addColorStop(0, 'rgba(255,196,92,.28)'); lg.addColorStop(1, 'rgba(255,196,92,0)');
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(K, LINE - 18, 118, 0, 6.3); ctx.fill();
+    dust.forEach(d => { ctx.globalAlpha = Math.max(0, d.life * 2); ctx.fillStyle = '#9d90c4';
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.3); ctx.fill(); });
+    ctx.globalAlpha = 1;
+    drawKid(K);
+    // 마지막 한 번 남으면 화면 가장자리가 붉게 뛴다 — 말 없이 위험을 알린다
+    if (gap <= 1) {
+      const pulse = .18 + Math.sin(bgOff / 9) * .12;
+      const vg = ctx.createRadialGradient(W / 2, HGT / 2, HGT * .3, W / 2, HGT / 2, W * .7);
+      vg.addColorStop(0, 'rgba(255,59,82,0)'); vg.addColorStop(1, `rgba(255,59,82,${pulse.toFixed(3)})`);
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, W, HGT);
+    }
+    if (msg) {
+      ctx.font = 'bold 17px "Jua", sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = msg.cls === 'good' ? '#3ee0c4' : '#ff8090';
+      ctx.fillText(msg.t, W / 2, 30);
+    }
+    ctx.restore();
+  }
+  function drawSpikes(W) {
+    const span = 120, shift = (bgOff * .25) % span;
+    ctx.fillStyle = '#2e2456';
+    for (let x = -span; x < W + span; x += span) {
+      const px = x - shift;
+      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px + 26, 0); ctx.lineTo(px + 13, 44); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(px + 58, 0); ctx.lineTo(px + 74, 0); ctx.lineTo(px + 66, 26); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.05)';
+    const s2 = (bgOff * .5) % 90;
+    for (let x = -90; x < W + 90; x += 90) ctx.fillRect(x - s2, HGT - 34, 46, 5);
+  }
+  // 다리 한 줄 (from~to). 밧줄 + 널빤지.
+  function span(from, to, y, off) {
+    if (to <= from) return;
+    ctx.strokeStyle = '#6b5433'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(from, y - 13); ctx.lineTo(to, y - 13); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(from, y + 12); ctx.lineTo(to, y + 12); ctx.stroke();
+    const start = from - ((from + off) % 26);
+    for (let px = start; px < to; px += 26) {
+      const a = Math.max(px, from), b = Math.min(px + 22, to);
+      if (b <= a) continue;
+      ctx.fillStyle = '#8a6a44'; ctx.fillRect(a, y, b - a, 10);
+      ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fillRect(a, y, b - a, 3);
+    }
+  }
+  function drawBridge(W, K, edge) {
+    const y = LINE, off = (bgOff * 1) % 26;
+    const e = Math.min(edge, W + 30), far = e + GAPW;
+    // 이쪽 다리
+    span(-30, e, y, off);
+    // 낭떠러지 — 어둠이 아가리를 벌린다
+    if (e < W + 20) {
+      const gg = ctx.createLinearGradient(0, y - 6, 0, HGT);
+      gg.addColorStop(0, 'rgba(0,0,0,.75)'); gg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gg; ctx.fillRect(e, y - 4, Math.min(GAPW, W + 30 - e), HGT - y + 10);
+      // 끊어진 널빤지 조각과 늘어진 밧줄
+      ctx.fillStyle = '#5a4630';
+      ctx.beginPath(); ctx.moveTo(e - 7, y); ctx.lineTo(e + 3, y + 4); ctx.lineTo(e - 5, y + 13); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#6b5433'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(e, y - 13); ctx.quadraticCurveTo(e + 12, y + 6, e + 8, y + 24); ctx.stroke();
+      if (far < W + 30) {
+        ctx.beginPath(); ctx.moveTo(far, y - 13); ctx.quadraticCurveTo(far - 12, y + 6, far - 8, y + 24); ctx.stroke();
+      }
+      // 건너편
+      span(far, W + 30, y, off);
+    }
+  }
+  function drawKid(K) {
+    const run = phase === 'run' || phase === 'cross' || phase === 'door';
+    const bob = run ? Math.sin(bgOff / 13) * 4 : 0;
+    let y = LINE - 44 + bob, x = K, rot = 0;
+    if (phase === 'fall') {
+      const p = Math.min(1, ph / 1.5);
+      // 떨어졌다가 매달리고 기어오른다
+      y = LINE - 44 + (p < .3 ? p / .3 * 46 : p < .75 ? 46 : 46 * (1 - (p - .75) / .25));
+      x = K - (p < .75 ? 8 : 8 * (1 - (p - .75) / .25));
+      rot = p < .3 ? p / .3 * .35 : .2;
+    }
+    ctx.save(); ctx.translate(x, y + 22); ctx.rotate(rot);
+    if (pimg && pimg.ready) ctx.drawImage(pimg.img, -22, -28, 46, 62);
+    else { ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.fillText('🧒', 0, 14); }
+    ctx.restore();
+    if (run && Math.random() < .3) puff(x - 16, LINE + 7, 1);
+  }
+  function drawBeast(K) {
+    // 남은 기회가 줄수록 뒤가 가까워진다. 놓친 직후엔 확 달려든다.
+    // gap 3이어도 화면 안에 있어야 한다 — 안 보이는 추격자는 추격자가 아니다.
+    const base = Math.max(38, K - 74 - gap * 30 + beastLunge * 30);
+    const bob = Math.sin(bgOff / 11) * 5;
+    const x = base, y = LINE - 20 + bob;
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = '#241a3a';
+    ctx.beginPath(); ctx.moveTo(-26, -18); ctx.lineTo(-16, -44); ctx.lineTo(-6, -16); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(26, -18); ctx.lineTo(16, -44); ctx.lineTo(6, -16); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#2b2050'; ctx.beginPath(); ctx.ellipse(0, 4, 40, 30, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#1d1636'; ctx.beginPath(); ctx.ellipse(0, 0, 34, 24, 0, 0, 6.3); ctx.fill();
+    const glow = .65 + Math.sin(bgOff / 7) * .35;
+    ctx.globalAlpha = glow; ctx.fillStyle = '#ff3b52';
+    ctx.beginPath(); ctx.ellipse(-13, -4, 8, 6, 0, 0, 6.3); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(13, -4, 8, 6, 0, 0, 6.3); ctx.fill();
+    ctx.globalAlpha = 1; ctx.fillStyle = '#fff6e0';
+    ctx.beginPath(); ctx.moveTo(-16, 14); ctx.lineTo(16, 14); ctx.lineTo(12, 24); ctx.lineTo(6, 16); ctx.lineTo(0, 26); ctx.lineTo(-6, 16); ctx.lineTo(-12, 24); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
 
   // ---------- 끝 ----------
   function caught() {
-    clearTimer(); saveState();
+    stop(); saveState();
     Sfx.down();
     UI.modal(`
       <div class="dg-end-art">${beast()}</div>
@@ -251,7 +393,7 @@ const Dungeon = (() => {
   }
 
   function escape() {
-    clearTimer();
+    stop();
     const miss = D().gap - gap;
     const bonus = miss === 0 ? D().gold.perfect : 0;
     const gold = D().gold.escape + bonus, exp = D().exp.escape;
@@ -302,5 +444,7 @@ const Dungeon = (() => {
     });
   }
 
-  return { start, prologue };
+  window.addEventListener('resize', () => { if (UI.current() === 'dungeon') resize(); });
+
+  return { start, prologue, stop };
 })();
