@@ -180,6 +180,8 @@ function defaultState() {
       cards: {}, pendingCards: [], setBonus: {}, kings: {}, kingCd: {}, forced: {},
     },
     towers: {},
+    // 화면 접힘 상태(등급 펼침 등). 설정이 아니라 "지금 어디를 보고 있나"라서 따로 둔다
+    ui: { open: {}, more: {}, done: {} },
     // say = 발음 자동 재생(학습 도움, 기본 ON) · listen = 듣기 문제(난이도, 기본 OFF)
     // 둘은 다른 것이다. 발음을 들으려고 난이도를 올려야 하면 안 된다.
     settings: { listen: false, sound: true, preview: true, say: true, noLock: false },
@@ -253,6 +255,7 @@ function fillShape() {
   state.player.items = Object.assign(d.player.items, state.player.items || {});
   state.settings = Object.assign(d.settings, state.settings || {});
   state.towers = state.towers || {};
+  state.ui = Object.assign({ open: {}, more: {}, done: {} }, state.ui || {});
   backfillCards();
 }
 // 이미 ★★★인데 카드가 없는 단어를 시험 대기열에 올린다 (기존 저장 소급)
@@ -277,6 +280,16 @@ function resetState() { keepBackup(readRaw(), 'reset'); state = defaultState(); 
 function towerProg(id) {
   if (!state.towers[id]) state.towers[id] = { floor: 1, cleared: 0, words: {} };
   return state.towers[id];
+}
+// 마지막에 들어간 탑을 기억한다 — 로비의 "이어서 하기"와 등급 자동 펼침에 쓴다.
+function touchTower(id) { towerProg(id).at = Date.now(); saveState(); }
+function lastTower() {
+  let best = null, at = 0;
+  (window.TOWERS || []).forEach(t => {
+    const p = state.towers[t.id];
+    if (p && p.at > at) { at = p.at; best = t; }
+  });
+  return best;
 }
 function wordStat(towerId, w) {
   const t = towerProg(towerId);

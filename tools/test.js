@@ -50,7 +50,7 @@ load('js/state.js', `\n;globalThis.S = {
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
   refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire, clearPct, BAL,
   kingCooldown, startKingCooldown, mmss, kingBeaten, raiseToLv, levelTowers, LEVELS, towerLock, prevKingLevel,
-  forceOpen, isForced, levelCode, levelTag,
+  forceOpen, isForced, levelCode, levelTag, touchTower, lastTower,
   get state() { return state; }, set state(v) { state = v; },
 };`);
 load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak, wkey, statFor };`);
@@ -612,6 +612,39 @@ eq('강행해도 몬스터는 약해지지 않는다',
 eq('학원 등급은 코드를 보여준다', S.levelCode(S.LEVELS.find(l => l.id === 'DS-C')), 'DS-C');
 eq('기초 탑은 코드가 없다', S.levelCode(S.LEVELS.find(l => l.id === 'BASIC')), '');
 eq('등급 표기는 코드와 동물을 같이 쓴다', S.levelTag(S.LEVELS.find(l => l.id === 'DS-C')), 'DS-C 등급의 🐺 늑대');
+
+// ===================================================================
+section('로비 정리 — 이어서 하기와 접힘 상태');
+// 탑은 계속 늘어난다(등급 11개 × 6권이면 66개). 평평하게 늘어놓으면 못 쓴다.
+// "숨기는" 게 아니라 "접는" 것이라, 접힌 것도 한 번 눌러 펴면 나와야 한다.
+// ===================================================================
+Object.keys(store).forEach(k => delete store[k]);
+S.loadState();
+eq('아무 데도 안 갔으면 이어서 할 탑이 없다', S.lastTower(), null);
+S.touchTower('main');
+eq('들어간 탑이 이어서 할 탑이 된다', S.lastTower().id, 'main');
+S.touchTower('dsc2');
+eq('나중에 들어간 탑으로 바뀐다', S.lastTower().id, 'dsc2');
+ok('시각이 기록된다', S.towerProg('dsc2').at > 0);
+S.loadState();
+eq('저장을 다시 읽어도 이어서 할 탑이 남는다', S.lastTower().id, 'dsc2');
+
+S.state.ui.open['DS-C'] = false; S.state.ui.more['DS-C'] = true; S.saveState(); S.loadState();
+eq('접어 둔 등급은 접힌 채로 남는다', S.state.ui.open['DS-C'], false);
+eq('더 보기 상태도 남는다', S.state.ui.more['DS-C'], true);
+ok('화면 상태는 설정과 섞이지 않는다', S.state.settings.open === undefined);
+eq('ui가 없던 옛 저장도 빈 값으로 채워진다', (() => {
+  const raw = JSON.parse(store['wordtower_save_v1']);
+  delete raw.ui;
+  store['wordtower_save_v1'] = JSON.stringify(raw);
+  S.loadState();
+  return JSON.stringify(S.state.ui);
+})(), '{"open":{},"more":{},"done":{}}');
+ok('탑이 지워져도 이어서 하기가 깨지지 않는다', (() => {
+  S.state.towers['없는탑'] = { floor: 1, cleared: 0, words: {}, at: Date.now() + 9999 };
+  const t = S.lastTower();
+  return !t || !!sandbox.window.TOWERS.find(x => x.id === t.id);
+})());
 
 // ===================================================================
 section('발음 읽어주기 설정');

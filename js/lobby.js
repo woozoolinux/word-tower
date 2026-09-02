@@ -16,8 +16,9 @@ const Lobby = (() => {
           ${auraTease()}
         </div>
       </header>
+      ${resumeCard()}
       <h2 class="sec-title">🏰 타워</h2>
-      <div class="tower-list">${window.TOWERS.map(towerCard).join('')}</div>
+      <div class="lv-groups">${LEVELS.map(levelGroup).join('')}</div>
       ${kingSection()}
       <h2 class="sec-title">🗺️ 모험</h2>
       <div class="zone-list">${ZONES.map(zoneCard).join('')}</div>
@@ -39,6 +40,114 @@ const Lobby = (() => {
     const left = Math.max(0, nx.need.cards - nx.cards);
     const what = left ? `카드 ${left}장` : `난이도 ${tierFire(nx.need.tier)} 이상 타워 정복`;
     return `<div class="aura-tease">${AURAS[nx.id].emoji} <b>${AURAS[nx.id].name}</b>까지 ${what}</div>`;
+  }
+
+  // ---------- 🏰 타워 ----------
+  // 탑은 계속 늘어난다(등급 11개 × 6권이면 66개). 평평하게 늘어놓으면 스크롤 지옥이라
+  // 등급 단위로 접는다. "숨기는" 게 아니라 "접는" 것이다 — 한 등급의 6권은 서로 막지
+  // 않기로 했고(학원이 3권을 내주면 1·2권 없이 바로 해야 한다), 잠긴 탑도 문은 두드릴
+  // 수 있어야 하기 때문이다. 접힌 건 한 번 눌러 펴면 되지만, 숨긴 건 존재를 모른다.
+
+  function ui() {
+    if (!state.ui) state.ui = { open: {}, more: {}, done: {} };
+    state.ui.open = state.ui.open || {}; state.ui.more = state.ui.more || {}; state.ui.done = state.ui.done || {};
+    return state.ui;
+  }
+  function toggleUi(kind, id) { const u = ui(); u[kind][id] = !u[kind][id]; saveState(); render(); }
+
+  // 탑 하나의 상태: 아직 안 감 / 하는 중 / 정복
+  function towerState(t) {
+    const prog = towerProg(t.id), total = floorList(t).length;
+    if (prog.cleared >= total) return 'done';
+    return prog.cleared > 0 || prog.floor > 1 ? 'doing' : 'new';
+  }
+  // 아이가 아무것도 안 골라도 지금 하던 등급은 펴져 있어야 한다
+  function autoOpen(L) {
+    const ts = levelTowers(L.id);
+    if (!ts.length) return false;
+    if (ts.some(t => towerState(t) === 'doing' || isForced(t.id))) return true;
+    const last = lastTower();
+    if (last) return last.level === L.id;
+    // 아직 아무 데도 안 갔다면 지금 들어갈 수 있는 가장 낮은 등급 하나는 펴 둔다
+    const first = LEVELS.find(x => levelTowers(x.id).some(t => !towerLock(t)));
+    return !!first && first.id === L.id;
+  }
+  function isLvOpen(L) {
+    const u = ui();
+    return u.open[L.id] === undefined ? autoOpen(L) : !!u.open[L.id];
+  }
+
+  // ① 이어서 하기 — 실제 플레이의 대부분은 "하던 거 계속"이다
+  function resumeCard() {
+    const t = lastTower();
+    if (!t) return '';
+    const prog = towerProg(t.id), total = floorList(t).length;
+    const done = prog.cleared >= total;
+    const floor = done ? 1 : Math.min(prog.floor, total);
+    const LV = levelOf(t.level);
+    return `<div class="resume panel" data-go="${t.id}">
+      <div class="resume-art">${Art.tower(prog.cleared, total, t.roof)}</div>
+      <div class="resume-body">
+        <div class="resume-label">이어서 하기</div>
+        <div class="resume-name">${esc(t.name)}${levelCode(LV) ? ` <span class="lv-code">${LV.id}</span>` : ''}</div>
+        <div class="tower-meta">${done ? '🏆 정복한 탑 · 다시 오르기' : `${prog.cleared} / ${total}층까지 올랐다`}</div>
+      </div>
+      <button class="btn mint small" data-go="${t.id}">${done ? '다시' : floor + '층'}<br>▶</button>
+    </div>`;
+  }
+
+  // ② 등급 카드 — 접힌 상태에서도 규모와 왕은 보인다 (목표가 보여야 모은다)
+  function levelGroup(L) {
+    const ts = levelTowers(L.id);
+    if (!ts.length) return '';
+    const open = isLvOpen(L);
+    let floors = 0, cleared = 0, words = 0, cards = 0, locked = 0, pend = 0;
+    ts.forEach(t => {
+      const ws = allWords(t);
+      floors += floorList(t).length; cleared += towerProg(t.id).cleared;
+      words += ws.length; cards += ws.filter(w => Cards.has(t.id, wkey(w))).length;
+      pend += Cards.pendingFor(t.id).length;
+      if (towerLock(t)) locked++;
+    });
+    const pct = floors ? Math.round(cleared / floors * 100) : 0;
+    const k = L.animal ? Game.kingInfo(L.id) : null;
+    return `<div class="lv-group ${open ? 'open' : ''}${locked === ts.length ? ' all-locked' : ''}">
+      <button class="lv-head" data-lvtoggle="${L.id}">
+        <span class="lv-emoji">${L.emoji}</span>
+        <span class="lv-info">
+          <span class="lv-title">${esc(L.name)}${levelCode(L) ? ` <span class="lv-code">${L.id}</span>` : ''}
+            <span class="lv-count">${ts.length}권 · 단어 ${words}개${locked ? ` · 🔒 ${locked}` : ''}</span></span>
+          <span class="bar exp"><span class="bar-fill" style="width:${pct}%"></span>
+            <span class="bar-text">${cleared} / ${floors}층 · 🃏 ${cards}/${words}</span></span>
+          ${pend ? `<span class="lv-note warn">🃏 시험 ${pend}장 대기!</span>` : ''}
+        </span>
+        <span class="lv-caret">${open ? '▴' : '▾'}</span>
+      </button>
+      ${k ? `<button class="lv-king ${k.beaten ? 'beaten' : k.ok ? 'ready' : ''}" data-king="${L.id}">
+        <span class="lvk-face">${L.emoji}</span>
+        <span>👑 ${esc(L.name)} 왕${k.beaten ? ' <span class="tag">격파!</span>' : ''}
+          <span class="lv-note">${kingCooldown(L.id) > 0 ? `⏳ <span data-kingcd="${L.id}">${mmss(kingCooldown(L.id))}</span> 뒤 재도전`
+            : k.beaten ? '한 번 꺾은 상대' : k.ok ? '지금 도전할 수 있다!' : `🃏 ${k.have} / ${k.need}장`}</span></span>
+        <span class="lv-caret">›</span>
+      </button>` : ''}
+      ${open ? `<div class="tower-list">${levelBody(L, ts)}</div>` : ''}
+    </div>`;
+  }
+
+  // ③ 등급 안에서 한 번 더 — 하던 권을 위로, 안 간 권과 정복한 권은 접는다
+  function levelBody(L, ts) {
+    const u = ui();
+    const doing = ts.filter(t => towerState(t) === 'doing');
+    const fresh = ts.filter(t => towerState(t) === 'new');
+    const done = ts.filter(t => towerState(t) === 'done');
+    const showFresh = u.more[L.id] || !doing.length ? fresh : fresh.slice(0, 1);
+    const hidden = fresh.length - showFresh.length;
+    return doing.map(towerCard).join('')
+      + showFresh.map(towerCard).join('')
+      + (hidden > 0 ? `<button class="lv-more" data-lvmore="${L.id}">+ ${hidden}권 더 보기</button>` : '')
+      + (u.more[L.id] && fresh.length > 1 && doing.length ? `<button class="lv-more" data-lvmore="${L.id}">접기</button>` : '')
+      + (done.length ? `<button class="lv-more done" data-lvdone="${L.id}">🏆 정복 ${done.length}권 ${u.done[L.id] ? '접기' : '보기'}</button>` : '')
+      + (u.done[L.id] ? done.map(towerCard).join('') : '');
   }
 
   function towerCard(t) {
@@ -79,31 +188,30 @@ const Lobby = (() => {
       <button class="btn mint small" data-go="${t.id}">${done ? '다시' : next + '층'}<br>도전!</button>
     </div>`;
   }
-  // 👑 왕의 방 — 등급마다 하나. 그 등급 전체 단어로 싸우는 별도 도전.
-  function kingCard(L) {
+
+  // 👑 왕의 방 — 트로피 벽. 카드로 늘어놓으면 등급 수만큼 화면을 먹으므로 메달 한 줄로.
+  // 그래도 없애지는 않는다: 왕은 이 게임의 보상 구조 전체(다음 등급·칭호·해금 연출)라
+  // 어딘가 접혀 있으면 아이가 존재를 모른다.
+  function kingMedal(L) {
     const k = Game.kingInfo(L.id);
     if (!k) return '';
+    const cd = kingCooldown(L.id);
     const pct = Math.min(100, k.have / k.need * 100);
-    const cd = kingCooldown(L.id);          // 진 직후에는 왕이 등을 돌린 상태
-    const state2 = k.beaten ? 'beaten' : k.ok ? 'ready' : 'locked';
-    const label = cd > 0 ? `⏳ <span data-kingcd="${L.id}">${mmss(cd)}</span>`
-      : k.beaten ? '다시 도전' : k.ok ? '도전!' : `🃏 ${k.have}/${k.need}`;
-    return `<div class="king-card ${state2}${cd > 0 ? ' cooling' : ''}" data-king="${L.id}">
-      <div class="king-art">${Art.king(L.animal)}</div>
-      <div class="king-body">
-        <div class="king-name">👑 ${esc(L.name)} 왕 <span class="lv-code">${L.id}</span>${k.beaten ? ' <span class="tag">격파!</span>' : ''}</div>
-        <div class="king-desc">${k.beaten ? '한 번 꺾은 상대. 다시 붙어볼까?' : `${L.id} 등급의 ${esc(L.name)}가 아는 단어 ${k.words.length}개 전부에서 나온다`}</div>
-        <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div>
-          <span class="bar-text">${k.have} / ${k.need}장</span></div>
-        <div class="tower-meta">${cd > 0 ? `<b class="warn">⏳ <span data-kingcd="${L.id}">${mmss(cd)}</span> 뒤에 다시 붙는다</b> · 그 사이에 단어를 보자`
-          : `${k.ok ? '<b class="warn">지금 도전할 수 있다!</b> · ' : ''}${k.opens ? `이기면 ${k.opens.emoji} ${esc(k.opens.name)}의 땅이 열린다` : '이 너머는 없다'}`}</div>
-      </div>
-      <button class="btn ${k.ok && cd <= 0 ? 'mint' : 'ghost'} small" data-king="${L.id}">${label}</button>
-    </div>`;
+    const sub = cd > 0 ? `⏳ <span data-kingcd="${L.id}">${mmss(cd)}</span>`
+      : k.beaten ? '격파!' : k.ok ? '도전!' : `${k.have}/${k.need}`;
+    return `<button class="king-medal ${k.beaten ? 'beaten' : k.ok ? 'ready' : 'locked'}${cd > 0 ? ' cooling' : ''}" data-king="${L.id}">
+      <span class="km-ring" style="--p:${pct}%"><span class="km-art">${Art.king(L.animal)}</span></span>
+      <span class="km-name">${esc(L.name)}${k.beaten ? ' ✓' : ''}</span>
+      <span class="km-sub">${sub}</span>
+    </button>`;
   }
   function kingSection() {
-    const cards = LEVELS.map(L => (L.animal ? kingCard(L) : '')).filter(Boolean).join('');
-    return cards ? `<h2 class="sec-title">👑 왕의 방 <span class="sec-sub">등급을 지배하는 자들</span></h2><div class="king-list">${cards}</div>` : '';
+    const medals = LEVELS.map(L => (L.animal ? kingMedal(L) : '')).filter(Boolean).join('');
+    if (!medals) return '';
+    const won = LEVELS.filter(L => L.animal && kingBeaten(L.id)).length;
+    const all = LEVELS.filter(L => L.animal && levelTowers(L.id).length).length;
+    return `<h2 class="sec-title">👑 왕의 방 <span class="sec-sub">${won} / ${all} 격파</span></h2>
+      <div class="king-strip">${medals}</div>`;
   }
 
   function zoneCard(z) {
@@ -117,6 +225,12 @@ const Lobby = (() => {
   }
 
   function onClick(e) {
+    const lvt = e.target.closest('[data-lvtoggle]');
+    if (lvt) { const id = lvt.dataset.lvtoggle; ui().open[id] = !isLvOpen(levelOf(id)); saveState(); render(); return; }
+    const more = e.target.closest('[data-lvmore]');
+    if (more) { toggleUi('more', more.dataset.lvmore); return; }
+    const dn = e.target.closest('[data-lvdone]');
+    if (dn) { toggleUi('done', dn.dataset.lvdone); return; }
     const go = e.target.closest('[data-go]');
     if (go) { const t = towerById(go.dataset.go), prog = towerProg(t.id), total = floorList(t).length; Game.startFloor(t.id, prog.cleared >= total ? 1 : Math.min(prog.floor, total)); return; }
     const card = e.target.closest('[data-tower]');

@@ -61,6 +61,7 @@ const Game = {
   },
 
   startFloor(towerId, n) {
+    touchTower(towerId);
     const tower = towerById(towerId), floors = floorList(tower);
     if (!this.checkTowerLock(tower)) return;
     if (n < 1 || n > floors.length) n = 1;
