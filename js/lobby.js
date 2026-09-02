@@ -59,8 +59,8 @@ const Lobby = (() => {
         <div class="tower-art dim-art">${typeof Art !== 'undefined' ? Art.tower(0, total, t.roof) : ''}</div>
         <div class="tower-body">
           <div class="tower-name">🔒 ${esc(t.name)}</div>
-          <div class="tower-desc">${LV ? `${LV.emoji} <b>${esc(LV.name)} 등급</b>의 탑 · ` : ''}단어 ${words.length}개가 산다</div>
-          <div class="tower-meta">Lv.${lock.needLv} 이상${lock.hasPrevTowers ? ` <b>또는</b> ${lock.prevEmoji} ${esc(lock.prevName)} 왕 격파` : ''}</div>
+          <div class="tower-desc">${LV ? `${levelCode(LV) ? `<span class="lv-code">${LV.id}</span> ` : ''}${LV.emoji} <b>${esc(LV.name)}</b>의 탑 · ` : ''}단어 ${words.length}개</div>
+          <div class="tower-meta">Lv.${lock.needLv} 이상${lock.hasPrevTowers ? ` <b>또는</b> ${lock.prevEmoji} ${lock.prevLevel} ${esc(lock.prevName)} 왕 격파` : ''}</div>
           <div class="tower-meta">지금 Lv.${state.player.lv} · <b class="warn">${Math.max(0, lock.needLv - state.player.lv)}레벨만 더!</b></div>
         </div>
         <button class="btn ghost small knock" data-go="${t.id}">🚪<br>두드려봐</button>
@@ -69,7 +69,7 @@ const Lobby = (() => {
     return `<div class="tower-card panel" data-tower="${t.id}">
       <div class="tower-art">${typeof Art !== 'undefined' ? Art.tower(prog.cleared, total, t.roof) : (t.emoji || '🏰')}</div>
       <div class="tower-body">
-        <div class="tower-name">${esc(t.name)}</div>
+        <div class="tower-name">${esc(t.name)}${levelCode(LV) ? ` <span class="lv-code">${LV.id}</span>` : ''}</div>
         <div class="tower-desc">${esc(t.desc || '')}</div>
         <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div><span class="bar-text">${prog.cleared} / ${total}층</span></div>
         <div class="tower-meta">⭐ ${stars} / ${words.length * 3} · 단어 ${words.length}개${done ? ' · 🏆 정복!' : ''}</div>
@@ -91,8 +91,8 @@ const Lobby = (() => {
     return `<div class="king-card ${state2}${cd > 0 ? ' cooling' : ''}" data-king="${L.id}">
       <div class="king-art">${Art.king(L.animal)}</div>
       <div class="king-body">
-        <div class="king-name">👑 ${esc(L.name)} 왕${k.beaten ? ' <span class="tag">격파!</span>' : ''}</div>
-        <div class="king-desc">${k.beaten ? '한 번 꺾은 상대. 다시 붙어볼까?' : `${esc(L.name)}가 아는 단어 ${k.words.length}개 전부에서 나온다`}</div>
+        <div class="king-name">👑 ${esc(L.name)} 왕 <span class="lv-code">${L.id}</span>${k.beaten ? ' <span class="tag">격파!</span>' : ''}</div>
+        <div class="king-desc">${k.beaten ? '한 번 꺾은 상대. 다시 붙어볼까?' : `${L.id} 등급의 ${esc(L.name)}가 아는 단어 ${k.words.length}개 전부에서 나온다`}</div>
         <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div>
           <span class="bar-text">${k.have} / ${k.need}장</span></div>
         <div class="tower-meta">${cd > 0 ? `<b class="warn">⏳ <span data-kingcd="${L.id}">${mmss(cd)}</span> 뒤에 다시 붙는다</b> · 그 사이에 단어를 보자`

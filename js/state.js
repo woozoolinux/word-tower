@@ -95,6 +95,14 @@ function prevLevelId(id) {
 function levelTowers(id) { return (window.TOWERS || []).filter(t => t.level === id); }
 // 이 등급 앞쪽에서 "실제로 도전할 수 있는 왕"을 찾는다.
 // 타워가 없는 등급(아직 안 만든 등급)의 왕은 없는 것이나 같으므로 건너뛴다.
+// 화면에 쓰는 등급 표기. 코드(DS-C)와 동물(🐺 늑대)을 항상 같이 보여준다.
+//   levelCode: 'DS-C'  (기초 탑처럼 학원 등급이 아닌 곳은 빈 문자열)
+//   levelTag:  'DS-C 등급의 🐺 늑대'
+function levelCode(L) { return L && L.animal ? L.id : ''; }
+function levelTag(L) {
+  if (!L) return '';
+  return (L.animal ? `${L.id} 등급의 ` : '') + `${L.emoji} ${L.name}`;
+}
 function prevKingLevel(levelId) {
   const i = LEVELS.findIndex(l => l.id === levelId);
   for (let j = i - 1; j >= 0; j--) {

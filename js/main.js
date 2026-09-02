@@ -103,19 +103,19 @@ const Game = {
       <div class="gate-art">${Art.tower(0, floorList(tower).length, tower.roof)}<span class="gate-lock">🔒</span></div>
       <div class="modal-title">🚧 문지기가 앞을 막았다</div>
       <div class="gate-flavor">
-        여기는 ${L ? `${L.emoji} <b>${esc(L.name)} 등급</b>` : '높은 등급'}의 탑.<br>
-        ${esc(tower.name)}의 단어 <b>${allWords(tower).length}개</b>가 사는 곳이다.
+        여기는 ${L ? `<b>${levelCode(L) || esc(L.name)}</b> 등급 — ${L.emoji} <b>${esc(L.name)}</b>가 사는 탑` : '높은 등급의 탑'}.<br>
+        ${esc(tower.name)}의 단어 <b>${allWords(tower).length}개</b>가 있다.
       </div>
       <div class="king-taunt">${prevK
         ? `"실력을 증명하든지, 더 강해지든지.<br>둘 중 하나다."`
-        : `"레벨도 안 되면서 건방지구나.<br>${L ? esc(L.name) : '이곳'}에게 덤빌 생각을 하다니…"`}</div>
+        : `"레벨도 안 되면서 건방지구나.<br>${L ? `${levelCode(L) ? `${L.id}의 ` : ''}${esc(L.name)}` : '이곳'}에게 덤빌 생각을 하다니…"`}</div>
       <div class="lock-ways">
         <div class="lock-way"><span class="big">⭐</span><div><b>Lv.${lock.needLv} 이상</b>
           <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div>
             <span class="bar-text">Lv.${state.player.lv} / ${lock.needLv}</span></div>
           <div class="toggle-desc">${need ? `<b class="warn">${need}레벨만 더!</b> 아래 탑에서 금방 오른다` : '조건을 채웠어요'}</div></div></div>
         ${prevK ? `<div class="lock-or">또는</div>
-        <div class="lock-way"><span class="big">${lock.prevEmoji}</span><div><b>${esc(lock.prevName)} 왕 격파</b>
+        <div class="lock-way"><span class="big">${lock.prevEmoji}</span><div><b>${lock.prevLevel} 등급 ${esc(lock.prevName)} 왕 격파</b>
           <div class="toggle-desc">카드 ${prevK.have} / ${prevK.need}장${prevK.ok ? ' · <b class="warn">지금 도전할 수 있다!</b>' : ''}</div></div></div>` : ''}
       </div>
       <div class="actions">
@@ -214,9 +214,10 @@ const Game = {
       UI.modal(`
         <div class="king-hero locked-hero">${Art.king(k.level.animal)}</div>
         <div class="modal-title">${k.level.emoji} ${esc(k.level.name)} 왕은 아직 널 안 본다</div>
+        <div class="gate-flavor"><b>${k.level.id}</b> 등급을 지배하는 자</div>
         <div class="king-taunt">"카드도 없이 내 앞에 섰나?<br>${esc(k.level.name)}의 단어를 더 모아 오너라."</div>
         <div class="modal-sub"><b style="font-size:24px">${k.have} / ${k.need}장</b>
-          <span class="dim">(${esc(k.level.name)} 등급 ${k.words.length}개 중)</span></div>
+          <span class="dim">(${k.level.id} 단어 ${k.words.length}개 중)</span></div>
         <div class="bar exp"><div class="bar-fill" style="width:${Math.min(100, k.have / k.need * 100)}%"></div></div>
         <div class="star-summary">앞으로 <b>${Math.max(0, k.need - k.have)}장</b> 더 모으면 왕이 널 마주 본다</div>
         <div class="actions"><button class="btn" data-close="x">모아 올게!</button></div>`);
@@ -234,6 +235,7 @@ const Game = {
     UI.modal(`
       <div class="king-hero locked-hero">${Art.king(k.level.animal)}</div>
       <div class="modal-title">${k.level.emoji} ${esc(k.level.name)} 왕이 등을 돌렸다</div>
+      <div class="gate-flavor"><b>${k.level.id}</b> 등급을 지배하는 자</div>
       <div class="king-taunt">"방금 붙어보지 않았나.<br>숨 좀 고르고 오너라."</div>
       <div class="cd-box"><span class="cd-face">⏳</span>
         <div><b data-kingcd="${k.level.id}">${mmss(cd)}</b> 뒤에 다시 마주 본다
@@ -255,10 +257,11 @@ const Game = {
     UI.modal(`
       <div class="king-hero">${Art.king(L.animal)}</div>
       <div class="modal-title">${L.emoji} ${esc(L.name)} 왕이 길을 막았다</div>
+      <div class="gate-flavor"><b>${L.id}</b> 등급의 ${L.emoji} ${esc(L.name)}가 사는 곳의 주인</div>
       <div class="king-taunt">"${esc(L.taunt || '덤벼라.').replace(/\n/g, '<br>')}"</div>
       <div class="king-terms">
         <div><span class="big">⚔️</span><div><b>단어 ${k.words.length}개</b>가 전부 나온다
-          <div class="toggle-desc">${esc(L.name)} 등급 ${k.towers.length}권 어디서든</div></div></div>
+          <div class="toggle-desc">${L.id} ${k.towers.length}권 어디서든</div></div></div>
         <div><span class="big">💥</span><div><b>${mistakes}번 틀리면 끝</b>
           <div class="toggle-desc">왕의 한 방은 보스보다 아프다</div></div></div>
         <div><span class="big">👑</span><div><b>${k.opens ? `이기면 ${k.opens.emoji} ${esc(k.opens.name)}의 땅이 열린다` : '이기면 정점에 선다'}</b>
@@ -326,8 +329,8 @@ const Game = {
       <div class="king-taunt yield">"${esc(k.level.yield || '내가 졌다.')}"</div>
       <div class="reward-row">💰 +${gold}</div>
       <div class="unlock"><span class="big">🎖️</span><div><div>칭호: <b>${esc(title)}</b></div>
-        <div class="toggle-desc">${esc(k.level.name)} 등급을 완전히 지배했어요</div></div></div>
-      ${first && k.opens ? `<div class="unlock"><span class="big">${k.opens.emoji}</span><div><div><b>${esc(k.opens.name)}</b> 등급이 열렸다!</div>
+        <div class="toggle-desc">${k.level.id} 등급을 완전히 지배했어요</div></div></div>
+      ${first && k.opens ? `<div class="unlock"><span class="big">${k.opens.emoji}</span><div><div><b>${levelCode(k.opens) || esc(k.opens.name)}</b> 등급 ${esc(k.opens.name)}의 땅이 열렸다!</div>
         <div class="toggle-desc">레벨이 낮아도 ${esc(k.opens.name)} 탑에 들어갈 수 있어요</div></div></div>` : ''}
       <div class="actions"><button class="btn" data-close="ok">최고!</button></div>`,
       { cls: 'celebrate', onClose: () => this.flushLevelUps(() => this.toLobby()) });

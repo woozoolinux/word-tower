@@ -50,9 +50,10 @@ const Fx = (() => {
         </div>
         <div class="fx-yield">"${esc(o.king.yield || '내가 졌다.')}"</div>
         <div class="fx-title">${o.next.emoji} ${esc(o.next.name)}의 땅이 열렸다</div>
+        <div class="fx-code">${levelCode(o.next) || esc(o.next.name)} 등급</div>
         <div class="fx-big">${p.big}</div>
         <div class="fx-praise">${esc(p.sub).replace(/\n/g, '<br>')}</div>
-        <div class="fx-stat">${esc(o.king.name)} 등급 단어 <b>${o.words}개</b>를 전부 상대했다</div>
+        <div class="fx-stat">${levelCode(o.king) || esc(o.king.name)} 등급 ${o.king.emoji} ${esc(o.king.name)}의 단어 <b>${o.words}개</b>를 전부 상대했다</div>
         <div class="fx-chips">
           <span class="fx-chip">💰 +${o.gold}</span>
           <span class="fx-chip">🎖️ ${esc(o.title)}</span>
