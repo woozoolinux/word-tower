@@ -8,9 +8,37 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=68">
+<link rel="stylesheet" href="css/style.css?v=70">
 </head>
 <body>
+<script>
+// 에러 잡개 — 반드시 다른 스크립트보다 먼저. 폰에는 콘솔이 없어서,
+// 에러가 나면 화면 위에 빨간 띠로 띄운다. "안 눌려요"가 "이게 떠요"가 되게.
+(function () {
+  var seen = [];
+  window.__errs = seen;
+  function show() {
+    var el = document.getElementById('err-banner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'err-banner';
+      el.onclick = function () { el.style.display = 'none'; };
+      (document.body || document.documentElement).appendChild(el);
+    }
+    el.style.display = 'block';
+    el.textContent = '⚠️ ' + seen.join('  |  ') + '   (탭하면 숨김 · 설정 → 🩺 진단)';
+  }
+  function add(msg) { if (seen.indexOf(msg) < 0) { seen.push(msg); try { show(); } catch (e) {} } }
+  window.addEventListener('error', function (e) {
+    if (e.target && e.target.tagName === 'SCRIPT') { add('스크립트 못 읽음: ' + String(e.target.src || '').split('/').pop()); return; }
+    add((e.message || 'error') + ' @ ' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0));
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    add('promise: ' + ((e.reason && e.reason.message) || e.reason));
+  });
+})();
+</script>
+
 <div id="app">
 
   <!-- 로비 (JS가 채움) -->
@@ -100,33 +128,33 @@
 <div id="toast-root"></div>
 
 <!-- 타워 데이터 (타워를 추가하려면 여기에 한 줄 추가) -->
-<script src="data/main-tower.js?v=68"></script>
-<script src="data/dsc1.js?v=68"></script>
-<script src="data/dsc2.js?v=68"></script>
-<script src="data/dsc3.js?v=68"></script>
-<script src="data/dsc4.js?v=68"></script>
-<script src="data/dsc5.js?v=68"></script>
-<script src="data/dsc6.js?v=68"></script>
-<script src="data/jeongsang.js?v=68"></script>
-<script src="data/dsd2.js?v=68"></script>
-<script src="data/dsd3.js?v=68"></script>
+<script src="data/main-tower.js?v=70"></script>
+<script src="data/dsc1.js?v=70"></script>
+<script src="data/dsc2.js?v=70"></script>
+<script src="data/dsc3.js?v=70"></script>
+<script src="data/dsc4.js?v=70"></script>
+<script src="data/dsc5.js?v=70"></script>
+<script src="data/dsc6.js?v=70"></script>
+<script src="data/jeongsang.js?v=70"></script>
+<script src="data/dsd2.js?v=70"></script>
+<script src="data/dsd3.js?v=70"></script>
 
 <!-- 게임 -->
-<script src="js/balance.js?v=68"></script>
-<script src="js/state.js?v=68"></script>
-<script src="js/words.js?v=68"></script>
-<script src="js/audio.js?v=68"></script>
-<script src="js/art.js?v=68"></script>
-<script src="js/cards.js?v=68"></script>
-<script src="js/preview.js?v=68"></script>
-<script src="js/avatar.js?v=68"></script>
-<script src="js/ui.js?v=68"></script>
-<script src="js/fx.js?v=68"></script>
-<script src="js/lobby.js?v=68"></script>
-<script src="js/maze.js?v=68"></script>
-<script src="js/battle.js?v=68"></script>
-<script src="js/vault.js?v=68"></script>
-<script src="js/runner.js?v=68"></script>
-<script src="js/main.js?v=68"></script>
+<script src="js/balance.js?v=70"></script>
+<script src="js/state.js?v=70"></script>
+<script src="js/words.js?v=70"></script>
+<script src="js/audio.js?v=70"></script>
+<script src="js/art.js?v=70"></script>
+<script src="js/cards.js?v=70"></script>
+<script src="js/preview.js?v=70"></script>
+<script src="js/avatar.js?v=70"></script>
+<script src="js/ui.js?v=70"></script>
+<script src="js/fx.js?v=70"></script>
+<script src="js/lobby.js?v=70"></script>
+<script src="js/maze.js?v=70"></script>
+<script src="js/battle.js?v=70"></script>
+<script src="js/vault.js?v=70"></script>
+<script src="js/runner.js?v=70"></script>
+<script src="js/main.js?v=70"></script>
 </body>
 </html>

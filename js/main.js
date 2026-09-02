@@ -529,10 +529,22 @@ function buildSky() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  loadState();
-  buildSky();
-  Lobby.init(); Maze.init(); Battle.init(); Vault.init(); Runner.init();
-  Lobby.render();
+  // 한 단계가 실패해도 나머지는 돌아야 한다. 특히 클릭 연결이 빠지면
+  // 화면은 멀쩡한데 아무것도 안 눌리는, 원인을 알 수 없는 상태가 된다.
+  const step = (name, fn) => {
+    try { fn(); } catch (e) {
+      if (window.__errs) window.__errs.push(name + ': ' + e.message);
+      window.dispatchEvent(new ErrorEvent('error', { message: name + ' 실패 — ' + e.message }));
+    }
+  };
+  step('저장 불러오기', loadState);
+  step('로비 연결', () => Lobby.init());     // 클릭 연결이 제일 먼저
+  step('배경', buildSky);
+  step('미로', () => Maze.init());
+  step('배틀', () => Battle.init());
+  step('금고', () => Vault.init());
+  step('달리기', () => Runner.init());
+  step('로비 그리기', () => Lobby.render());
   if (typeof Avatar === 'undefined') {
     // 오래된 캐시로 새 파일이 안 실린 경우
     UI.toast('새 버전이 있어요! 새로고침해 주세요 (Ctrl+Shift+R)', 'bad');

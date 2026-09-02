@@ -240,7 +240,11 @@ const Lobby = (() => {
     const zone = e.target.closest('[data-zone]');
     if (zone) { enterZone(zone.dataset.zone); return; }
     const act = e.target.closest('[data-act]');
-    if (act) ({ shop, skills, settings, save: saveCode, dress: () => charCreator(false), book: () => Cards.book() })[act.dataset.act]();
+    if (act) {
+      const fn = { shop, skills, settings, save: saveCode, diag,
+        dress: () => charCreator(false), book: () => Cards.book() }[act.dataset.act];
+      if (fn) fn(); else UI.toast('알 수 없는 버튼: ' + act.dataset.act, 'bad');
+    }
   }
 
   function floorSelect(id) {
@@ -334,6 +338,7 @@ const Lobby = (() => {
       <div class="toggle-row"><div><div>🗣️ 발음 읽어주기</div><div class="toggle-desc">정찰에서 단어를 보여줄 때 자동으로 읽어줘요${canSpeak() ? '' : '<br><b class="warn">이 기기는 읽어주기를 지원하지 않아요</b>'}</div></div><button class="toggle ${s.say ? 'on' : ''}" data-t="say" aria-label="발음 읽어주기"></button></div>
       <div class="toggle-row"><div><div>🎧 듣기 문제 <span class="tag off">어려움</span></div><div class="toggle-desc">배틀에서 글자 없이 소리만 듣고 뜻을 골라요</div></div><button class="toggle ${s.listen ? 'on' : ''}" data-t="listen" aria-label="듣기 문제"></button></div>
       <div class="toggle-row"><div><div>🎵 효과음</div></div><button class="toggle ${s.sound ? 'on' : ''}" data-t="sound" aria-label="효과음"></button></div>
+      <div class="toggle-row"><div><div>🩺 진단</div><div class="toggle-desc">화면이 이상할 때 눌러서 캡처해 주세요</div></div><button class="btn small ghost" data-act="diag">보기</button></div>
       <div class="toggle-row"><div><div>🔓 타워 잠금 끄기</div><div class="toggle-desc">학원에서 앞선 책을 내줬을 때만 켜세요</div></div><button class="toggle ${s.noLock ? 'on' : ''}" data-t="noLock" aria-label="타워 잠금 끄기"></button></div>
       <div class="toggle-row"><div><div>🔍 정찰 (예습)</div><div class="toggle-desc">층에 들어가기 전에 단어를 미리 봐요</div></div><button class="toggle ${s.preview ? 'on' : ''}" data-t="preview" aria-label="정찰"></button></div>
       <div class="toggle-row"><div style="flex:1"><div>✏️ 이름</div><input class="name-input" id="name-input" value="${esc(state.player.name)}" maxlength="10"></div></div>
@@ -472,6 +477,42 @@ const Lobby = (() => {
     });
   }
 
+  // 🩺 진단 — 폰에서는 콘솔을 볼 수 없으니, 원인을 가릴 정보를 화면에 모아 보여준다.
+  // "안 눌려요"를 "이 화면이 나와요"로 바꾸는 것이 목적이다.
+  function diag() {
+    const src = (document.querySelector('script[src*="js/main.js"]') || {}).src || '';
+    const need = ['Art', 'Avatar', 'Cards', 'Fx', 'Battle', 'Maze', 'Runner', 'Vault', 'Preview', 'Game', 'Lobby', 'UI', 'Sfx'];
+    const has = n => { try { return new Function('return typeof ' + n)() !== 'undefined'; } catch (e) { return false; } };
+    const missing = need.filter(n => !has(n));
+    const overlays = [...document.querySelectorAll('.modal-wrap, .fx-scene')]
+      .map(e => (e.className || '') + (e.classList.contains('modal-wrap') && !e.classList.contains('show') ? '(안켜짐!)' : ''));
+    const errs = window.__errs || [];
+    const bad = v => `<b class="warn">${v}</b>`;
+    const row = (k, v) => `<div class="diag-row2"><b>${k}</b><span>${v}</span></div>`;
+    UI.modal(`
+      <div class="modal-title">🩺 진단</div>
+      <div class="diag">
+        ${row('캐시 번호', esc(src.split('v=')[1] || '?'))}
+        ${row('타워 파일', (window.TOWERS || []).length + '개')}
+        ${row('빠진 코드', missing.length ? bad(missing.join(', ')) : '없음')}
+        ${row('화면 덮개', overlays.length ? bad(esc(overlays.join(', '))) : '없음')}
+        ${row('에러', errs.length ? bad(esc(errs.join(' | '))) : '없음')}
+        ${row('진행', 'Lv.' + state.player.lv + ' · 🃏 ' + Cards.count() + '장 · 💰 ' + state.player.gold)}
+        ${row('화면', innerWidth + '×' + innerHeight + ' @' + (devicePixelRatio || 1))}
+        ${row('브라우저', esc(navigator.userAgent.slice(0, 95)))}
+      </div>
+      <div class="actions">
+        <button class="btn" data-close="fix">🧹 덮개 치우기</button>
+        <button class="btn ghost" data-close="x">닫기</button>
+      </div>`,
+      { onClose: v => {
+        if (v !== 'fix') return;
+        document.querySelectorAll('.modal-wrap, .fx-scene').forEach(e => e.remove());
+        UI.toast('화면을 덮고 있던 것을 치웠어요', 'good');
+      } });
+  }
+
   function init() { root().addEventListener('click', onClick); }
-  return { render, init, charCreator };
+
+  return { render, init, charCreator, diag };
 })();
