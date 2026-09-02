@@ -69,7 +69,7 @@ const Lobby = (() => {
     return `<div class="tower-card panel" data-tower="${t.id}">
       <div class="tower-art">${typeof Art !== 'undefined' ? Art.tower(prog.cleared, total, t.roof) : (t.emoji || '🏰')}</div>
       <div class="tower-body">
-        <div class="tower-name">${esc(t.name)}${levelCode(LV) ? ` <span class="lv-code">${LV.id}</span>` : ''}</div>
+        <div class="tower-name">${esc(t.name)}${levelCode(LV) ? ` <span class="lv-code">${LV.id}</span>` : ''}${isForced(t.id) && lv < rg[0] ? ' <span class="tag force">💪 강행</span>' : ''}</div>
         <div class="tower-desc">${esc(t.desc || '')}</div>
         <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div><span class="bar-text">${prog.cleared} / ${total}층</span></div>
         <div class="tower-meta">⭐ ${stars} / ${words.length * 3} · 단어 ${words.length}개${done ? ' · 🏆 정복!' : ''}</div>

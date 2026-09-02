@@ -121,14 +121,45 @@ const Game = {
       <div class="actions">
         ${prevK && prevK.ok ? `<button class="btn" data-close="king">👑 ${esc(lock.prevName)} 왕에게 도전</button>` : ''}
         ${open ? `<button class="btn mint" data-close="go">${esc(open.name)}에서 힘을 키우자</button>` : ''}
-        <button class="btn ghost" data-close="x">알겠어</button>
+        <button class="btn coral" data-close="force">💪 그래도 들어간다</button>
+        <button class="btn ghost" data-close="x">돌아갈래</button>
       </div>
-      <div class="gate-note">학원 숙제라 지금 꼭 필요하면 ⚙️ 설정 → <b>🔓 타워 잠금 끄기</b></div>`,
+      <div class="gate-note">학원 숙제라 이 책이 지금 필요하면 <b>💪 그래도 들어간다</b>를 누르세요<br>
+        (모든 탑을 한 번에 열려면 ⚙️ 설정 → 🔓 타워 잠금 끄기)</div>`,
       { onClose: v => {
         if (v === 'king') Game.startKing(lock.prevLevel);
         else if (v === 'go' && open) Game.startFloor(open.id, Math.min(towerProg(open.id).floor, floorList(open).length));
+        else if (v === 'force') this.confirmForce(tower, lock);
       } });
     return false;
+  },
+
+  // "나는 더 강하다"를 고르는 자리. 말리지는 않되 무슨 일이 벌어지는지는 정확히 말해 준다.
+  // 학원이 앞선 책을 내준 경우가 실제로 있으므로, 이 길은 반드시 있어야 한다.
+  confirmForce(tower, lock) {
+    const L = levelOf(tower.level);
+    const gap = Math.max(0, lock.needLv - state.player.lv);
+    UI.modal(`
+      <div class="modal-title">💪 정말 들어갈 거야?</div>
+      <div class="king-taunt">"…말리지는 않겠다.<br>다치고 나서 딴소리는 마라."</div>
+      <div class="lock-ways">
+        <div class="lock-way warn-way"><span class="big">🔥</span><div><b>몬스터가 아주 세게 느껴진다</b>
+          <div class="toggle-desc">여긴 ${L ? `${levelCode(L) || esc(L.name)} 등급, ` : ''}Lv.${lock.needLv} 이상을 위한 곳<br>지금 Lv.${state.player.lv}${gap ? ` · ${gap}레벨 부족` : ''}</div></div></div>
+        <div class="lock-way"><span class="big">🃏</span><div><b>얻는 건 전부 네 것</b>
+          <div class="toggle-desc">카드·경험치·골드 그대로 · 언제든 로비로 나올 수 있어요</div></div></div>
+      </div>
+      <div class="actions">
+        <button class="btn coral" data-close="go">💪 그래도 간다!</button>
+        <button class="btn ghost" data-close="x">역시 그만둘래</button>
+      </div>`,
+      { onClose: v => {
+        if (v !== 'go') return;
+        forceOpen(tower.id);
+        Sfx.levelup();
+        UI.toast(`💪 ${tower.name}의 문이 열렸다!`, 'good');
+        Lobby.render();
+        this.startFloor(tower.id, Math.min(towerProg(tower.id).floor, floorList(tower).length));
+      } });
   },
 
   // 지금 들어갈 수 있는 탑 중 가장 센 곳 = 경험치가 가장 잘 오르는 곳

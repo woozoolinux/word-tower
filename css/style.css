@@ -496,6 +496,9 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   animation: fxUp .6s 2.3s ease-out forwards;
 }
 
+.tag.force { background: var(--coral); color: #fff; }
+.lock-way.warn-way { border: 2px solid var(--coral); }
+
 /* 🚧 잠긴 탑의 문 앞 */
 .gate-art { position: relative; display: flex; justify-content: center; margin: -4px 0 8px; }
 .gate-art svg { width: 96px; height: auto; filter: grayscale(.75) brightness(.8); }

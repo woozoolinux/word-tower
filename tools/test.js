@@ -50,6 +50,7 @@ load('js/state.js', `\n;globalThis.S = {
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
   refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire, clearPct, BAL,
   kingCooldown, startKingCooldown, mmss, kingBeaten, raiseToLv, levelTowers, LEVELS, towerLock, prevKingLevel,
+  forceOpen, isForced, levelCode, levelTag,
   get state() { return state; }, set state(v) { state = v; },
 };`);
 load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak, wkey, statFor };`);
@@ -576,6 +577,41 @@ S.state.player.lv = 2;
 const lockAt2 = S.towerLock(sandbox.window.TOWERS.find(t => t.level === 'DS-C'));
 ok('Lv.2에서 늑대 탑은 잠겨 있다', !!lockAt2);
 ok('잠금 안내에 없는 왕을 적지 않는다', !lockAt2.hasPrevTowers || !!lockAt2.prevLevel);
+
+// ===================================================================
+section('그래도 들어간다 (강행 입장)');
+// 학원이 앞선 책을 내주는 일이 실제로 있다. 레벨이 안 된다고 숙제를
+// 못 하게 막으면 이 게임은 쓸모가 없어진다 — 길은 반드시 있어야 한다.
+// ===================================================================
+Object.keys(store).forEach(k => delete store[k]);
+S.loadState();
+S.state.player.lv = 2;
+const wolf6 = sandbox.window.TOWERS.find(t => t.id === 'dsc6');
+ok('Lv.2에서는 잠겨 있다', !!S.towerLock(wolf6));
+eq('처음엔 강행 기록이 없다', S.isForced('dsc6'), false);
+S.forceOpen('dsc6');
+ok('강행하면 그 탑은 열린다', !S.towerLock(wolf6));
+ok('다른 탑은 여전히 잠겨 있다', !!S.towerLock(sandbox.window.TOWERS.find(t => t.id === 'jeongsang3')));
+S.loadState();
+ok('강행 기록은 저장에 남는다', S.isForced('dsc6'));
+ok('저장을 다시 읽어도 열려 있다', !S.towerLock(wolf6));
+eq('강행이 없던 옛 저장도 빈 값으로 채워진다', (() => {
+  const raw = JSON.parse(store['wordtower_save_v1']);
+  delete raw.player.forced;
+  store['wordtower_save_v1'] = JSON.stringify(raw);
+  S.loadState();
+  return S.isForced('dsc6');
+})(), false);
+// 강행해도 난이도는 그대로다 — 봐주면 강행할 이유가 없어진다
+S.state.player.lv = 2; S.forceOpen('dsc6');
+eq('강행해도 몬스터는 약해지지 않는다',
+  S.monsterHp(5, false, wolf6),
+  (() => { S.state.player.forced = {}; S.state.settings.noLock = true; const v = S.monsterHp(5, false, wolf6); S.state.settings.noLock = false; return v; })());
+
+// 등급 표기
+eq('학원 등급은 코드를 보여준다', S.levelCode(S.LEVELS.find(l => l.id === 'DS-C')), 'DS-C');
+eq('기초 탑은 코드가 없다', S.levelCode(S.LEVELS.find(l => l.id === 'BASIC')), '');
+eq('등급 표기는 코드와 동물을 같이 쓴다', S.levelTag(S.LEVELS.find(l => l.id === 'DS-C')), 'DS-C 등급의 🐺 늑대');
 
 // ===================================================================
 section('발음 읽어주기 설정');

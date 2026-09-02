@@ -120,6 +120,7 @@ function kingCooldown(levelId) {
 }
 function startKingCooldown(levelId) {
   state.player.kingCd = state.player.kingCd || {};
+  state.player.forced = state.player.forced || {};
   state.player.kingCd[levelId] = Date.now() + BAL.king.retryCooldownSec * 1000;
   saveState();
 }
@@ -129,8 +130,16 @@ function kingBeaten(levelId) { return !!(state.player.kings && state.player.king
 
 // 타워 입장 조건: 레벨이 권장 하한을 넘었거나, 이전 등급의 왕을 잡았거나.
 // 낮은 등급은 권장 하한이 낮아 자동으로 계속 열려 있다 (고레벨이 복습하러 올 수 있게).
+// 아이가 문 앞에서 "그래도 간다"를 고른 탑. 한 번 고르면 계속 열려 있다
+// (들어갈 때마다 같은 경고를 다시 보게 하면 그건 잠금이나 마찬가지다).
+function forceOpen(towerId) {
+  state.player.forced = state.player.forced || {};
+  state.player.forced[towerId] = true;
+  saveState();
+}
+function isForced(towerId) { return !!(state.player.forced && state.player.forced[towerId]); }
 function towerLock(tower) {
-  if (state.settings.noLock) return null;
+  if (state.settings.noLock || isForced(tower.id)) return null;
   const lo = towerRange(tower)[0];
   if (state.player.lv >= lo) return null;
   const pl = prevKingLevel(tower.level);
@@ -168,7 +177,7 @@ function defaultState() {
       towerClear: {}, titles: [],
       items: { hint: 1, erase: 0, potion: 1 },
       shieldDate: '', arenaBest: 0,
-      cards: {}, pendingCards: [], setBonus: {}, kings: {}, kingCd: {},
+      cards: {}, pendingCards: [], setBonus: {}, kings: {}, kingCd: {}, forced: {},
     },
     towers: {},
     // say = 발음 자동 재생(학습 도움, 기본 ON) · listen = 듣기 문제(난이도, 기본 OFF)
