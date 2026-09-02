@@ -57,6 +57,7 @@ const Fx = (() => {
           <span class="fx-chip">💰 +${o.gold}</span>
           <span class="fx-chip">🎖️ ${esc(o.title)}</span>
           <span class="fx-chip">${o.next.emoji} 탑 ${(o.towers || []).length}개 열림</span>
+          ${o.lv1 > o.lv0 ? `<span class="fx-chip up">⭐ Lv.${o.lv0} → <b>Lv.${o.lv1}</b></span>` : ''}
         </div>
         <button class="btn fx-go">계속!</button>
       </div>`;

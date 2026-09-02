@@ -48,6 +48,7 @@ const Lobby = (() => {
     const cardsHave = words.filter(w => Cards.has(t.id, wkey(w))).length;
     const pendHave = Cards.pendingFor(t.id).length;
     const lock = towerLock(t);
+    const LV = levelOf(t.level);
     const lvTag = `난이도 ${tierFire(towerTier(t))} · 권장 Lv.${rg[0]}~${rg[1]} · ` +
       (lv < rg[0] ? '<b class="warn">⚠️ 아직 어려워요</b>' : lv > rg[1] ? '<b class="easy">😎 여유로워요</b>' : '<b class="fit">👍 딱 맞아요</b>');
     const stars = words.reduce((a, w) => a + statFor(t.id, w).stars, 0);
@@ -58,11 +59,11 @@ const Lobby = (() => {
         <div class="tower-art dim-art">${typeof Art !== 'undefined' ? Art.tower(0, total, t.roof) : ''}</div>
         <div class="tower-body">
           <div class="tower-name">🔒 ${esc(t.name)}</div>
-          <div class="tower-desc">${esc(t.desc || '')}</div>
+          <div class="tower-desc">${LV ? `${LV.emoji} <b>${esc(LV.name)} 등급</b>의 탑 · ` : ''}단어 ${words.length}개가 산다</div>
           <div class="tower-meta">Lv.${lock.needLv} 이상${lock.hasPrevTowers ? ` <b>또는</b> ${lock.prevEmoji} ${esc(lock.prevName)} 왕 격파` : ''}</div>
-          <div class="tower-meta">지금 Lv.${state.player.lv} · 단어 ${words.length}개</div>
+          <div class="tower-meta">지금 Lv.${state.player.lv} · <b class="warn">${Math.max(0, lock.needLv - state.player.lv)}레벨만 더!</b></div>
         </div>
-        <button class="btn ghost small" data-go="${t.id}">🔒<br>잠김</button>
+        <button class="btn ghost small knock" data-go="${t.id}">🚪<br>두드려봐</button>
       </div>`;
     }
     return `<div class="tower-card panel" data-tower="${t.id}">

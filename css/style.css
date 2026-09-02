@@ -20,6 +20,8 @@
   --font-en: 'Fredoka', 'Jua', sans-serif;
 }
 * { box-sizing: border-box; }
+/* 한글은 어절 단위로 줄바꿈해야 읽힌다 (기본값은 글자 중간에서 자른다) */
+body { word-break: keep-all; overflow-wrap: break-word; }
 html {
   background: radial-gradient(circle at 50% -10%, var(--bg2), var(--bg) 60%);
   background-attachment: fixed;
@@ -456,10 +458,13 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   border-radius: 999px; padding: 7px 13px; font-size: 14px; opacity: 0;
   animation: fxUp .5s ease-out forwards;
 }
+.fx-chip.up { border-color: rgba(62,224,196,.75); background: rgba(62,224,196,.14); }
+.fx-chip.up b { color: var(--mint); }
 .fx-chip:nth-child(1) { animation-delay: 3.35s; }
 .fx-chip:nth-child(2) { animation-delay: 3.5s; }
 .fx-chip:nth-child(3) { animation-delay: 3.65s; }
-.fx-go { opacity: 0; font-size: 20px; padding: 13px 30px; animation: fxUp .5s 3.95s ease-out forwards; }
+.fx-chip:nth-child(4) { animation-delay: 3.8s; }
+.fx-go { opacity: 0; font-size: 20px; padding: 13px 30px; animation: fxUp .5s 4.1s ease-out forwards; }
 /* 아무 데나 누르면 끝까지 감는다 (다 본 아이를 기다리게 하지 않는다) */
 .fx-scene.rush * { animation-delay: 0s !important; animation-duration: .18s !important; }
 .fx-scene.rush .fx-rays { animation: fxRaysIn .18s ease-out forwards, fxSpin 30s linear infinite !important; }
@@ -478,6 +483,21 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 @keyframes fxPop { from { opacity: 0; transform: scale(.55) } to { opacity: 1; transform: none } }
 @keyframes fxUp { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
 @keyframes fxLine { 0% { opacity: 0 } 16% { opacity: 1 } 74% { opacity: 1 } 100% { opacity: 0 } }
+
+/* 🚧 잠긴 탑의 문 앞 */
+.gate-art { position: relative; display: flex; justify-content: center; margin: -4px 0 8px; }
+.gate-art svg { width: 96px; height: auto; filter: grayscale(.75) brightness(.8); }
+.gate-lock {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font-size: 40px; filter: drop-shadow(0 3px 8px rgba(0,0,0,.5));
+}
+.gate-flavor { text-align: center; font-size: 16px; line-height: 1.6; color: var(--ink); margin-bottom: 10px; }
+.gate-note {
+  text-align: center; font-size: 13px; color: var(--ink-dim);
+  margin-top: 12px; padding-top: 10px; border-top: 2px dashed var(--panel2);
+}
+.tower-card.locked .btn.knock { background: var(--panel2); color: var(--ink); box-shadow: 0 3px 0 #cdbf9d; }
+.tower-card.locked .btn.knock:active { transform: translateY(2px); box-shadow: 0 1px 0 #cdbf9d; }
 
 /* ⏳ 왕 재도전 대기 */
 .cd-box {

@@ -88,27 +88,54 @@ const Game = {
 
   // 등급이 높은 타워는 레벨이 닿거나 이전 등급 왕을 잡아야 들어갈 수 있다.
   // 낮은 등급은 권장 하한이 낮아 항상 열려 있다(고레벨이 복습하러 올 수 있게).
+  // 잠긴 탑의 문 앞. 막는 화면이 아니라 "여기가 어떤 곳인지" 보여주는 화면이다.
+  // 못 들어간다고만 하면 아이는 갈 데를 잃는다 — 지금 갈 수 있는 탑을 같이 준다.
   checkTowerLock(tower) {
     const lock = towerLock(tower);
     if (!lock) return true;
     Sfx.bad();
+    const L = levelOf(tower.level);
     const prevK = lock.hasPrevTowers ? Game.kingInfo(lock.prevLevel) : null;
+    const need = Math.max(0, lock.needLv - state.player.lv);
+    const pct = Math.min(100, state.player.lv / lock.needLv * 100);
+    const open = this.bestOpenTower();
     UI.modal(`
-      <div class="modal-title">🚧 이 탑은 아직 널 안 들여보낸다</div>
-      <div class="modal-sub">${esc(tower.name)}의 문지기가 막아섰다<br>${prevK ? '둘 중 하나면 길이 열린다' : '조금만 더 강해지면 열린다'}</div>
+      <div class="gate-art">${Art.tower(0, floorList(tower).length, tower.roof)}<span class="gate-lock">🔒</span></div>
+      <div class="modal-title">🚧 문지기가 앞을 막았다</div>
+      <div class="gate-flavor">
+        여기는 ${L ? `${L.emoji} <b>${esc(L.name)} 등급</b>` : '높은 등급'}의 탑.<br>
+        ${esc(tower.name)}의 단어 <b>${allWords(tower).length}개</b>가 사는 곳이다.
+      </div>
+      <div class="king-taunt">${prevK
+        ? `"실력을 증명하든지, 더 강해지든지.<br>둘 중 하나다."`
+        : `"레벨도 안 되면서 건방지구나.<br>${L ? esc(L.name) : '이곳'}에게 덤빌 생각을 하다니…"`}</div>
       <div class="lock-ways">
         <div class="lock-way"><span class="big">⭐</span><div><b>Lv.${lock.needLv} 이상</b>
-          <div class="toggle-desc">지금 Lv.${state.player.lv} · ${Math.max(0, lock.needLv - state.player.lv)}레벨 더</div></div></div>
+          <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div>
+            <span class="bar-text">Lv.${state.player.lv} / ${lock.needLv}</span></div>
+          <div class="toggle-desc">${need ? `<b class="warn">${need}레벨만 더!</b> 아래 탑에서 금방 오른다` : '조건을 채웠어요'}</div></div></div>
         ${prevK ? `<div class="lock-or">또는</div>
         <div class="lock-way"><span class="big">${lock.prevEmoji}</span><div><b>${esc(lock.prevName)} 왕 격파</b>
-          <div class="toggle-desc">카드 ${prevK.have} / ${prevK.need}장</div></div></div>` : ''}
+          <div class="toggle-desc">카드 ${prevK.have} / ${prevK.need}장${prevK.ok ? ' · <b class="warn">지금 도전할 수 있다!</b>' : ''}</div></div></div>` : ''}
       </div>
       <div class="actions">
         ${prevK && prevK.ok ? `<button class="btn" data-close="king">👑 ${esc(lock.prevName)} 왕에게 도전</button>` : ''}
+        ${open ? `<button class="btn mint" data-close="go">${esc(open.name)}에서 힘을 키우자</button>` : ''}
         <button class="btn ghost" data-close="x">알겠어</button>
-      </div>`,
-      { onClose: v => { if (v === 'king') Game.startKing(lock.prevLevel); } });
+      </div>
+      <div class="gate-note">학원 숙제라 지금 꼭 필요하면 ⚙️ 설정 → <b>🔓 타워 잠금 끄기</b></div>`,
+      { onClose: v => {
+        if (v === 'king') Game.startKing(lock.prevLevel);
+        else if (v === 'go' && open) Game.startFloor(open.id, Math.min(towerProg(open.id).floor, floorList(open).length));
+      } });
     return false;
+  },
+
+  // 지금 들어갈 수 있는 탑 중 가장 센 곳 = 경험치가 가장 잘 오르는 곳
+  bestOpenTower() {
+    const open = (window.TOWERS || []).filter(t => !towerLock(t));
+    if (!open.length) return null;
+    return open.sort((a, b) => towerTier(a) - towerTier(b))[open.length - 1];
   },
 
   // 보스 층은 해당 단원 카드를 일정 비율 모아야 들어갈 수 있다 (일반 층은 자유)
@@ -274,13 +301,21 @@ const Game = {
     const title = `${k.level.name} 왕을 이긴 자`;
     if (state.player.titles.indexOf(title) < 0) state.player.titles.push(title);
     if (!state.player.title) state.player.title = title;
+    // 열린 등급의 권장 하한까지 끌어올린다 — 문만 열어 주고 몹은 안 죽으면 허탈하다
+    const lv0 = state.player.lv;
+    let lvUps = [];
+    if (first && k.opens) {
+      const ts = levelTowers(k.opens.id);
+      const minLv = ts.length ? Math.min(...ts.map(t => towerRange(t)[0])) : 0;
+      if (lv0 < minLv) { lvUps = raiseToLv(minLv); this.pendingUps.push(...lvUps); }
+    }
     saveState();
     // 새 등급이 "처음" 열리는 순간은 모달로 넘기기 아깝다 — 화면 전체를 쓴다
     if (first && k.opens) {
       Fx.unlock({
         king: k.level, next: k.opens, gold, title,
         missCount: (missed || []).length, words: k.words.length,
-        towers: levelTowers(k.opens.id),
+        towers: levelTowers(k.opens.id), lv0, lv1: state.player.lv,
       }, () => this.flushLevelUps(() => this.toLobby()));
       return;
     }

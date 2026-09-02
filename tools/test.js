@@ -49,7 +49,7 @@ load('js/state.js', `\n;globalThis.S = {
   loadState, saveState, resetState, importCode, exportCode, backupInfo, restoreBackup,
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
   refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire, clearPct, BAL,
-  kingCooldown, startKingCooldown, mmss, kingBeaten,
+  kingCooldown, startKingCooldown, mmss, kingBeaten, raiseToLv, levelTowers, LEVELS, towerLock, prevKingLevel,
   get state() { return state; }, set state(v) { state = v; },
 };`);
 load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak, wkey, statFor };`);
@@ -548,6 +548,34 @@ eq('대기가 없던 옛 저장도 0으로 채워진다', (() => {
   S.loadState();
   return S.kingCooldown('DS-C');
 })(), 0);
+
+// ===================================================================
+section('왕 격파 보상 — 레벨과 입장 조건');
+// 왕을 잡아 다음 등급을 열었는데 레벨이 낮아 안에서 몹이 안 죽으면
+// 문을 연 보람이 없다. 열린 등급의 권장 하한까지는 끌어올려 준다.
+// ===================================================================
+Object.keys(store).forEach(k => delete store[k]);
+S.loadState();
+S.state.player.lv = 2;
+const dsdLo = Math.min(...S.levelTowers('DS-D').map(t => S.towerRange(t)[0]));
+const kUps = S.raiseToLv(dsdLo);
+eq('권장 하한까지 올라간다', S.state.player.lv, dsdLo);
+eq('오른 레벨이 전부 보고된다', kUps.length, dsdLo - 2);
+ok('레벨업하면 HP가 가득 찬다', S.state.player.hp === S.playerMaxHp());
+eq('이미 높으면 올리지 않는다', (() => { S.state.player.lv = 99; return S.raiseToLv(dsdLo).length; })(), 0);
+eq('이미 높으면 레벨도 그대로', S.state.player.lv, 99);
+
+// 존재하지 않는 왕을 입장 조건으로 안내하면 안 된다
+// (여우 등급은 타워가 없으므로 여우 왕도 없다)
+ok('타워가 없는 등급은 왕 경로에서 건너뛴다', !S.prevKingLevel('DS-C') || S.levelTowers(S.prevKingLevel('DS-C').id).length > 0);
+ok('왕 경로로 안내되는 등급에는 반드시 왕이 있다', S.LEVELS.every(L => {
+  const pk = S.prevKingLevel(L.id);
+  return !pk || (pk.animal && S.levelTowers(pk.id).length > 0);
+}));
+S.state.player.lv = 2;
+const lockAt2 = S.towerLock(sandbox.window.TOWERS.find(t => t.level === 'DS-C'));
+ok('Lv.2에서 늑대 탑은 잠겨 있다', !!lockAt2);
+ok('잠금 안내에 없는 왕을 적지 않는다', !lockAt2.hasPrevTowers || !!lockAt2.prevLevel);
 
 // ===================================================================
 section('발음 읽어주기 설정');

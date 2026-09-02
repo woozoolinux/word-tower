@@ -93,6 +93,15 @@ function prevLevelId(id) {
 }
 // 그 등급에 왕이 있으려면 타워가 하나라도 있어야 한다 (아직 안 만든 등급은 왕도 없다)
 function levelTowers(id) { return (window.TOWERS || []).filter(t => t.level === id); }
+// 이 등급 앞쪽에서 "실제로 도전할 수 있는 왕"을 찾는다.
+// 타워가 없는 등급(아직 안 만든 등급)의 왕은 없는 것이나 같으므로 건너뛴다.
+function prevKingLevel(levelId) {
+  const i = LEVELS.findIndex(l => l.id === levelId);
+  for (let j = i - 1; j >= 0; j--) {
+    if (LEVELS[j].animal && levelTowers(LEVELS[j].id).length) return LEVELS[j];
+  }
+  return null;
+}
 // 👑 왕에게 진 뒤의 재도전 대기.
 // 남은 "초"를 벽시계로 재기 때문에 창을 닫아도, 게임을 꺼도 시간은 흐른다.
 // (게임을 켜 둔 채 버티게 만들면 기다림이 그냥 지루한 벌이 된다)
@@ -116,10 +125,13 @@ function towerLock(tower) {
   if (state.settings.noLock) return null;
   const lo = towerRange(tower)[0];
   if (state.player.lv >= lo) return null;
-  const prev = prevLevelId(tower.level);
-  if (!prev || kingBeaten(prev)) return null;
-  const pl = levelOf(prev);
-  return { needLv: lo, prevLevel: prev, prevName: pl ? pl.name : prev, prevEmoji: pl ? pl.emoji : '👑', hasPrevTowers: levelTowers(prev).length > 0 };
+  const pl = prevKingLevel(tower.level);
+  if (pl && kingBeaten(pl.id)) return null;
+  return {
+    needLv: lo,
+    prevLevel: pl ? pl.id : null, prevName: pl ? pl.name : '', prevEmoji: pl ? pl.emoji : '👑',
+    hasPrevTowers: !!pl,
+  };
 }
 
 const ZONES = [
@@ -307,6 +319,14 @@ function addExp(n) {
   const p = state.player; p.exp += n; const ups = [];
   while (p.exp >= expToNext(p.lv)) { p.exp -= expToNext(p.lv); p.lv++; ups.push(p.lv); }
   if (ups.length) p.hp = playerMaxHp();
+  return ups;
+}
+// 왕을 꺾어 새 등급이 열렸는데 레벨이 그 등급의 권장 하한보다 낮으면 거기까지 올려 준다.
+// 실력으로 문을 열어 놓고 들어가서는 몹이 안 죽으면, 연 보람이 없다.
+function raiseToLv(target) {
+  const p = state.player, ups = [];
+  while (p.lv < target) { p.lv++; ups.push(p.lv); }
+  if (ups.length) { p.exp = 0; p.hp = playerMaxHp(); }
   return ups;
 }
 function addGold(n) { state.player.gold = Math.max(0, state.player.gold + n); }
