@@ -23,7 +23,8 @@ const UI = (() => {
     wrap.className = 'modal-wrap';
     wrap.innerHTML = `<div class="modal ${opts.cls || ''}">${html}</div>`;
     root.appendChild(wrap);
-    requestAnimationFrame(() => wrap.classList.add('show'));
+    void wrap.offsetWidth;          // 리플로를 강제해 opacity:0 을 확정시킨 뒤
+    wrap.classList.add('show');     // 바로 켠다 (rAF 를 기다리지 않는다)
     const close = () => { wrap.classList.remove('show'); setTimeout(() => wrap.remove(), 200); };
     const bind = () => wrap.querySelectorAll('[data-close]').forEach(b => b.onclick = () => { close(); if (opts.onClose) opts.onClose(b.dataset.close); });
     bind();
@@ -31,6 +32,16 @@ const UI = (() => {
     if (opts.onOpen) opts.onOpen(api);
     return api;
   }
+
+  // 안 켜진 모달이 남아 있으면 화면 전체를 막는다. 돌아왔을 때 되살려서
+  // 아이가 최소한 닫을 수 있게 한다.
+  function rescueModals() {
+    document.querySelectorAll('.modal-wrap:not(.show)').forEach(w => w.classList.add('show'));
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') rescueModals();
+  });
+  window.addEventListener('pageshow', rescueModals);
 
   function charEmoji() { const lv = state.player.lv; return lv >= 20 ? '🧙' : lv >= 10 ? '🦸' : lv >= 5 ? '🧑' : '🧒'; }
   function charHtml(size) {
@@ -142,5 +153,5 @@ const UI = (() => {
     document.getElementById('modal-root').appendChild(el);
     setTimeout(() => el.remove(), 300);
   }
-  return { show, current, toast, modal, charEmoji, charHtml, charMini, charWalk, hpBar, floatText, shake, flash, confetti, levelUpModal };
+  return { show, current, toast, modal, rescueModals, charEmoji, charHtml, charMini, charWalk, hpBar, floatText, shake, flash, confetti, levelUpModal };
 })();
