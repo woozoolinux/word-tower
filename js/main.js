@@ -258,15 +258,16 @@ const Game = {
         atk: Math.round(monsterAtk(f, true, tower) * BAL.king.atkMul),
       },
       words: k.words, pool: k.words, towerId: tower.id, floor: f, boss: true, king: true,
-      onWin: () => { this.kingCtx = null; this.kingWin(k.level.id); },
+      onWin: missed => { this.kingCtx = null; this.kingWin(k.level.id, missed); },
       onLose: missed => this.playerDown(missed),
     });
   },
 
-  kingWin(levelId) {
+  kingWin(levelId, missed) {
     const k = this.kingInfo(levelId);
     const first = !kingBeaten(levelId);
     state.player.kings[levelId] = true;
+    if (state.player.kingCd) delete state.player.kingCd[levelId];   // 이겼으니 대기도 푼다
     const gold = Math.round(byFloor(BAL.gold.bossClear, BAL.king.floor)
       * (k.towers[k.towers.length - 1].tier || 1) * BAL.king.goldMul);
     addGold(gold);
@@ -274,9 +275,18 @@ const Game = {
     if (state.player.titles.indexOf(title) < 0) state.player.titles.push(title);
     if (!state.player.title) state.player.title = title;
     saveState();
+    // 새 등급이 "처음" 열리는 순간은 모달로 넘기기 아깝다 — 화면 전체를 쓴다
+    if (first && k.opens) {
+      Fx.unlock({
+        king: k.level, next: k.opens, gold, title,
+        missCount: (missed || []).length, words: k.words.length,
+        towers: levelTowers(k.opens.id),
+      }, () => this.flushLevelUps(() => this.toLobby()));
+      return;
+    }
     Sfx.fanfare(); UI.confetti({ count: 240, life: 4, colors: ['#ffc83d', '#fff3c4', '#ffffff', '#ffe08a'] });
     UI.modal(`
-      <div class="modal-title">👑 ${k.level.emoji} ${esc(k.level.name)} 왕을 꺾었다!</div>
+      <div class="modal-title">👑 ${k.level.emoji} ${esc(k.level.name)} 왕을 ${first ? '꺾었다' : '다시 꺾었다'}!</div>
       <div class="king-reveal">${Art.king(k.level.animal)}</div>
       <div class="king-taunt yield">"${esc(k.level.yield || '내가 졌다.')}"</div>
       <div class="reward-row">💰 +${gold}</div>

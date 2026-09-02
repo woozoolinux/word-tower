@@ -169,7 +169,7 @@ const Battle = (() => {
     if (mon.hp <= 0) {
       clearTimer(); Sfx.win();
       const art = $('mon-art'); if (art) art.classList.add('die');
-      setTimeout(() => o.onWin(), 950);
+      setTimeout(() => o.onWin(missed), 950);
     }
     else setTimeout(next, 800);
   }
