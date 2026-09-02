@@ -48,7 +48,7 @@ fs.readdirSync(path.join(ROOT, 'data')).filter(f => f.endsWith('.js')).sort()
 load('js/state.js', `\n;globalThis.S = {
   loadState, saveState, resetState, importCode, exportCode, backupInfo, restoreBackup,
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
-  refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire,
+  refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire, clearPct, BAL,
   get state() { return state; }, set state(v) { state = v; },
 };`);
 load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak, wkey, statFor };`);
@@ -94,7 +94,7 @@ eq('Lv8 + 불꽃검 공격력', S.playerAtk(), 60);
 
 eq('바벨 5층 몬스터를 3방에', hits(S.playerAtk(), S.monsterHp(5, false, main)), 3);
 eq('DSD1 5층 몬스터를 4방에', hits(S.playerAtk(), S.monsterHp(5, false, dsd1)), 4);
-eq('DSD1 5층 보스를 10방에', hits(S.playerAtk(), S.monsterHp(5, true, dsd1)), 10);
+eq('DSD1 5층 보스를 11방에', hits(S.playerAtk(), S.monsterHp(5, true, dsd1)), 11);
 
 S.state.player.lv = 50;
 eq('Lv50이 바벨 5층 몬스터를 1방에 (의도된 통쾌함)', hits(S.playerAtk(), S.monsterHp(5, false, main)), 1);
@@ -240,6 +240,26 @@ sandbox.window.TOWERS.forEach(t => {
 // 카드·★의 신원은 철자가 아니라 wkey(key가 있으면 key). 같은 철자를 품사별로 나눌 수 있다.
 const allW = sandbox.window.TOWERS.flatMap(t => W.allWords(t).map(w => `${t.id}:${W.wkey(w)}`));
 eq('타워 안에서 단어 키가 겹치지 않는다', new Set(allW).size, allW.length);
+{
+  // 정복 보너스가 무한히 쌓이면 가장 어려운 타워가 가장 쉬워진다 → 상한이 있어야 한다
+  const cap = S.BAL.player.clearBonusCap;
+  ok('정복 보너스에 상한이 있다', typeof cap === 'number' && cap > 0);
+  const saved = S.state.player.towerClear;
+  S.state.player.towerClear = {};
+  sandbox.window.TOWERS.forEach(t => { S.state.player.towerClear[t.id] = true; });
+  ok('전부 정복해도 상한을 넘지 않는다', S.clearPct('atk') <= cap && S.clearPct('hp') <= cap);
+  S.state.player.towerClear = saved;
+}
+{
+  // 같은 등급 안에서도, 등급이 바뀔 때도 난이도가 뒤집히면 안 된다
+  const sorted = sandbox.window.TOWERS.slice().sort((a, b) => (a.tier || 1) - (b.tier || 1));
+  let mono = true;
+  for (let i = 1; i < sorted.length; i++) {
+    const a = sorted[i - 1], b = sorted[i];
+    if ((a.lvRange || [0, 0])[0] > (b.lvRange || [0, 0])[0]) mono = false;
+  }
+  ok('티어가 높은 타워일수록 권장 레벨도 낮지 않다', mono);
+}
 {
   const dup = sandbox.window.TOWERS.flatMap(t => {
     const seen = new Map(), out = [];

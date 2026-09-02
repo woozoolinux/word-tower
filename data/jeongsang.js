@@ -31,7 +31,7 @@ window.TOWERS.push({
   emoji: '🐻',
   roof: '#8d6a4f',
   tier: 1.5,
-  lvRange: [5, 24],
+  lvRange: [7, 26],
   clearBonus: { type: 'hp', pct: 0.15, title: '숲의 파수꾼' },
   units: [
     { unit: 1, words: [

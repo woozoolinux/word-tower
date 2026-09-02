@@ -12,7 +12,7 @@ window.TOWERS.push({
   emoji: '🐺',
   roof: '#3f4855',
   tier: 1.42,                  // 늑대(DS-C) 반 4권
-  lvRange: [7, 23],
+  lvRange: [5, 23],
   clearBonus: { type: 'atk', pct: 0.14, title: '늑대의 송곳니' },
   units: [
     { unit: 1, words: [

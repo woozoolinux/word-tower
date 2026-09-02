@@ -15,7 +15,7 @@ window.TOWERS.push({
   emoji: '🐺',
   roof: '#5c6675',
   tier: 1.38,                  // 늑대(DS-C) 반 2권
-  lvRange: [5, 21],
+  lvRange: [4, 21],
   clearBonus: { type: 'atk', pct: 0.12, title: '숲의 사냥꾼' },
   units: [
     { unit: 1, words: [

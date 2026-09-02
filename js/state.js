@@ -191,7 +191,7 @@ function clearPct(type) {
     const cb = t.clearBonus;
     if (cb && cb.type === type && state.player.towerClear && state.player.towerClear[t.id]) v += cb.pct;
   });
-  return v;
+  return Math.min(v, BAL.player.clearBonusCap);   // 상한을 넘으면 칭호만 쌓인다
 }
 
 // 타워는 저마다 "설계 기준 레벨 구간"을 갖는다.

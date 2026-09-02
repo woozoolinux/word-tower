@@ -12,7 +12,7 @@ window.TOWERS.push({
   emoji: '🐺',
   roof: '#37404d',
   tier: 1.44,                  // 늑대(DS-C) 반 5권
-  lvRange: [8, 24],
+  lvRange: [6, 24],
   clearBonus: { type: 'hp', pct: 0.16, title: '달빛 늑대' },
   units: [
     { unit: 1, words: [

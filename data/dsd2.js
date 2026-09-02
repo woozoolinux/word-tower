@@ -9,8 +9,8 @@ window.TOWERS.push({
   desc: '숲의 왕 · 단어 96개 · 8단원',
   emoji: '🐻',
   roof: '#6d5039',
-  tier: 1.55,                  // 곰(DS-D) 반 2권 — 등급은 같고 권수만큼만 미세하게
-  lvRange: [6, 25],
+  tier: 1.52,                  // 곰(DS-D) 반 2권 — 등급은 같고 권수만큼만 미세하게
+  lvRange: [7, 27],
   clearBonus: { type: 'atk', pct: 0.20, title: '숲의 수호자' },
   units: [
     { unit: 1, words: [
