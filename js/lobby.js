@@ -83,18 +83,21 @@ const Lobby = (() => {
     const k = Game.kingInfo(L.id);
     if (!k) return '';
     const pct = Math.min(100, k.have / k.need * 100);
+    const cd = kingCooldown(L.id);          // 진 직후에는 왕이 등을 돌린 상태
     const state2 = k.beaten ? 'beaten' : k.ok ? 'ready' : 'locked';
-    const label = k.beaten ? '다시 도전' : k.ok ? '도전!' : `🃏 ${k.have}/${k.need}`;
-    return `<div class="king-card ${state2}" data-king="${L.id}">
+    const label = cd > 0 ? `⏳ <span data-kingcd="${L.id}">${mmss(cd)}</span>`
+      : k.beaten ? '다시 도전' : k.ok ? '도전!' : `🃏 ${k.have}/${k.need}`;
+    return `<div class="king-card ${state2}${cd > 0 ? ' cooling' : ''}" data-king="${L.id}">
       <div class="king-art">${Art.king(L.animal)}</div>
       <div class="king-body">
         <div class="king-name">👑 ${esc(L.name)} 왕${k.beaten ? ' <span class="tag">격파!</span>' : ''}</div>
         <div class="king-desc">${k.beaten ? '한 번 꺾은 상대. 다시 붙어볼까?' : `${esc(L.name)}가 아는 단어 ${k.words.length}개 전부에서 나온다`}</div>
         <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div>
           <span class="bar-text">${k.have} / ${k.need}장</span></div>
-        <div class="tower-meta">${k.ok ? '<b class="warn">지금 도전할 수 있다!</b> · ' : ''}${k.opens ? `이기면 ${k.opens.emoji} ${esc(k.opens.name)}의 땅이 열린다` : '이 너머는 없다'}</div>
+        <div class="tower-meta">${cd > 0 ? `<b class="warn">⏳ <span data-kingcd="${L.id}">${mmss(cd)}</span> 뒤에 다시 붙는다</b> · 그 사이에 단어를 보자`
+          : `${k.ok ? '<b class="warn">지금 도전할 수 있다!</b> · ' : ''}${k.opens ? `이기면 ${k.opens.emoji} ${esc(k.opens.name)}의 땅이 열린다` : '이 너머는 없다'}`}</div>
       </div>
-      <button class="btn ${k.ok ? 'mint' : 'ghost'} small" data-king="${L.id}">${label}</button>
+      <button class="btn ${k.ok && cd <= 0 ? 'mint' : 'ghost'} small" data-king="${L.id}">${label}</button>
     </div>`;
   }
   function kingSection() {

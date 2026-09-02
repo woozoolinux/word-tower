@@ -6,12 +6,13 @@ const Battle = (() => {
   const CHARGE_NEED = B.chargeNeed;   // 이만큼 연속 정답이면 필살기 준비
   // 제한시간은 판마다 다르다 (투기장은 오래 버틸수록 짧아진다)
   let o, mon, q, qStart, combo, helped, charge, lock, timer, warnTimer, timeLimit;
+  let missed;   // 이 판에서 틀린 단어 (진 뒤 "어디서 무너졌나"를 보여주려고)
   const $ = id => document.getElementById(id);
 
   function start(opts) {
     clearTimer();
     o = opts; mon = Object.assign({}, opts.monster, { maxHp: opts.monster.hp });
-    combo = 0; charge = 0; lock = false; q = null;
+    combo = 0; charge = 0; lock = false; q = null; missed = [];
     timeLimit = Math.max(1, opts.timeLimit || B.timeLimit);
     UI.show('battle');
     $('battle-title').textContent = o.boss ? '👑 보스전' : o.arena ? '🏟️ 투기장' : '⚔️ 배틀';
@@ -109,6 +110,8 @@ const Battle = (() => {
 
   // 오답/시간초과 공통: 몬스터 반격
   function penalty() {
+    // 진 뒤에 "어디서 무너졌는지" 보여주려고 틀린 단어를 모아 둔다
+    if (q && q.word && missed.indexOf(q.word) < 0) missed.push(q.word);
     combo = 0; charge = 0; Sfx.bad();
     const art = $('mon-art');
     if (art) { art.classList.remove('lunge', 'hurt'); void art.offsetWidth; art.classList.add('lunge'); }
@@ -118,7 +121,7 @@ const Battle = (() => {
       UI.shake($('battle-player')); UI.floatText($('battle-player'), `-${mon.atk}`, 'dmg-p');
     }
     renderBars(); renderItems(); saveState();
-    if (state.player.hp <= 0) { setTimeout(() => o.onLose(), 700); return; }
+    if (state.player.hp <= 0) { setTimeout(() => o.onLose(missed), 700); return; }
     setTimeout(next, 1600);
   }
 

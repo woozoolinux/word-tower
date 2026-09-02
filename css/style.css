@@ -392,6 +392,23 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .king-desc { font-size: 13px; color: var(--ink-dim); margin: 2px 0 6px; }
 .king-reveal { display: flex; justify-content: center; margin: 8px 0; }
 
+/* ⏳ 왕 재도전 대기 */
+.cd-box {
+  display: flex; gap: 12px; align-items: center; justify-content: center;
+  background: var(--panel2); border-radius: 14px; padding: 12px 14px; margin: 10px 0 6px;
+  font-size: 16px; text-align: left;
+}
+.cd-box .cd-face { font-size: 30px; }
+.cd-box b { font-size: 24px; font-variant-numeric: tabular-nums; color: var(--gold-dark); }
+.cd-box.done { background: #e7f7ee; }
+.cd-box.done b { color: var(--mint-dark); font-size: 18px; }
+.miss-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0 2px; }
+.miss-w { background: #fff; border: 2px solid #f0c9c4; border-radius: 10px; padding: 5px 9px; font-size: 14px; }
+.miss-w b { color: var(--ink); margin-right: 5px; }
+.king-card.cooling { opacity: .72; }
+.king-card.cooling .king-art { filter: grayscale(.7); }
+.king-card.cooling [data-kingcd] { font-variant-numeric: tabular-nums; }
+
 /* 👑 왕 앞에 서는 화면 */
 .king-hero { display: flex; justify-content: center; margin: -4px 0 6px; }
 .king-hero svg { width: 170px; height: auto; filter: drop-shadow(0 8px 18px rgba(0,0,0,.4)); animation: kingIn .55s ease-out; }

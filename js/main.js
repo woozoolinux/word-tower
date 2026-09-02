@@ -180,6 +180,8 @@ const Game = {
   startKing(levelId) {
     const k = this.kingInfo(levelId);
     if (!k) return;
+    const cd = kingCooldown(levelId);
+    if (cd > 0) { this.kingCooldownModal(k, cd); return; }
     if (!k.ok) {
       Sfx.bad();
       UI.modal(`
@@ -194,6 +196,27 @@ const Game = {
       return;
     }
     this.kingIntro(k);
+  },
+
+  // 진 직후에는 왕이 다시 상대해 주지 않는다.
+  // 연타로 운을 시험하는 대신 그 사이 단어를 보게 만드는 게 목적이라,
+  // 이 화면의 주 버튼은 "다시 도전"이 아니라 도감이다.
+  kingCooldownModal(k, cd) {
+    Sfx.bad();
+    const last = k.towers[k.towers.length - 1];
+    UI.modal(`
+      <div class="king-hero locked-hero">${Art.king(k.level.animal)}</div>
+      <div class="modal-title">${k.level.emoji} ${esc(k.level.name)} 왕이 등을 돌렸다</div>
+      <div class="king-taunt">"방금 붙어보지 않았나.<br>숨 좀 고르고 오너라."</div>
+      <div class="cd-box"><span class="cd-face">⏳</span>
+        <div><b data-kingcd="${k.level.id}">${mmss(cd)}</b> 뒤에 다시 마주 본다
+        <div class="toggle-desc">게임을 꺼도 시간은 흘러요</div></div></div>
+      <div class="star-summary">그 사이에 단어를 한 번 보고 오면 결과가 달라진다</div>
+      <div class="actions">
+        <button class="btn" data-close="book">📖 단어 보러 가기</button>
+        <button class="btn ghost" data-close="x">기다릴게</button>
+      </div>`,
+      { onClose: v => { if (v === 'book') Cards.book(last.id); } });
   },
 
   // 👑 왕 앞에 서는 순간 — 바로 싸우지 않고 한 번 숨을 고른다.
@@ -236,7 +259,7 @@ const Game = {
       },
       words: k.words, pool: k.words, towerId: tower.id, floor: f, boss: true, king: true,
       onWin: () => { this.kingCtx = null; this.kingWin(k.level.id); },
-      onLose: () => this.playerDown(),
+      onLose: missed => this.playerDown(missed),
     });
   },
 
@@ -320,21 +343,30 @@ const Game = {
     })) });
   },
 
-  playerDown() {
+  playerDown(missed) {
     Runner.stop(); Sfx.down();
     state.player.hp = playerMaxHp(); saveState();
     const k = this.kingCtx; this.kingCtx = null;
     if (k) {                       // 왕에게 졌다 — 분하게, 그러나 다시 오고 싶게
+      startKingCooldown(k.level.id);
+      const wrong = (missed || []).slice(0, 8);
+      const mins = Math.round(BAL.king.retryCooldownSec / 60);
+      const last = k.towers[k.towers.length - 1];
       UI.modal(`
         <div class="king-hero">${Art.king(k.level.animal)}</div>
         <div class="modal-title">${k.level.emoji} ${esc(k.level.name)} 왕이 코웃음을 쳤다</div>
-        <div class="king-taunt">"이 정도였나?<br>단어를 더 익히고 다시 와라. 기다려 주지."</div>
-        <div class="modal-sub">진 게 아니야. <b>아직</b> 못 이긴 거야.<br>도감에서 ★이 적은 단어부터 다시 보자!</div>
+        <div class="king-taunt">"이 정도였나?<br>${mins}분 줄 테니 익히고 오너라."</div>
+        ${wrong.length ? `<div class="star-summary">여기서 무너졌다 — 이것부터 다시 보자</div>
+        <div class="miss-list">${wrong.map(w => `<span class="miss-w"><b>${esc(w.w)}</b> ${esc(w.m)}</span>`).join('')}</div>`
+          : '<div class="star-summary">진 게 아니야. <b>아직</b> 못 이긴 거야.</div>'}
+        <div class="cd-box"><span class="cd-face">⏳</span>
+          <div>재도전까지 <b data-kingcd="${k.level.id}">${mmss(kingCooldown(k.level.id))}</b>
+          <div class="toggle-desc">게임을 꺼도 시간은 흘러요</div></div></div>
         <div class="actions">
-          <button class="btn" data-close="again">⚔️ 한 번 더!</button>
+          <button class="btn" data-close="book">📖 이 단어들 보러 가기</button>
           <button class="btn ghost" data-close="lobby">로비로</button>
         </div>`,
-        { onClose: v => this.flushLevelUps(() => { if (v === 'again') this.startKing(k.level.id); else this.toLobby(); }) });
+        { onClose: v => this.flushLevelUps(() => { this.toLobby(); if (v === 'book') Cards.book(last.id); }) });
       return;
     }
     UI.modal(`
@@ -426,6 +458,24 @@ window.addEventListener('DOMContentLoaded', () => {
   } else if (!state.player.avatar) {
     Lobby.charCreator(true);
   }
+  // 왕 재도전 카운트다운. 화면 어디에 있든 data-kingcd 를 단 곳을 갱신한다.
+  // 0이 되면 로비를 다시 그려 "지금 도전할 수 있다"로 스스로 바뀌게 한다.
+  setInterval(() => {
+    const els = document.querySelectorAll('[data-kingcd]');
+    if (!els.length) return;
+    let ended = false;
+    els.forEach(el => {
+      const s = kingCooldown(el.dataset.kingcd);
+      if (s > 0) { el.textContent = mmss(s); return; }
+      ended = true;
+      el.removeAttribute('data-kingcd');
+      const box = el.closest('.cd-box');
+      if (box) { box.classList.add('done'); box.innerHTML = '<span class="cd-face">⚔️</span><div><b>이제 다시 도전할 수 있다!</b></div>'; }
+      else el.textContent = '도전!';
+    });
+    if (ended && UI.current() === 'lobby') Lobby.render();
+  }, 1000);
+
   window.addEventListener('keydown', e => {
     if (document.querySelector('.modal-wrap') || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     const cur = UI.current();

@@ -93,6 +93,21 @@ function prevLevelId(id) {
 }
 // 그 등급에 왕이 있으려면 타워가 하나라도 있어야 한다 (아직 안 만든 등급은 왕도 없다)
 function levelTowers(id) { return (window.TOWERS || []).filter(t => t.level === id); }
+// 👑 왕에게 진 뒤의 재도전 대기.
+// 남은 "초"를 벽시계로 재기 때문에 창을 닫아도, 게임을 꺼도 시간은 흐른다.
+// (게임을 켜 둔 채 버티게 만들면 기다림이 그냥 지루한 벌이 된다)
+function kingCooldown(levelId) {
+  const until = (state.player.kingCd || {})[levelId];
+  if (!until) return 0;
+  return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+}
+function startKingCooldown(levelId) {
+  state.player.kingCd = state.player.kingCd || {};
+  state.player.kingCd[levelId] = Date.now() + BAL.king.retryCooldownSec * 1000;
+  saveState();
+}
+function mmss(sec) { return Math.floor(sec / 60) + ':' + String(Math.max(0, sec) % 60).padStart(2, '0'); }
+
 function kingBeaten(levelId) { return !!(state.player.kings && state.player.kings[levelId]); }
 
 // 타워 입장 조건: 레벨이 권장 하한을 넘었거나, 이전 등급의 왕을 잡았거나.
@@ -133,7 +148,7 @@ function defaultState() {
       towerClear: {}, titles: [],
       items: { hint: 1, erase: 0, potion: 1 },
       shieldDate: '', arenaBest: 0,
-      cards: {}, pendingCards: [], setBonus: {}, kings: {},
+      cards: {}, pendingCards: [], setBonus: {}, kings: {}, kingCd: {},
     },
     towers: {},
     // say = 발음 자동 재생(학습 도움, 기본 ON) · listen = 듣기 문제(난이도, 기본 OFF)
@@ -201,6 +216,7 @@ function fillShape() {
   state.player.pendingCards = state.player.pendingCards || [];
   state.player.setBonus = state.player.setBonus || {};
   state.player.kings = state.player.kings || {};
+  state.player.kingCd = state.player.kingCd || {};
   state.player.owned = Object.assign(d.player.owned, state.player.owned || {});
   state.player.owned.auras = state.player.owned.auras || ['none'];
   state.player.towerClear = state.player.towerClear || {};

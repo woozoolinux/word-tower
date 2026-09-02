@@ -49,6 +49,7 @@ load('js/state.js', `\n;globalThis.S = {
   loadState, saveState, resetState, importCode, exportCode, backupInfo, restoreBackup,
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
   refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire, clearPct, BAL,
+  kingCooldown, startKingCooldown, mmss, kingBeaten,
   get state() { return state; }, set state(v) { state = v; },
 };`);
 load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak, wkey, statFor };`);
@@ -514,6 +515,39 @@ ok('단원 완성만으로는 오라가 나오지 않는다 (마일스톤에 못
 ok('같은 단원 보상을 두 번 주지 않는다',
   (() => { C.pendingRewards('main').forEach(r => { if (r.kind === 'unit') P().setBonus[r.key] = true; });
     return !C.pendingRewards('main').some(r => r.kind === 'unit' && r.unit === 1); })());
+
+// ===================================================================
+section('왕 재도전 대기');
+// 진 직후 연타로 왕에게 다시 덤비면 왕이 가벼워진다.
+// 대기는 벽시계로 재야 한다 — 게임을 끄고 기다리는 것도 기다린 것이다.
+// ===================================================================
+Object.keys(store).forEach(k => delete store[k]);
+S.loadState();
+eq('새 저장에는 대기가 없다', S.kingCooldown('DS-C'), 0);
+S.startKingCooldown('DS-C');
+ok('지면 대기가 걸린다', S.kingCooldown('DS-C') > 0);
+eq('대기 시간은 balance의 값과 같다', S.kingCooldown('DS-C'), S.BAL.king.retryCooldownSec);
+eq('다른 등급 왕은 영향을 받지 않는다', S.kingCooldown('DS-D'), 0);
+// 저장을 껐다 켜도 남은 시간이 그대로여야 한다 (벽시계 기준)
+const beforeSec = S.kingCooldown('DS-C');
+S.loadState();
+ok('창을 닫았다 열어도 대기가 이어진다', Math.abs(S.kingCooldown('DS-C') - beforeSec) <= 1);
+// 시간이 지나면 저절로 풀린다
+S.state.player.kingCd['DS-C'] = Date.now() - 1000;
+eq('시간이 지나면 대기가 풀린다', S.kingCooldown('DS-C'), 0);
+eq('mm:ss 표시 — 3분', S.mmss(180), '3:00');
+eq('mm:ss 표시 — 한 자리 초', S.mmss(65), '1:05');
+eq('mm:ss 표시 — 0 이하', S.mmss(0), '0:00');
+// 대기가 있어도 격파 기록은 건드리지 않는다
+S.state.player.kings['DS-C'] = true; S.startKingCooldown('DS-C');
+ok('대기 중이어도 이미 깬 왕은 깬 것으로 남는다', S.kingBeaten('DS-C'));
+eq('대기가 없던 옛 저장도 0으로 채워진다', (() => {
+  const raw = JSON.parse(store['wordtower_save_v1'] || '{}');
+  delete raw.player.kingCd;
+  store['wordtower_save_v1'] = JSON.stringify(raw);
+  S.loadState();
+  return S.kingCooldown('DS-C');
+})(), 0);
 
 // ===================================================================
 section('발음 읽어주기 설정');
