@@ -1,4 +1,4 @@
-// 📘 Useful Expressions DSD2 — Vocabulary 1~8
+// 📘 단어 묶음 2 — Vocabulary 1~8
 // 책에는 Vocabulary 1~4가 두 벌(앞뒤 챕터) 있다. 게임의 unit은 번호가 겹치면 안 되므로
 // 두 번째 벌을 5~8로 이어 붙였다. (unit 1~4 = 앞 챕터, unit 5~8 = 뒤 챕터)
 // past: 과거형(지금은 표시 안 함, 나중에 과거형 퀴즈 모드용)

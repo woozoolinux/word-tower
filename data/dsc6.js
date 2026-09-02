@@ -1,4 +1,4 @@
-// 🐺 늑대 탑 6 — Useful Expressions DSC 6 (Vocabulary 1~4) · DS-C 마지막 권
+// 🐺 늑대 탑 6 — 단어 묶음 6 (Vocabulary 1~4) · 늑대 등급 마지막 권
 // past: 과거형(지금은 표시 안 함, 나중에 과거형 퀴즈 모드용)
 // 타워 이름 규칙과 등급별 tier/lvRange는 PLAN.md 3장 「동물 월드」 참고.
 window.TOWERS = window.TOWERS || [];

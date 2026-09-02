@@ -89,7 +89,7 @@ const Lobby = (() => {
       <div class="resume-art">${Art.tower(prog.cleared, total, t.roof)}</div>
       <div class="resume-body">
         <div class="resume-label">이어서 하기</div>
-        <div class="resume-name">${esc(t.name)}${levelCode(LV) ? ` <span class="lv-code">${LV.id}</span>` : ''}</div>
+        <div class="resume-name">${esc(t.name)}${levelCode(LV) ? ` <span class="lv-code">${levelCode(LV)}</span>` : ''}</div>
         <div class="tower-meta">${done ? '🏆 정복한 탑 · 다시 오르기' : `${prog.cleared} / ${total}층까지 올랐다`}</div>
       </div>
       <button class="btn mint small" data-go="${t.id}">${done ? '다시' : floor + '층'}<br>▶</button>
@@ -115,7 +115,7 @@ const Lobby = (() => {
       <button class="lv-head" data-lvtoggle="${L.id}">
         <span class="lv-emoji">${L.emoji}</span>
         <span class="lv-info">
-          <span class="lv-title">${esc(L.name)}${levelCode(L) ? ` <span class="lv-code">${L.id}</span>` : ''}
+          <span class="lv-title">${esc(L.name)}${levelCode(L) ? ` <span class="lv-code">${levelCode(L)}</span>` : ''}
             <span class="lv-count">${ts.length}권 · 단어 ${words}개${locked ? ` · 🔒 ${locked}` : ''}</span></span>
           <span class="bar exp"><span class="bar-fill" style="width:${pct}%"></span>
             <span class="bar-text">${cleared} / ${floors}층 · 🃏 ${cards}/${words}</span></span>
@@ -168,8 +168,8 @@ const Lobby = (() => {
         <div class="tower-art dim-art">${typeof Art !== 'undefined' ? Art.tower(0, total, t.roof) : ''}</div>
         <div class="tower-body">
           <div class="tower-name">🔒 ${esc(t.name)}</div>
-          <div class="tower-desc">${LV ? `${levelCode(LV) ? `<span class="lv-code">${LV.id}</span> ` : ''}${LV.emoji} <b>${esc(LV.name)}</b>의 탑 · ` : ''}단어 ${words.length}개</div>
-          <div class="tower-meta">Lv.${lock.needLv} 이상${lock.hasPrevTowers ? ` <b>또는</b> ${lock.prevEmoji} ${lock.prevLevel} ${esc(lock.prevName)} 왕 격파` : ''}</div>
+          <div class="tower-desc">${LV ? `${levelCode(LV) ? `<span class="lv-code">${levelCode(LV)}</span> ` : ''}${LV.emoji} <b>${esc(LV.name)}</b>의 탑 · ` : ''}단어 ${words.length}개</div>
+          <div class="tower-meta">Lv.${lock.needLv} 이상${lock.hasPrevTowers ? ` <b>또는</b> ${lock.prevEmoji} ${esc(lock.prevName)} 왕 격파` : ''}</div>
           <div class="tower-meta">지금 Lv.${state.player.lv} · <b class="warn">${Math.max(0, lock.needLv - state.player.lv)}레벨만 더!</b></div>
         </div>
         <button class="btn ghost small knock" data-go="${t.id}">🚪<br>두드려봐</button>
@@ -178,7 +178,7 @@ const Lobby = (() => {
     return `<div class="tower-card panel" data-tower="${t.id}">
       <div class="tower-art">${typeof Art !== 'undefined' ? Art.tower(prog.cleared, total, t.roof) : (t.emoji || '🏰')}</div>
       <div class="tower-body">
-        <div class="tower-name">${esc(t.name)}${levelCode(LV) ? ` <span class="lv-code">${LV.id}</span>` : ''}${isForced(t.id) && lv < rg[0] ? ' <span class="tag force">💪 강행</span>' : ''}</div>
+        <div class="tower-name">${esc(t.name)}${levelCode(LV) ? ` <span class="lv-code">${levelCode(LV)}</span>` : ''}${isForced(t.id) && lv < rg[0] ? ' <span class="tag force">💪 강행</span>' : ''}</div>
         <div class="tower-desc">${esc(t.desc || '')}</div>
         <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div><span class="bar-text">${prog.cleared} / ${total}층</span></div>
         <div class="tower-meta">⭐ ${stars} / ${words.length * 3} · 단어 ${words.length}개${done ? ' · 🏆 정복!' : ''}</div>

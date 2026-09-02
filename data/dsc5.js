@@ -1,4 +1,4 @@
-// 🐺 늑대 탑 5 — Useful Expressions DSC 5 (Vocabulary 1~4)
+// 🐺 늑대 탑 5 — 단어 묶음 5 (Vocabulary 1~4)
 // past: 과거형(지금은 표시 안 함, 나중에 과거형 퀴즈 모드용)
 // 타워 이름 규칙과 등급별 tier/lvRange는 PLAN.md 3장 「동물 월드」 참고.
 //

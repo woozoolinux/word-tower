@@ -609,9 +609,14 @@ eq('강행해도 몬스터는 약해지지 않는다',
   (() => { S.state.player.forced = {}; S.state.settings.noLock = true; const v = S.monsterHp(5, false, wolf6); S.state.settings.noLock = false; return v; })());
 
 // 등급 표기
-eq('학원 등급은 코드를 보여준다', S.levelCode(S.LEVELS.find(l => l.id === 'DS-C')), 'DS-C');
-eq('기초 탑은 코드가 없다', S.levelCode(S.LEVELS.find(l => l.id === 'BASIC')), '');
-eq('등급 표기는 코드와 동물을 같이 쓴다', S.levelTag(S.LEVELS.find(l => l.id === 'DS-C')), 'DS-C 등급의 🐺 늑대');
+// 학원 등급 코드는 화면에 나가면 안 된다 — 우리 번호로 바꿔 보여준다
+eq('동물 등급은 우리 번호로 나온다', S.levelCode(S.LEVELS.find(l => l.id === 'DS-C')), '4단계');
+eq('그다음 등급은 다음 번호', S.levelCode(S.LEVELS.find(l => l.id === 'DS-D')), '5단계');
+eq('첫 동물 등급은 1단계', S.levelCode(S.LEVELS.find(l => l.animal)), '1단계');
+eq('기초 탑은 번호가 없다', S.levelCode(S.LEVELS.find(l => l.id === 'BASIC')), '');
+eq('등급 표기는 번호와 동물을 같이 쓴다', S.levelTag(S.LEVELS.find(l => l.id === 'DS-C')), '4단계 🐺 늑대');
+ok('어떤 등급 표기에도 학원 코드가 없다',
+  S.LEVELS.every(L => !/DS-|LS-|MS-|IS/.test(S.levelCode(L) + ' ' + S.levelTag(L))));
 
 // ===================================================================
 section('로비 정리 — 이어서 하기와 접힘 상태');

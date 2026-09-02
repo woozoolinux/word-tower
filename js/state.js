@@ -95,13 +95,23 @@ function prevLevelId(id) {
 function levelTowers(id) { return (window.TOWERS || []).filter(t => t.level === id); }
 // 이 등급 앞쪽에서 "실제로 도전할 수 있는 왕"을 찾는다.
 // 타워가 없는 등급(아직 안 만든 등급)의 왕은 없는 것이나 같으므로 건너뛴다.
-// 화면에 쓰는 등급 표기. 코드(DS-C)와 동물(🐺 늑대)을 항상 같이 보여준다.
-//   levelCode: 'DS-C'  (기초 탑처럼 학원 등급이 아닌 곳은 빈 문자열)
-//   levelTag:  'DS-C 등급의 🐺 늑대'
-function levelCode(L) { return L && L.animal ? L.id : ''; }
+// 화면에 쓰는 등급 표기.
+//
+// 학원 등급 코드(내부 id)는 화면에 내보내지 않는다. 남의 커리큘럼 코드를
+// 앱 전면에 쓰면 제휴가 있는 것처럼 보인다. 대신 우리 번호를 매겨,
+// "몇 번째 등급인가"라는 정보는 그대로 전한다.
+//   levelCode: '4단계'  (기초 탑처럼 동물 등급이 아닌 곳은 빈 문자열)
+//   levelTag:  '4단계 🐺 늑대'
+// 내부 id 는 그대로 둔다 — 세이브(kings·kingCd)가 그걸 열쇠로 쓰고 있다.
+function levelCode(L) {
+  if (!L || !L.animal) return '';
+  const n = LEVELS.filter(x => x.animal).findIndex(x => x.id === L.id);
+  return n < 0 ? '' : `${n + 1}단계`;
+}
 function levelTag(L) {
   if (!L) return '';
-  return (L.animal ? `${L.id} 등급의 ` : '') + `${L.emoji} ${L.name}`;
+  const c = levelCode(L);
+  return (c ? c + ' ' : '') + `${L.emoji} ${L.name}`;
 }
 function prevKingLevel(levelId) {
   const i = LEVELS.findIndex(l => l.id === levelId);
