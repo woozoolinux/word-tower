@@ -122,11 +122,14 @@ const Dungeon = (() => {
   // 계단달리기와 같은 캔버스지만 방식이 다르다. 거기선 레인을 바꿔 타일을 줍고,
   // 여기선 **끊긴 다리가 다가온다**. 시간이 게이지가 아니라 낭떠러지까지의 거리다.
   // 글자는 캔버스가 아니라 아래 버튼에 둔다 — 폰에서 작은 글자를 정확히 누르게 하면 안 된다.
-  const HGT = 212, LINE = 150, GAPW = 78;   // 캔버스 높이 / 다리 높이 / 끊긴 폭
+  const HGT = 212, LINE = 150, GAPW = 92;
+  const DROP = .42, WALK = .62;       // 널빤지가 박히는 시간 / 건너가는 시간   // 캔버스 높이 / 다리 높이 / 끊긴 폭
   let cv, ctx, raf, last, active;
-  let pool, plank, gap, used, q, lock, phase, t, ph, bgOff, pimg, beastLunge, msg, shakeT, chosen, dust;
+  let pool, plank, gap, used, q, lock, phase, t, ph, bgOff, pimg, beastLunge, msg, shakeT, chosen, dust, placed;
 
   function width() { return cv.width / (window.devicePixelRatio || 1); }
+  // 깊이 들어갈수록 낭떠러지가 빨리 온다
+  function limitNow() { return Math.max(D().timeMin, D().timeLimit - plank * D().timeStep); }
   function kidX() { return width() * 0.56; }   // 아이를 오른쪽에 두어야 뒤가 보인다
 
   function start() {
@@ -170,14 +173,15 @@ const Dungeon = (() => {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function next() {
+  function next() { nextWord(0); }
+  function nextWord(startT) {
     if (plank >= D().planks) { toDoor(); return; }
     const left = pool.filter(w => used.indexOf(wkey(w)) < 0);
     const src = left.length >= 4 ? left : pool;
     const word = src[(Math.random() * src.length) | 0];
     used.push(wkey(word));
     q = makeQuestion(word, pool, 'm2w');
-    lock = false; phase = 'run'; t = 0; ph = 0; chosen = null; msg = null;
+    lock = false; phase = 'run'; t = startT; ph = 0; chosen = null; msg = null; placed = null;
     document.getElementById('dg-word').textContent = q.prompt;
     document.getElementById('dg-count').textContent = `${plank} / ${D().planks}칸`;
     document.getElementById('dg-planks').innerHTML = q.choices
@@ -198,7 +202,7 @@ const Dungeon = (() => {
     if (ok) { Sfx.ok(); plank++; addGold(D().gold.perPlank); cross(); }
     else { Sfx.bad(); miss(); }
   }
-  function cross() { phase = 'cross'; ph = 0; msg = { t: '좋아!', cls: 'good' }; }
+  function cross() { phase = 'cross'; ph = 0; placed = q.answer; msg = { t: `"${q.answer}" 가 다리가 됐다!`, cls: 'good' }; }
   function miss() {
     phase = 'fall'; ph = 0; gap--;
     beastLunge = 1;
@@ -226,14 +230,23 @@ const Dungeon = (() => {
     if (phase === 'run') {
       bgOff += 150 * dt;
       if (gap <= 1 && Math.random() < dt * 2.2) shakeT = Math.max(shakeT, .1);
-      t += dt / D().timeLimit;
+      t += dt / limitNow();
       if (t >= 1 && !lock) { lock = true; timeUp(); }
     } else if (phase === 'cross') {
-      bgOff += 210 * dt; ph += dt;
-      if (ph > .7) next();
+      const was = ph; ph += dt;
+      if (was < DROP && ph >= DROP) {          // 착지하는 순간
+        Sfx.hit(); shakeT = .28;
+        puff(kidX() + 10, LINE + 8, 14); puff(kidX() + GAPW - 10, LINE + 8, 14);
+      }
+      if (ph >= DROP) bgOff += 230 * dt;        // 놓인 뒤에야 건너간다
+      if (ph > DROP + WALK) next();
     } else if (phase === 'fall') {
       ph += dt;
-      if (ph > 1.5) { if (gap <= 0) { stop(); caught(); } else next(); }
+      if (ph > 1.5) {
+        if (gap <= 0) { stop(); caught(); return; }
+        // 기어올라온 자리가 곧 낭떠러지 앞이다 — 다음 판단은 시간이 절반
+        nextWord(D().failRunway);
+      }
     } else if (phase === 'door') {
       bgOff += 230 * dt; ph += dt;
       if (ph > 1.6) { stop(); escape(); }
@@ -259,7 +272,11 @@ const Dungeon = (() => {
     drawSpikes(W);
 
     // 낭떠러지: t가 1에 가까울수록 발밑으로 다가온다
-    const edge = phase === 'run' ? K + (1 - t) * (W - K + 30) : (phase === 'fall' ? K : W + 60);
+    let edge;
+    if (phase === 'run') edge = K + (1 - t) * (W - K + 30);
+    else if (phase === 'fall') edge = K;
+    else if (phase === 'cross') edge = K + 12 - Math.max(0, (ph - DROP) / WALK) * (GAPW + 64);
+    else edge = W + 60;
     drawBridge(W, K, edge);
     drawBeast(K);
     // 횃불 불빛 (아이 주변만 따뜻하게)
@@ -330,6 +347,32 @@ const Dungeon = (() => {
       }
       // 건너편
       span(far, W + 30, y, off);
+    }
+    // 내가 고른 단어가 다리가 된다
+    if (placed && phase === 'cross') {
+      const drop = Math.min(1, ph / DROP);
+      const ease = 1 - Math.pow(1 - drop, 3);
+      const py = y - (1 - ease) * 110;
+      const tilt = (1 - ease) * .5;
+      ctx.save();
+      ctx.translate(e + GAPW / 2, py + 6); ctx.rotate(tilt);
+      ctx.fillStyle = '#c9971c';
+      ctx.fillRect(-GAPW / 2 - 4, -7, GAPW + 8, 15);
+      ctx.fillStyle = 'rgba(255,255,255,.3)';
+      ctx.fillRect(-GAPW / 2 - 4, -7, GAPW + 8, 5);
+      ctx.font = 'bold 16px "Fredoka", "Jua", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(59,42,18,.85)';
+      ctx.strokeText(placed, 0, -20);
+      ctx.fillStyle = '#ffe066'; ctx.fillText(placed, 0, -20);
+      ctx.restore();
+      if (drop >= 1) {   // 박힌 뒤 잠깐 빛난다
+        const glow = Math.max(0, 1 - (ph - DROP) / .35);
+        ctx.globalAlpha = glow * .8;
+        ctx.strokeStyle = '#ffe066'; ctx.lineWidth = 3;
+        ctx.strokeRect(e - 5, y - 2, GAPW + 10, 17);
+        ctx.globalAlpha = 1;
+      }
     }
   }
   function drawKid(K) {

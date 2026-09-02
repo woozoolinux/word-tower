@@ -163,7 +163,10 @@ const BAL = {
   dungeon: {
     planks: 8,          // 건너야 할 칸 = 문제 수
     gap: 3,             // 몬스터와의 거리 = 3번 틀리면 잡힌다 (왕과 같은 규칙)
-    timeLimit: 9,       // 초. 오래 끌면 몬스터가 다가온다
+    timeLimit: 6,       // 첫 칸의 여유(초) = 낭떠러지가 다가오는 시간
+    timeStep: 0.32,     // 한 칸 건널 때마다 이만큼 줄어든다
+    timeMin: 3.4,       // 아무리 깊어도 이 아래로는 안 내려간다
+    failRunway: 0.5,    // 실패하면 낭떠러지가 코앞 — 다음 판단은 절반의 시간
     words: 40,          // 후보 단어 수 — ★이 낮은 것부터 채운다
     chestTests: 3,      // 탈출 보상: 밀린 각인 시험을 몇 장까지
     gold: { perPlank: 4, escape: 45, perfect: 30 },
