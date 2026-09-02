@@ -666,6 +666,13 @@ ok('한 판 보상이 보스 한 층을 넘지 않는다',
     <= sandbox.byFloorX(S.BAL.gold.bossClear, 10),
   '던전 ' + (S.BAL.dungeon.gold.escape + S.BAL.dungeon.gold.perfect + S.BAL.dungeon.planks * S.BAL.dungeon.gold.perPlank)
     + ' vs 보스 ' + sandbox.byFloorX(S.BAL.gold.bossClear, 10));
+ok('한 판에 물어보는 단어가 적다 — 반복이 외우게 한다',
+  S.BAL.dungeon.wordsPerRun <= 5 && S.BAL.dungeon.wordsPerRun >= 3, '지금 ' + S.BAL.dungeon.wordsPerRun + '개');
+ok('한 단어가 최소 두 번은 나온다',
+  S.BAL.dungeon.planks / S.BAL.dungeon.wordsPerRun >= 2,
+  S.BAL.dungeon.planks + '칸 / ' + S.BAL.dungeon.wordsPerRun + '단어');
+ok('오답 보기는 넓은 후보에서 뽑는다 (보기가 매번 같아지면 안 된다)',
+  S.BAL.dungeon.words >= S.BAL.dungeon.wordsPerRun * 5);
 ok('던전은 카드를 새로 뿌리지 않는다 (밀린 각인 시험만)',
   S.BAL.dungeon.chestTests > 0 && S.BAL.dungeon.chestTests <= 5);
 // 구역 해금

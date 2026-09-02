@@ -764,6 +764,15 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .dg-bar-fill { height: 100%; width: 100%; background: var(--mint); transition: width .1s linear; }
 .dg-bar-fill.warn { background: var(--coral); }
 
+.dg-brief { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 2px; }
+.dg-brief-row {
+  display: flex; align-items: baseline; gap: 12px; background: #fff; border-radius: 12px; padding: 9px 13px;
+}
+.dg-brief-row b { font-family: var(--font-en); font-size: 20px; color: var(--ink); flex: 0 0 auto; }
+.dg-brief-row span { font-size: 15px; color: var(--ink-dim); }
+.dg-brief.small .dg-brief-row { padding: 6px 11px; background: var(--panel2); }
+.dg-brief.small .dg-brief-row b { font-size: 17px; }
+
 .dg-canvas-wrap { position: relative; border-radius: 18px; overflow: hidden; margin-bottom: 14px; }
 .dg-canvas-wrap canvas { display: block; width: 100%; }
 .dg-count {

@@ -126,6 +126,7 @@ const Dungeon = (() => {
   const DROP = .42, WALK = .62;       // 널빤지가 박히는 시간 / 건너가는 시간   // 캔버스 높이 / 다리 높이 / 끊긴 폭
   let cv, ctx, raf, last, active;
   let pool, plank, gap, used, q, lock, phase, t, ph, bgOff, pimg, beastLunge, msg, shakeT, chosen, dust, placed;
+  let queue, qi, runWords;
 
   function width() { return cv.width / (window.devicePixelRatio || 1); }
   // 깊이 들어갈수록 낭떠러지가 빨리 온다
@@ -135,12 +136,17 @@ const Dungeon = (() => {
   function start() {
     pool = candidates();
     if (pool.length < 4) { UI.toast('타워에서 단어를 조금 더 만난 뒤에 올 수 있어요', 'bad'); return; }
-    prologue(() => run());
+    prologue(() => reset(() => brief(() => go())));
   }
 
-  function run() {
+  // reset: 판 상태 초기화 → brief 가 buildQueue 를 부를 수 있게 먼저 돈다
+  function reset(cb) {
     plank = 0; gap = D().gap; used = []; bgOff = 0; beastLunge = 0; msg = null; shakeT = 0; dust = [];
+    queue = []; qi = 0; runWords = [];
     pimg = Avatar.image();
+    cb();
+  }
+  function go() {
     UI.show('dungeon');
     shell();
     next();
@@ -148,6 +154,7 @@ const Dungeon = (() => {
     if (raf) cancelAnimationFrame(raf);
     raf = requestAnimationFrame(loop);
   }
+  function run() { reset(() => brief(() => go())); }
   function stop() { active = false; if (raf) cancelAnimationFrame(raf); raf = null; }
 
   function shell() {
@@ -174,12 +181,43 @@ const Dungeon = (() => {
   }
 
   function next() { nextWord(0); }
+  // 한 판의 단어 줄 세우기: N개를 뽑아 각각 두 번씩, 연달아 같은 게 안 나오게.
+  // 오답 보기는 넓은 후보(pool)에서 뽑는다 — 4개만 쓰면 보기가 매번 똑같아진다.
+  function buildQueue() {
+    const n = Math.min(D().wordsPerRun, pool.length);
+    const head = pool.slice(0, Math.max(n * 3, n));       // ★ 낮은 쪽에서
+    const picks = shuffle(head.slice()).slice(0, n);
+    const times = Math.max(2, Math.ceil(D().planks / n));
+    let line = [];
+    for (let i = 0; i < times; i++) line = line.concat(shuffle(picks.slice()));
+    for (let i = 1; i < line.length; i++) {              // 연달아 같은 단어 방지
+      if (wkey(line[i]) === wkey(line[i - 1])) {
+        const j = line.findIndex((w, k) => k > i && wkey(w) !== wkey(line[i - 1]));
+        if (j > 0) { const tmp = line[i]; line[i] = line[j]; line[j] = tmp; }
+      }
+    }
+    queue = line; qi = 0; runWords = picks;
+  }
+  // 달리기 전에 오늘 놓을 널빤지를 한 번 보여준다.
+  // 모르는 단어로 쫓기면 학습이 아니라 공포다 — 타워의 정찰과 같은 이유.
+  function brief(done) {
+    buildQueue();
+    if (!state.settings.preview) { done(); return; }
+    const rows = runWords.map(w => `<div class="dg-brief-row">
+      <b>${esc(w.w)}</b><span>${esc(w.m)}</span></div>`).join('');
+    UI.modal(`
+      <div class="modal-title">🪵 이 널빤지로 건넌다</div>
+      <div class="modal-sub">뜻이 뜨면 그 널빤지를 밟아라<br>
+        <b>${runWords.length}개</b>가 번갈아 나온다</div>
+      <div class="dg-brief">${rows}</div>
+      <div class="actions"><button class="btn coral" data-close="go">🏃 출발!</button></div>`,
+      { onClose: done });
+  }
   function nextWord(startT) {
     if (plank >= D().planks) { toDoor(); return; }
-    const left = pool.filter(w => used.indexOf(wkey(w)) < 0);
-    const src = left.length >= 4 ? left : pool;
-    const word = src[(Math.random() * src.length) | 0];
-    used.push(wkey(word));
+    if (!queue.length) buildQueue();
+    const word = queue[qi % queue.length]; qi++;
+    if (used.indexOf(wkey(word)) < 0) used.push(wkey(word));
     q = makeQuestion(word, pool, 'm2w');
     lock = false; phase = 'run'; t = startT; ph = 0; chosen = null; msg = null; placed = null;
     document.getElementById('dg-word').textContent = q.prompt;
@@ -204,6 +242,8 @@ const Dungeon = (() => {
   }
   function cross() { phase = 'cross'; ph = 0; placed = q.answer; msg = { t: `"${q.answer}" 가 다리가 됐다!`, cls: 'good' }; }
   function miss() {
+    // 틀린 단어는 이 판이 끝나기 전에 한 번 더 나온다 — 놓친 채로 끝내지 않는다
+    if (q && q.word) queue.push(q.word);
     phase = 'fall'; ph = 0; gap--;
     beastLunge = 1;
     shakeT = .35;
@@ -422,6 +462,7 @@ const Dungeon = (() => {
       <div class="modal-title">😱 잡혔다!</div>
       <div class="king-taunt">"어둠에서 도망칠 수 있을 것 같았나?"</div>
       <div class="star-summary">${plank}칸까지 갔다 · 다음엔 더 멀리</div>
+      <div class="dg-brief small">${runWords.map(w => `<div class="dg-brief-row"><b>${esc(w.w)}</b><span>${esc(w.m)}</span></div>`).join('')}</div>
       <div class="modal-sub">여기 나오는 단어는 <b>네가 자주 틀리는 것들</b>이야.<br>도감에서 한 번 보고 오면 훨씬 쉬워져!</div>
       <div class="actions">
         <button class="btn" data-close="again">🏃 한 번 더!</button>
@@ -453,6 +494,7 @@ const Dungeon = (() => {
       <div class="king-taunt yield">"문이 닫혔다. 짐승의 울음이 멀어진다."</div>
       <div class="reward-row">💰 +${gold}${bonus ? ' <b class="warn">(무실수 +' + bonus + ')</b>' : ''} · ⭐ +${exp}</div>
       <div class="star-summary">${D().planks}칸을 전부 건넜다 · 틀린 횟수 <b>${miss}번</b>${miss === 0 ? ' — 완벽!' : ''}</div>
+      <div class="dg-brief small">${runWords.map(w => `<div class="dg-brief-row"><b>${esc(w.w)}</b><span>${esc(w.m)}</span></div>`).join('')}</div>
       <div class="actions">
         <button class="btn" data-close="chest">🎁 보물 상자 열기</button>
         <button class="btn ghost" data-close="x">로비로</button>
