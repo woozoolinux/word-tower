@@ -182,6 +182,59 @@ const Art = (() => {
       ${eyes(46, 74, 64, 9, 4.5)}`,
   };
 
+  // ---------- 등급 왕 ----------
+  // 그 등급의 정점. 일반 보스보다 크게 그리고 왕관·갈기·오라로 격을 올린다.
+  // 전용 그림이 없는 등급은 generic(그 등급 동물 + 왕관)으로 자동 대체된다.
+  const crown = (cx, y, w, fill) => {
+    const h = w * 0.55, x = cx - w / 2;
+    return `<path d="M${x},${y + h} L${x + w * 0.07},${y} L${x + w * 0.28},${y + h * 0.5} L${cx},${y - h * 0.3} L${x + w * 0.72},${y + h * 0.5} L${x + w * 0.93},${y} L${x + w},${y + h} Z" fill="${fill || '#f5c33b'}" stroke="#c9971c" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="${cx}" cy="${y + h * 0.55}" r="${w * 0.07}" fill="#e0455a"/>
+      <circle cx="${x + w * 0.22}" cy="${y + h * 0.72}" r="${w * 0.05}" fill="#4a6cd4"/>
+      <circle cx="${x + w * 0.78}" cy="${y + h * 0.72}" r="${w * 0.05}" fill="#4a6cd4"/>`;
+  };
+  const kingAura = c => `<circle class="k-aura" cx="60" cy="62" r="54" fill="${c}" opacity=".16"/>
+    <circle class="k-aura2" cx="60" cy="62" r="43" fill="${c}" opacity=".14"/>`;
+
+  const KINGS = {
+    // 🐺 늑대 왕 — 갈기를 세우고 송곳니를 드러낸 우두머리
+    wolf: () => `${kingAura('#8fa3c4')}${shadow}
+      <path d="M20,54 L12,12 L48,34 Z" fill="#7b8798"/><path d="M100,54 L108,12 L72,34 Z" fill="#7b8798"/>
+      <path d="M25,51 L27,23 L46,40 Z" fill="#2f3742"/><path d="M95,51 L93,23 L74,40 Z" fill="#2f3742"/>
+      <path d="M12,66 Q22,38 36,34 L31,58 Q21,63 18,78 Z" fill="#5f6b7d"/>
+      <path d="M108,66 Q98,38 84,34 L89,58 Q99,63 102,78 Z" fill="#5f6b7d"/>
+      <path d="M26,88 Q16,80 18,70 L30,76 Z" fill="#5f6b7d"/>
+      <path d="M94,88 Q104,80 102,70 L90,76 Z" fill="#5f6b7d"/>
+      <ellipse cx="60" cy="66" rx="38" ry="32" fill="#8b95a5"/>
+      <path d="M30,56 Q41,47 47,57 M90,56 Q79,47 73,57" stroke="#6e7a8c" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <ellipse cx="60" cy="85" rx="22" ry="17" fill="#d3dae4"/>
+      <ellipse cx="60" cy="78" rx="7" ry="5" fill="#2c3340"/>
+      <path d="M47,93 L52,103 L57,93 L61,103 L66,93 L71,103 L75,93" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M37,45 L49,52" stroke="#5f6b7d" stroke-width="3" stroke-linecap="round"/>
+      ${eyes(45, 75, 60, 10, 5, '#ffdb4a')}${angry(45, 75, 60, '#3f4855')}
+      ${crown(60, 2, 44)}`,
+
+    // 🐻 곰 왕 — 포효하는 거구
+    bear: () => `${kingAura('#c99a6a')}${shadow}
+      <circle cx="21" cy="35" r="15" fill="#7a5638"/><circle cx="99" cy="35" r="15" fill="#7a5638"/>
+      <circle cx="21" cy="35" r="8" fill="#a87c52"/><circle cx="99" cy="35" r="8" fill="#a87c52"/>
+      <ellipse cx="60" cy="68" rx="41" ry="35" fill="#8d6a4f"/>
+      <path d="M27,55 Q43,45 53,57 M93,55 Q77,45 67,57" stroke="#75563e" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <ellipse cx="60" cy="86" rx="26" ry="19" fill="#c9a07a"/>
+      <ellipse cx="60" cy="78" rx="8" ry="6" fill="#3d2c1e"/>
+      <path d="M60,84 L60,91" stroke="#3d2c1e" stroke-width="3" stroke-linecap="round"/>
+      <path d="M43,93 Q60,107 77,93 Q60,101 43,93 Z" fill="#5e3b28"/>
+      <path d="M48,93 L52,102 L56,93 M64,93 L68,102 L72,93" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
+      ${eyes(45, 75, 60, 9, 4.5, '#3d2c1e')}${angry(45, 75, 60, '#5f452f')}
+      ${crown(60, 4, 46)}`,
+  };
+
+  // 전용 그림이 없으면 그 등급 동물에 왕관과 오라를 얹는다
+  function king(animalId) {
+    if (KINGS[animalId]) return wrap(KINGS[animalId](), 'king');
+    const base = MON[animalId] || BOSS[animalId] || MON.wolf;
+    return wrap(kingAura('#ffe08a') + base() + crown(60, 2, 44), 'king');
+  }
+
   function wrap(inner, cls, vb) {
     return `<svg class="${cls || ''}" xmlns="http://www.w3.org/2000/svg" viewBox="${vb || '0 0 120 120'}">${inner}</svg>`;
   }
@@ -219,5 +272,5 @@ const Art = (() => {
     const f = PETS_ART[id] || PETS_ART.cat;
     return wrap(f());
   }
-  return { monster, pet, tower };
+  return { monster, pet, tower, king };
 })();

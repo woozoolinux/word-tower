@@ -62,6 +62,7 @@ const Game = {
 
   startFloor(towerId, n) {
     const tower = towerById(towerId), floors = floorList(tower);
+    if (!this.checkTowerLock(tower)) return;
     if (n < 1 || n > floors.length) n = 1;
     const plan = floors[n - 1], pool = allWords(tower);
     const words = plan.type === 'boss' ? floorWords(tower, n) : withReview(towerId, floorWords(tower, n), pool);
@@ -83,6 +84,31 @@ const Game = {
       monster: this.monsterFor(r.floor, true, base, r.tower), words: r.words, pool: r.pool, towerId: r.towerId, floor: r.floor, boss: true,
       onWin: () => this.floorClear(), onLose: () => this.playerDown(),
     });
+  },
+
+  // 등급이 높은 타워는 레벨이 닿거나 이전 등급 왕을 잡아야 들어갈 수 있다.
+  // 낮은 등급은 권장 하한이 낮아 항상 열려 있다(고레벨이 복습하러 올 수 있게).
+  checkTowerLock(tower) {
+    const lock = towerLock(tower);
+    if (!lock) return true;
+    Sfx.bad();
+    const prevK = lock.hasPrevTowers ? Game.kingInfo(lock.prevLevel) : null;
+    UI.modal(`
+      <div class="modal-title">🔒 아직 못 들어가요</div>
+      <div class="modal-sub">${esc(tower.name)}에 들어가려면<br>${prevK ? '둘 중 하나면 돼요' : '레벨이 조금 더 필요해요'}</div>
+      <div class="lock-ways">
+        <div class="lock-way"><span class="big">⭐</span><div><b>Lv.${lock.needLv} 이상</b>
+          <div class="toggle-desc">지금 Lv.${state.player.lv} · ${Math.max(0, lock.needLv - state.player.lv)}레벨 더</div></div></div>
+        ${prevK ? `<div class="lock-or">또는</div>
+        <div class="lock-way"><span class="big">${lock.prevEmoji}</span><div><b>${esc(lock.prevName)} 왕 격파</b>
+          <div class="toggle-desc">카드 ${prevK.have} / ${prevK.need}장</div></div></div>` : ''}
+      </div>
+      <div class="actions">
+        ${prevK && prevK.ok ? `<button class="btn" data-close="king">👑 ${esc(lock.prevName)} 왕에게 도전</button>` : ''}
+        <button class="btn ghost" data-close="x">알겠어</button>
+      </div>`,
+      { onClose: v => { if (v === 'king') Game.startKing(lock.prevLevel); } });
+    return false;
   },
 
   // 보스 층은 해당 단원 카드를 일정 비율 모아야 들어갈 수 있다 (일반 층은 자유)
@@ -133,7 +159,81 @@ const Game = {
     Cards.runTests(pend, done);
   },
 
+  // ---------- 👑 등급 왕 ----------
+  // 그 등급 6권 전체 단어로 싸우는 별도 도전. 타워 층에 묻혀 있지 않아
+  // 6권을 아직 안 산 아이도 카드만 모으면 도전할 수 있다.
+  kingInfo(levelId) {
+    const L = levelOf(levelId), towers = levelTowers(levelId);
+    if (!L || !towers.length) return null;
+    const words = towers.flatMap(t => allWords(t));
+    const have = words.filter(w => Cards.has(w.towerId, wkey(w))).length;
+    const need = Math.ceil(words.length * BAL.cards.kingGate);
+    const nextIdx = LEVELS.findIndex(x => x.id === levelId) + 1;
+    return {
+      level: L, towers, words, have, need,
+      ok: have >= need,
+      beaten: kingBeaten(levelId),
+      opens: LEVELS[nextIdx] || null,
+    };
+  },
+
+  startKing(levelId) {
+    const k = this.kingInfo(levelId);
+    if (!k) return;
+    if (k.ok === false) {
+      Sfx.bad();
+      UI.modal(`
+        <div class="modal-title">🔒 ${k.level.emoji} ${esc(k.level.name)} 왕</div>
+        <div class="modal-sub">${esc(k.level.name)} 등급의 단어 카드가 더 필요해요<br>
+          <b style="font-size:22px">${k.have} / ${k.need}장</b> <span class="dim">(전체 ${k.words.length}개 중)</span></div>
+        <div class="bar exp"><div class="bar-fill" style="width:${Math.min(100, k.have / k.need * 100)}%"></div></div>
+        <div class="star-summary">${esc(k.level.name)} 탑들에서 카드를 모아 오세요</div>
+        <div class="actions"><button class="btn" data-close="x">알겠어</button></div>`);
+      return;
+    }
+    const tower = k.towers[k.towers.length - 1];   // 수치 기준은 그 등급 마지막 권
+    const f = BAL.king.floor;
+    this.run = null;
+    state.player.hp = playerMaxHp(); saveState();
+    UI.toast(`👑 ${k.level.name} 왕이 나타났다!`, 'bad');
+    Battle.start({
+      monster: {
+        id: k.level.animal, name: `${k.level.name} 왕`, emoji: k.level.emoji, king: true,
+        hp: Math.round(monsterHp(f, true, tower) * BAL.king.hpMul),
+        atk: Math.round(monsterAtk(f, true, tower) * BAL.king.atkMul),
+      },
+      words: k.words, pool: k.words, towerId: tower.id, floor: f, boss: true, king: true,
+      onWin: () => this.kingWin(levelId),
+      onLose: () => this.playerDown(),
+    });
+  },
+
+  kingWin(levelId) {
+    const k = this.kingInfo(levelId);
+    const first = !kingBeaten(levelId);
+    state.player.kings[levelId] = true;
+    const gold = Math.round(byFloor(BAL.gold.bossClear, BAL.king.floor)
+      * (k.towers[k.towers.length - 1].tier || 1) * BAL.king.goldMul);
+    addGold(gold);
+    const title = `${k.level.name} 왕을 이긴 자`;
+    if (state.player.titles.indexOf(title) < 0) state.player.titles.push(title);
+    if (!state.player.title) state.player.title = title;
+    saveState();
+    Sfx.fanfare(); UI.confetti({ count: 240, life: 4, colors: ['#ffc83d', '#fff3c4', '#ffffff', '#ffe08a'] });
+    UI.modal(`
+      <div class="modal-title">👑 ${k.level.emoji} ${esc(k.level.name)} 왕 격파!</div>
+      <div class="king-reveal">${Art.king(k.level.animal)}</div>
+      <div class="reward-row">💰 +${gold}</div>
+      <div class="unlock"><span class="big">🎖️</span><div><div>칭호: <b>${esc(title)}</b></div>
+        <div class="toggle-desc">${esc(k.level.name)} 등급을 완전히 지배했어요</div></div></div>
+      ${first && k.opens ? `<div class="unlock"><span class="big">${k.opens.emoji}</span><div><div><b>${esc(k.opens.name)}</b> 등급이 열렸다!</div>
+        <div class="toggle-desc">레벨이 낮아도 ${esc(k.opens.name)} 탑에 들어갈 수 있어요</div></div></div>` : ''}
+      <div class="actions"><button class="btn" data-close="ok">최고!</button></div>`,
+      { cls: 'celebrate', onClose: () => this.flushLevelUps(() => this.toLobby()) });
+  },
+
   floorClear() {
+
     const r = this.run;
     if (!r) { this.toLobby(); return; } // 관문에 막혀 층이 시작되지 않은 경우
     const boss = r.plan.type === 'boss';

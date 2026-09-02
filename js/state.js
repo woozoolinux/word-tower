@@ -47,6 +47,44 @@ const SKILLS = [
   { lv: 12, id: 'dash',   name: '대시',      emoji: '⚡', desc: '달리기에서 처음 한 번은 부딪혀도 괜찮아요' },
   { lv: 20, id: 'ulti',   name: '필살 강화', emoji: '💫', desc: `필살기 위력이 ${BAL.battle.ultSkillMul}배가 돼요` },
 ];
+// ---------- 동물 월드 등급표 ----------
+// 순서가 곧 진행 순서다. 한 등급을 끝내면 그 등급의 왕이 다음 등급의 문을 연다.
+// PLAN.md 3장의 표와 같은 내용 — 새 등급을 만들 땐 여기에도 한 줄 추가한다.
+const LEVELS = [
+  { id: 'BASIC', name: '기초',  emoji: '⭐', animal: null,     world: '시작' },
+  { id: 'IS',    name: '병아리', emoji: '🐣', animal: 'chick',  world: '새싹 들판' },
+  { id: 'DS-A',  name: '토끼',  emoji: '🐰', animal: 'rabbit', world: '숲' },
+  { id: 'DS-B',  name: '여우',  emoji: '🦊', animal: 'fox',    world: '숲' },
+  { id: 'DS-C',  name: '늑대',  emoji: '🐺', animal: 'wolf',   world: '숲' },
+  { id: 'DS-D',  name: '곰',    emoji: '🐻', animal: 'bear',   world: '숲의 왕' },
+  { id: 'LS-A',  name: '독수리', emoji: '🦅', animal: 'eagle',  world: '야생' },
+  { id: 'LS-B',  name: '표범',  emoji: '🐆', animal: 'leopard',world: '야생' },
+  { id: 'LS-C',  name: '사자',  emoji: '🦁', animal: 'lion',   world: '야생' },
+  { id: 'LS-D',  name: '호랑이', emoji: '🐅', animal: 'tiger',  world: '야생의 왕' },
+  { id: 'MS-A',  name: '드래곤', emoji: '🐉', animal: 'dragon', world: '전설' },
+  { id: 'MS-B',  name: '불사조', emoji: '🔥', animal: 'phoenix',world: '전설의 정점' },
+];
+function levelOf(id) { return LEVELS.find(l => l.id === id) || null; }
+function prevLevelId(id) {
+  const i = LEVELS.findIndex(l => l.id === id);
+  return i > 0 ? LEVELS[i - 1].id : null;
+}
+// 그 등급에 왕이 있으려면 타워가 하나라도 있어야 한다 (아직 안 만든 등급은 왕도 없다)
+function levelTowers(id) { return (window.TOWERS || []).filter(t => t.level === id); }
+function kingBeaten(levelId) { return !!(state.player.kings && state.player.kings[levelId]); }
+
+// 타워 입장 조건: 레벨이 권장 하한을 넘었거나, 이전 등급의 왕을 잡았거나.
+// 낮은 등급은 권장 하한이 낮아 자동으로 계속 열려 있다 (고레벨이 복습하러 올 수 있게).
+function towerLock(tower) {
+  if (state.settings.noLock) return null;
+  const lo = towerRange(tower)[0];
+  if (state.player.lv >= lo) return null;
+  const prev = prevLevelId(tower.level);
+  if (!prev || kingBeaten(prev)) return null;
+  const pl = levelOf(prev);
+  return { needLv: lo, prevLevel: prev, prevName: pl ? pl.name : prev, prevEmoji: pl ? pl.emoji : '👑', hasPrevTowers: levelTowers(prev).length > 0 };
+}
+
 const ZONES = [
   { lv: 5,  id: 'arena',   name: '투기장',    emoji: '🏟️', desc: '몬스터를 몇 마리나 잡을까?', ready: true },
   { lv: 10, id: 'dungeon', name: '지하 던전', emoji: '🕳️', desc: '깊고 어두운 곳 (준비 중)', ready: false, cards: 25 },
@@ -73,12 +111,12 @@ function defaultState() {
       towerClear: {}, titles: [],
       items: { hint: 1, erase: 0, potion: 1 },
       shieldDate: '', arenaBest: 0,
-      cards: {}, pendingCards: [], setBonus: {},
+      cards: {}, pendingCards: [], setBonus: {}, kings: {},
     },
     towers: {},
     // say = 발음 자동 재생(학습 도움, 기본 ON) · listen = 듣기 문제(난이도, 기본 OFF)
     // 둘은 다른 것이다. 발음을 들으려고 난이도를 올려야 하면 안 된다.
-    settings: { listen: false, sound: true, preview: true, say: true },
+    settings: { listen: false, sound: true, preview: true, say: true, noLock: false },
     createdAt: Date.now(),
   };
 }
@@ -140,6 +178,7 @@ function fillShape() {
   state.player.cards = state.player.cards || {};
   state.player.pendingCards = state.player.pendingCards || [];
   state.player.setBonus = state.player.setBonus || {};
+  state.player.kings = state.player.kings || {};
   state.player.owned = Object.assign(d.player.owned, state.player.owned || {});
   state.player.owned.auras = state.player.owned.auras || ['none'];
   state.player.towerClear = state.player.towerClear || {};

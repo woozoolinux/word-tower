@@ -9,6 +9,7 @@ window.TOWERS.push({
   desc: '숲의 왕 · 단어 96개 · 8단원',
   emoji: '🐻',
   roof: '#6d5039',
+  level: 'DS-D', book: 2,   // 등급과 권 — 왕·입장조건 계산의 기준
   tier: 1.52,                  // 곰(DS-D) 반 2권 — 등급은 같고 권수만큼만 미세하게
   lvRange: [7, 27],
   clearBonus: { type: 'atk', pct: 0.20, title: '숲의 수호자' },

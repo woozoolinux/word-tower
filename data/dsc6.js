@@ -8,6 +8,7 @@ window.TOWERS.push({
   desc: '숲 · 단어 96개 · 4단원',
   emoji: '🐺',
   roof: '#2f3742',
+  level: 'DS-C', book: 6,   // 등급과 권 — 왕·입장조건 계산의 기준
   tier: 1.46,                  // 늑대(DS-C) 반 6권 — DS-C의 마지막
   lvRange: [6, 25],
   clearBonus: { type: 'atk', pct: 0.16, title: '늑대 무리의 왕' },

@@ -20,7 +20,7 @@ const Battle = (() => {
     const rb = $('battle-retire'); if (rb) rb.onclick = retire;
     $('battle-hero').innerHTML = state.player.avatar ? Avatar.html(52, { pet: '' }) : `<span style="font-size:44px">${UI.charEmoji()}</span>`;
     $('battle-monster').innerHTML =
-      `<div class="mon-art ${o.boss ? 'boss' : ''}" id="mon-art">${Art.monster(mon.id || 'slime', !!o.boss)}<span class="slash" id="mon-slash"></span></div>` +
+      `<div class="mon-art ${o.king ? 'king' : o.boss ? 'boss' : ''}" id="mon-art">${o.king ? Art.king(mon.id) : Art.monster(mon.id || 'slime', !!o.boss)}<span class="slash" id="mon-slash"></span></div>` +
       `<div class="mon-name">${esc(mon.name)}<span class="atk">ATK ${mon.atk}</span></div>`;
     renderBars(); renderItems();
     setTimeout(next, 400);

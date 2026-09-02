@@ -374,6 +374,39 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .tower-emoji { font-size: 40px; text-align: center; }
 .tower-art { width: 58px; }
 .tower-art svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 3px 6px rgba(0,0,0,.25)); }
+
+/* ---------- 👑 왕의 방 ---------- */
+.king-list { display: flex; flex-direction: column; gap: 10px; }
+.king-card {
+  display: grid; grid-template-columns: 76px 1fr auto; gap: 12px; align-items: center;
+  background: var(--panel); color: var(--ink); border-radius: 20px; padding: 14px;
+  cursor: pointer; position: relative; overflow: hidden;
+}
+.king-card.ready { box-shadow: 0 0 0 3px var(--gold), 0 0 22px rgba(255,200,61,.35); }
+.king-card.beaten { opacity: .9; }
+.king-card.locked { filter: saturate(.5); }
+.king-card.locked .king-art { opacity: .45; }
+.king-art { width: 76px; }
+.king-art svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 4px 8px rgba(0,0,0,.3)); }
+.king-name { font-size: 20px; }
+.king-desc { font-size: 13px; color: var(--ink-dim); margin: 2px 0 6px; }
+.king-reveal { display: flex; justify-content: center; margin: 8px 0; }
+.king-reveal svg { width: 190px; height: auto; filter: drop-shadow(0 8px 16px rgba(0,0,0,.35)); animation: kingIn .6s ease-out; }
+@keyframes kingIn { 0% { transform: scale(.5) rotate(-8deg); opacity: 0; } 70% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); } }
+
+/* 왕은 일반 보스보다 크게 */
+.mon-art.king { width: 260px; height: 260px; }
+.char svg .k-aura, .mon-art svg .k-aura { transform-box: fill-box; transform-origin: 50% 50%; animation: breathe 2.6s ease-in-out infinite; }
+.char svg .k-aura2, .mon-art svg .k-aura2 { transform-box: fill-box; transform-origin: 50% 50%; animation: breathe 2.6s ease-in-out infinite 1.3s; }
+
+/* 잠긴 타워 */
+.tower-card.locked { opacity: .8; }
+.tower-card.locked .tower-name { color: var(--ink-dim); }
+.dim-art { filter: grayscale(1); opacity: .45; }
+.lock-ways { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; }
+.lock-way { display: flex; gap: 12px; align-items: center; background: #fff; border-radius: 14px; padding: 12px; }
+.lock-way .big { font-size: 32px; }
+.lock-or { text-align: center; color: var(--ink-dim); font-size: 14px; }
 .tower-body { min-width: 0; }
 .tower-name { font-size: 20px; }
 .tower-desc { font-size: 13px; color: var(--ink-dim); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -628,6 +661,7 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   .mon-emoji, .mon-art, .screen.active, .ent.player, .ent.pet, .choice.right,
   .sprite.pet .petwrap, .sprite.walking .char.walk, #sky i { animation: none; }
   .sprite { transition: none; }
+  .king-reveal svg, .mon-art svg .k-aura, .mon-art svg .k-aura2 { animation: none; }
   .char svg .aura, .char svg .aura * { animation: none !important; }
   #battle-hero, #battle-hero.attack, #battle-hero.attack-crit, #battle-hero.attack-ult,
   .mon-art.lunge, .ulti-btn.ready { animation: none; }

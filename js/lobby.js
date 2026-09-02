@@ -18,6 +18,7 @@ const Lobby = (() => {
       </header>
       <h2 class="sec-title">🏰 타워</h2>
       <div class="tower-list">${window.TOWERS.map(towerCard).join('')}</div>
+      ${kingSection()}
       <h2 class="sec-title">🗺️ 모험</h2>
       <div class="zone-list">${ZONES.map(zoneCard).join('')}</div>
       <div class="lobby-actions">
@@ -46,11 +47,24 @@ const Lobby = (() => {
     const rg = towerRange(t), lv = state.player.lv;
     const cardsHave = words.filter(w => Cards.has(t.id, wkey(w))).length;
     const pendHave = Cards.pendingFor(t.id).length;
+    const lock = towerLock(t);
     const lvTag = `난이도 ${tierFire(towerTier(t))} · 권장 Lv.${rg[0]}~${rg[1]} · ` +
       (lv < rg[0] ? '<b class="warn">⚠️ 아직 어려워요</b>' : lv > rg[1] ? '<b class="easy">😎 여유로워요</b>' : '<b class="fit">👍 딱 맞아요</b>');
     const stars = words.reduce((a, w) => a + statFor(t.id, w).stars, 0);
     const pct = Math.round(prog.cleared / total * 100);
     const next = Math.min(prog.floor, total);
+    if (lock) {
+      return `<div class="tower-card panel locked" data-tower="${t.id}">
+        <div class="tower-art dim-art">${typeof Art !== 'undefined' ? Art.tower(0, total, t.roof) : ''}</div>
+        <div class="tower-body">
+          <div class="tower-name">🔒 ${esc(t.name)}</div>
+          <div class="tower-desc">${esc(t.desc || '')}</div>
+          <div class="tower-meta">Lv.${lock.needLv} 이상${lock.hasPrevTowers ? ` <b>또는</b> ${lock.prevEmoji} ${esc(lock.prevName)} 왕 격파` : ''}</div>
+          <div class="tower-meta">지금 Lv.${state.player.lv} · 단어 ${words.length}개</div>
+        </div>
+        <button class="btn ghost small" data-go="${t.id}">🔒<br>잠김</button>
+      </div>`;
+    }
     return `<div class="tower-card panel" data-tower="${t.id}">
       <div class="tower-art">${typeof Art !== 'undefined' ? Art.tower(prog.cleared, total, t.roof) : (t.emoji || '🏰')}</div>
       <div class="tower-body">
@@ -64,6 +78,30 @@ const Lobby = (() => {
       <button class="btn mint small" data-go="${t.id}">${done ? '다시' : next + '층'}<br>도전!</button>
     </div>`;
   }
+  // 👑 왕의 방 — 등급마다 하나. 그 등급 전체 단어로 싸우는 별도 도전.
+  function kingCard(L) {
+    const k = Game.kingInfo(L.id);
+    if (!k) return '';
+    const pct = Math.min(100, k.have / k.need * 100);
+    const state2 = k.beaten ? 'beaten' : k.ok ? 'ready' : 'locked';
+    const label = k.beaten ? '다시 도전' : k.ok ? '도전!' : `🃏 ${k.have}/${k.need}`;
+    return `<div class="king-card ${state2}" data-king="${L.id}">
+      <div class="king-art">${Art.king(L.animal)}</div>
+      <div class="king-body">
+        <div class="king-name">👑 ${esc(L.name)} 왕${k.beaten ? ' <span class="tag">격파!</span>' : ''}</div>
+        <div class="king-desc">${esc(L.name)} 등급 단어 ${k.words.length}개 전부에서 출제</div>
+        <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div>
+          <span class="bar-text">${k.have} / ${k.need}장</span></div>
+        <div class="tower-meta">${k.opens ? `이기면 ${k.opens.emoji} ${esc(k.opens.name)} 등급이 열려요` : '최고 등급'}</div>
+      </div>
+      <button class="btn ${k.ok ? 'mint' : 'ghost'} small" data-king="${L.id}">${label}</button>
+    </div>`;
+  }
+  function kingSection() {
+    const cards = LEVELS.map(L => (L.animal ? kingCard(L) : '')).filter(Boolean).join('');
+    return cards ? `<h2 class="sec-title">👑 왕의 방</h2><div class="king-list">${cards}</div>` : '';
+  }
+
   function zoneCard(z) {
     const needCards = z.cards || 0, haveCards = Cards.count();
     const locked = state.player.lv < z.lv || haveCards < needCards;
@@ -79,6 +117,8 @@ const Lobby = (() => {
     if (go) { const t = towerById(go.dataset.go), prog = towerProg(t.id), total = floorList(t).length; Game.startFloor(t.id, prog.cleared >= total ? 1 : Math.min(prog.floor, total)); return; }
     const card = e.target.closest('[data-tower]');
     if (card) { floorSelect(card.dataset.tower); return; }
+    const king = e.target.closest('[data-king]');
+    if (king) { Game.startKing(king.dataset.king); return; }
     const zone = e.target.closest('[data-zone]');
     if (zone) { enterZone(zone.dataset.zone); return; }
     const act = e.target.closest('[data-act]');
@@ -176,6 +216,7 @@ const Lobby = (() => {
       <div class="toggle-row"><div><div>🗣️ 발음 읽어주기</div><div class="toggle-desc">정찰에서 단어를 보여줄 때 자동으로 읽어줘요${canSpeak() ? '' : '<br><b class="warn">이 기기는 읽어주기를 지원하지 않아요</b>'}</div></div><button class="toggle ${s.say ? 'on' : ''}" data-t="say" aria-label="발음 읽어주기"></button></div>
       <div class="toggle-row"><div><div>🎧 듣기 문제 <span class="tag off">어려움</span></div><div class="toggle-desc">배틀에서 글자 없이 소리만 듣고 뜻을 골라요</div></div><button class="toggle ${s.listen ? 'on' : ''}" data-t="listen" aria-label="듣기 문제"></button></div>
       <div class="toggle-row"><div><div>🎵 효과음</div></div><button class="toggle ${s.sound ? 'on' : ''}" data-t="sound" aria-label="효과음"></button></div>
+      <div class="toggle-row"><div><div>🔓 타워 잠금 끄기</div><div class="toggle-desc">학원에서 앞선 책을 내줬을 때만 켜세요</div></div><button class="toggle ${s.noLock ? 'on' : ''}" data-t="noLock" aria-label="타워 잠금 끄기"></button></div>
       <div class="toggle-row"><div><div>🔍 정찰 (예습)</div><div class="toggle-desc">층에 들어가기 전에 단어를 미리 봐요</div></div><button class="toggle ${s.preview ? 'on' : ''}" data-t="preview" aria-label="정찰"></button></div>
       <div class="toggle-row"><div style="flex:1"><div>✏️ 이름</div><input class="name-input" id="name-input" value="${esc(state.player.name)}" maxlength="10"></div></div>
       <div class="actions"><button class="btn small" data-close="ok">확인</button><button class="btn small ghost" id="test-tts">🔊 소리 테스트</button><button class="btn small coral" id="reset-btn">처음부터</button></div>`;

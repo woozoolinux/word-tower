@@ -19,6 +19,7 @@ window.TOWERS.push({
   desc: '숲 · 단어 96개 · 4단원',
   emoji: '🐺',
   roof: '#4d5663',
+  level: 'DS-C', book: 3,   // 등급과 권 — 왕·입장조건 계산의 기준
   tier: 1.4,                  // 늑대(DS-C) 반 3권
   lvRange: [5, 22],
   clearBonus: { type: 'hp', pct: 0.14, title: '숲의 그림자' },

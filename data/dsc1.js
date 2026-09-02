@@ -9,6 +9,7 @@ window.TOWERS.push({
   emoji: '🐺',
   roof: '#6f7a8a',
   // DS-C(늑대)는 권이 많아 1.36부터 0.02씩. 곰 탑 1(1.5) 아래에 8권까지 들어간다.
+  level: 'DS-C', book: 1,   // 등급과 권 — 왕·입장조건 계산의 기준
   tier: 1.36,                  // 늑대(DS-C) 반 1권
   lvRange: [4, 20],
   clearBonus: { type: 'hp', pct: 0.12, title: '숲의 추적자' },

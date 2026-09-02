@@ -11,6 +11,7 @@ window.TOWERS.push({
   desc: '숲 · 단어 96개 · 4단원',
   emoji: '🐺',
   roof: '#3f4855',
+  level: 'DS-C', book: 4,   // 등급과 권 — 왕·입장조건 계산의 기준
   tier: 1.42,                  // 늑대(DS-C) 반 4권
   lvRange: [5, 23],
   clearBonus: { type: 'atk', pct: 0.14, title: '늑대의 송곳니' },

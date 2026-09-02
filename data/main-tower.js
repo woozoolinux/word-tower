@@ -6,6 +6,7 @@ window.TOWERS.push({
   desc: '기초 단어로 오르는 메인 타워',
   emoji: '🏰',
   roof: '#8f7bff',
+  level: 'BASIC', book: 1,   // 등급과 권 — 왕·입장조건 계산의 기준
   tier: 1,
   lvRange: [1, 12],
   clearBonus: { type: 'atk', pct: 0.10, title: '기초의 달인' },

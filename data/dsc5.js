@@ -11,6 +11,7 @@ window.TOWERS.push({
   desc: '숲 · 단어 96개 · 4단원',
   emoji: '🐺',
   roof: '#37404d',
+  level: 'DS-C', book: 5,   // 등급과 권 — 왕·입장조건 계산의 기준
   tier: 1.44,                  // 늑대(DS-C) 반 5권
   lvRange: [6, 24],
   clearBonus: { type: 'hp', pct: 0.16, title: '달빛 늑대' },
