@@ -89,17 +89,17 @@ const Lobby = (() => {
       <div class="king-art">${Art.king(L.animal)}</div>
       <div class="king-body">
         <div class="king-name">👑 ${esc(L.name)} 왕${k.beaten ? ' <span class="tag">격파!</span>' : ''}</div>
-        <div class="king-desc">${esc(L.name)} 등급 단어 ${k.words.length}개 전부에서 출제</div>
+        <div class="king-desc">${k.beaten ? '한 번 꺾은 상대. 다시 붙어볼까?' : `${esc(L.name)}가 아는 단어 ${k.words.length}개 전부에서 나온다`}</div>
         <div class="bar exp"><div class="bar-fill" style="width:${pct}%"></div>
           <span class="bar-text">${k.have} / ${k.need}장</span></div>
-        <div class="tower-meta">${k.opens ? `이기면 ${k.opens.emoji} ${esc(k.opens.name)} 등급이 열려요` : '최고 등급'}</div>
+        <div class="tower-meta">${k.ok ? '<b class="warn">지금 도전할 수 있다!</b> · ' : ''}${k.opens ? `이기면 ${k.opens.emoji} ${esc(k.opens.name)}의 땅이 열린다` : '이 너머는 없다'}</div>
       </div>
       <button class="btn ${k.ok ? 'mint' : 'ghost'} small" data-king="${L.id}">${label}</button>
     </div>`;
   }
   function kingSection() {
     const cards = LEVELS.map(L => (L.animal ? kingCard(L) : '')).filter(Boolean).join('');
-    return cards ? `<h2 class="sec-title">👑 왕의 방</h2><div class="king-list">${cards}</div>` : '';
+    return cards ? `<h2 class="sec-title">👑 왕의 방 <span class="sec-sub">등급을 지배하는 자들</span></h2><div class="king-list">${cards}</div>` : '';
   }
 
   function zoneCard(z) {

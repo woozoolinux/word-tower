@@ -94,8 +94,8 @@ const Game = {
     Sfx.bad();
     const prevK = lock.hasPrevTowers ? Game.kingInfo(lock.prevLevel) : null;
     UI.modal(`
-      <div class="modal-title">🔒 아직 못 들어가요</div>
-      <div class="modal-sub">${esc(tower.name)}에 들어가려면<br>${prevK ? '둘 중 하나면 돼요' : '레벨이 조금 더 필요해요'}</div>
+      <div class="modal-title">🚧 이 탑은 아직 널 안 들여보낸다</div>
+      <div class="modal-sub">${esc(tower.name)}의 문지기가 막아섰다<br>${prevK ? '둘 중 하나면 길이 열린다' : '조금만 더 강해지면 열린다'}</div>
       <div class="lock-ways">
         <div class="lock-way"><span class="big">⭐</span><div><b>Lv.${lock.needLv} 이상</b>
           <div class="toggle-desc">지금 Lv.${state.player.lv} · ${Math.max(0, lock.needLv - state.player.lv)}레벨 더</div></div></div>
@@ -120,11 +120,11 @@ const Game = {
     const chips = list.map(w => `<span class="star-chip"><span class="en">${esc(w.w)}</span> ${esc(w.m)} <span class="stars">${starsText(statFor(tower.id, w).stars)}</span></span>`).join("")
       + (g.missing.length > list.length ? `<span class="star-chip more">외 ${g.missing.length - list.length}개</span>` : "");
     UI.modal(`
-      <div class="modal-title">🔒 보스가 문을 막았다!</div>
+      <div class="modal-title">🔒 보스가 앞을 막아섰다!</div>
       <div class="modal-sub">Unit ${plan.upTo}까지의 단어 카드가 더 필요해요<br>
         <b style="font-size:22px">${g.have} / ${g.need}장</b> <span class="dim">(전체 ${g.total}개 중)</span></div>
       <div class="bar exp"><div class="bar-fill" style="width:${Math.min(100, g.have / g.need * 100)}%"></div></div>
-      <div class="star-summary">아직 카드가 없는 단어</div>
+      <div class="star-summary">이 단어들을 아직 못 외웠다 — 이것만 잡으면 문이 열린다</div>
       <div class="star-list">${chips}</div>
       <div class="actions">
         <button class="btn" data-close="practice">📖 복습하러 가기</button>
@@ -180,22 +180,54 @@ const Game = {
   startKing(levelId) {
     const k = this.kingInfo(levelId);
     if (!k) return;
-    if (k.ok === false) {
+    if (!k.ok) {
       Sfx.bad();
       UI.modal(`
-        <div class="modal-title">🔒 ${k.level.emoji} ${esc(k.level.name)} 왕</div>
-        <div class="modal-sub">${esc(k.level.name)} 등급의 단어 카드가 더 필요해요<br>
-          <b style="font-size:22px">${k.have} / ${k.need}장</b> <span class="dim">(전체 ${k.words.length}개 중)</span></div>
+        <div class="king-hero locked-hero">${Art.king(k.level.animal)}</div>
+        <div class="modal-title">${k.level.emoji} ${esc(k.level.name)} 왕은 아직 널 안 본다</div>
+        <div class="king-taunt">"카드도 없이 내 앞에 섰나?<br>${esc(k.level.name)}의 단어를 더 모아 오너라."</div>
+        <div class="modal-sub"><b style="font-size:24px">${k.have} / ${k.need}장</b>
+          <span class="dim">(${esc(k.level.name)} 등급 ${k.words.length}개 중)</span></div>
         <div class="bar exp"><div class="bar-fill" style="width:${Math.min(100, k.have / k.need * 100)}%"></div></div>
-        <div class="star-summary">${esc(k.level.name)} 탑들에서 카드를 모아 오세요</div>
-        <div class="actions"><button class="btn" data-close="x">알겠어</button></div>`);
+        <div class="star-summary">앞으로 <b>${Math.max(0, k.need - k.have)}장</b> 더 모으면 왕이 널 마주 본다</div>
+        <div class="actions"><button class="btn" data-close="x">모아 올게!</button></div>`);
       return;
     }
+    this.kingIntro(k);
+  },
+
+  // 👑 왕 앞에 서는 순간 — 바로 싸우지 않고 한 번 숨을 고른다.
+  // 아이가 "지금 뭘 거는지" 알고 스스로 도전을 누르게 만드는 화면.
+  kingIntro(k) {
+    const L = k.level, tower = k.towers[k.towers.length - 1];
+    const kAtk = Math.round(monsterAtk(BAL.king.floor, true, tower) * BAL.king.atkMul);
+    const mistakes = Math.max(1, Math.floor(playerMaxHp() / kAtk));
+    UI.modal(`
+      <div class="king-hero">${Art.king(L.animal)}</div>
+      <div class="modal-title">${L.emoji} ${esc(L.name)} 왕이 길을 막았다</div>
+      <div class="king-taunt">"${esc(L.taunt || '덤벼라.').replace(/\n/g, '<br>')}"</div>
+      <div class="king-terms">
+        <div><span class="big">⚔️</span><div><b>단어 ${k.words.length}개</b>가 전부 나온다
+          <div class="toggle-desc">${esc(L.name)} 등급 ${k.towers.length}권 어디서든</div></div></div>
+        <div><span class="big">💥</span><div><b>${mistakes}번 틀리면 끝</b>
+          <div class="toggle-desc">왕의 한 방은 보스보다 아프다</div></div></div>
+        <div><span class="big">👑</span><div><b>${k.opens ? `이기면 ${k.opens.emoji} ${esc(k.opens.name)}의 땅이 열린다` : '이기면 정점에 선다'}</b>
+          <div class="toggle-desc">${k.beaten ? '이미 한 번 꺾은 상대다' : '아직 넘어본 적 없는 상대다'}</div></div></div>
+      </div>
+      <div class="actions">
+        <button class="btn king-go" data-close="go">⚔️ 도전한다!</button>
+        <button class="btn ghost" data-close="x">조금 더 준비할게</button>
+      </div>`,
+      { cls: 'celebrate', onClose: v => { if (v === 'go') this.kingFight(k); } });
+  },
+
+  kingFight(k) {
     const tower = k.towers[k.towers.length - 1];   // 수치 기준은 그 등급 마지막 권
     const f = BAL.king.floor;
     this.run = null;
+    this.kingCtx = k;
     state.player.hp = playerMaxHp(); saveState();
-    UI.toast(`👑 ${k.level.name} 왕이 나타났다!`, 'bad');
+    UI.toast(`👑 ${k.level.name} 왕이 포효한다!`, 'bad');
     Battle.start({
       monster: {
         id: k.level.animal, name: `${k.level.name} 왕`, emoji: k.level.emoji, king: true,
@@ -203,7 +235,7 @@ const Game = {
         atk: Math.round(monsterAtk(f, true, tower) * BAL.king.atkMul),
       },
       words: k.words, pool: k.words, towerId: tower.id, floor: f, boss: true, king: true,
-      onWin: () => this.kingWin(levelId),
+      onWin: () => { this.kingCtx = null; this.kingWin(k.level.id); },
       onLose: () => this.playerDown(),
     });
   },
@@ -221,8 +253,9 @@ const Game = {
     saveState();
     Sfx.fanfare(); UI.confetti({ count: 240, life: 4, colors: ['#ffc83d', '#fff3c4', '#ffffff', '#ffe08a'] });
     UI.modal(`
-      <div class="modal-title">👑 ${k.level.emoji} ${esc(k.level.name)} 왕 격파!</div>
+      <div class="modal-title">👑 ${k.level.emoji} ${esc(k.level.name)} 왕을 꺾었다!</div>
       <div class="king-reveal">${Art.king(k.level.animal)}</div>
+      <div class="king-taunt yield">"${esc(k.level.yield || '내가 졌다.')}"</div>
       <div class="reward-row">💰 +${gold}</div>
       <div class="unlock"><span class="big">🎖️</span><div><div>칭호: <b>${esc(title)}</b></div>
         <div class="toggle-desc">${esc(k.level.name)} 등급을 완전히 지배했어요</div></div></div>
@@ -290,6 +323,20 @@ const Game = {
   playerDown() {
     Runner.stop(); Sfx.down();
     state.player.hp = playerMaxHp(); saveState();
+    const k = this.kingCtx; this.kingCtx = null;
+    if (k) {                       // 왕에게 졌다 — 분하게, 그러나 다시 오고 싶게
+      UI.modal(`
+        <div class="king-hero">${Art.king(k.level.animal)}</div>
+        <div class="modal-title">${k.level.emoji} ${esc(k.level.name)} 왕이 코웃음을 쳤다</div>
+        <div class="king-taunt">"이 정도였나?<br>단어를 더 익히고 다시 와라. 기다려 주지."</div>
+        <div class="modal-sub">진 게 아니야. <b>아직</b> 못 이긴 거야.<br>도감에서 ★이 적은 단어부터 다시 보자!</div>
+        <div class="actions">
+          <button class="btn" data-close="again">⚔️ 한 번 더!</button>
+          <button class="btn ghost" data-close="lobby">로비로</button>
+        </div>`,
+        { onClose: v => this.flushLevelUps(() => { if (v === 'again') this.startKing(k.level.id); else this.toLobby(); }) });
+      return;
+    }
     UI.modal(`
       <div class="modal-title">😵 쓰러졌다…</div>
       <div class="modal-sub">로비에서 쉬면 HP가 다시 가득 차요.<br>힌트나 물약을 사서 다시 도전해 봐요!</div>

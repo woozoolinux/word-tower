@@ -391,6 +391,27 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .king-name { font-size: 20px; }
 .king-desc { font-size: 13px; color: var(--ink-dim); margin: 2px 0 6px; }
 .king-reveal { display: flex; justify-content: center; margin: 8px 0; }
+
+/* 👑 왕 앞에 서는 화면 */
+.king-hero { display: flex; justify-content: center; margin: -4px 0 6px; }
+.king-hero svg { width: 170px; height: auto; filter: drop-shadow(0 8px 18px rgba(0,0,0,.4)); animation: kingIn .55s ease-out; }
+.king-hero.locked-hero svg { filter: grayscale(.8) drop-shadow(0 6px 14px rgba(0,0,0,.35)); opacity: .8; }
+.king-taunt {
+  text-align: center; font-size: 17px; line-height: 1.5; color: var(--ink);
+  background: var(--panel2); border-radius: 14px; padding: 12px 14px; margin: 6px 0 14px;
+  border-left: 4px solid var(--gold-dark);
+}
+.king-taunt.yield { border-left-color: var(--mint-dark); color: var(--mint-dark); }
+.king-terms { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.king-terms > div { display: flex; gap: 12px; align-items: center; background: #fff; border-radius: 14px; padding: 11px 12px; }
+.king-terms .big { font-size: 28px; }
+.btn.king-go {
+  background: linear-gradient(135deg, #ff6b7a, #c9971c); color: #fff;
+  box-shadow: 0 4px 0 #8f3025; font-size: 20px; padding: 14px 22px;
+  animation: ultiPulse 1.4s ease-out infinite;
+}
+.btn.king-go:active { transform: translateY(3px); box-shadow: 0 1px 0 #8f3025; }
+.sec-sub { font-size: 13px; color: rgba(255,255,255,.5); }
 .king-reveal svg { width: 190px; height: auto; filter: drop-shadow(0 8px 16px rgba(0,0,0,.35)); animation: kingIn .6s ease-out; }
 @keyframes kingIn { 0% { transform: scale(.5) rotate(-8deg); opacity: 0; } 70% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); } }
 
@@ -661,7 +682,7 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   .mon-emoji, .mon-art, .screen.active, .ent.player, .ent.pet, .choice.right,
   .sprite.pet .petwrap, .sprite.walking .char.walk, #sky i { animation: none; }
   .sprite { transition: none; }
-  .king-reveal svg, .mon-art svg .k-aura, .mon-art svg .k-aura2 { animation: none; }
+  .king-reveal svg, .king-hero svg, .btn.king-go, .mon-art svg .k-aura, .mon-art svg .k-aura2 { animation: none; }
   .char svg .aura, .char svg .aura * { animation: none !important; }
   #battle-hero, #battle-hero.attack, #battle-hero.attack-crit, #battle-hero.attack-ult,
   .mon-art.lunge, .ulti-btn.ready { animation: none; }
