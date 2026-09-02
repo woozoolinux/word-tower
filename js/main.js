@@ -121,11 +121,11 @@ const Game = {
       <div class="actions">
         ${prevK && prevK.ok ? `<button class="btn" data-close="king">👑 ${esc(lock.prevName)} 왕에게 도전</button>` : ''}
         ${open ? `<button class="btn mint" data-close="go">${esc(open.name)}에서 힘을 키우자</button>` : ''}
-        <button class="btn coral" data-close="force">💪 그래도 들어간다</button>
+        <button class="btn coral" data-close="force">💪 난 이미 ${L && levelCode(L) ? L.id : '준비됐어'}${L && levelCode(L) ? '야!' : '!'}</button>
         <button class="btn ghost" data-close="x">돌아갈래</button>
       </div>
-      <div class="gate-note">학원 숙제라 이 책이 지금 필요하면 <b>💪 그래도 들어간다</b>를 누르세요<br>
-        (모든 탑을 한 번에 열려면 ⚙️ 설정 → 🔓 타워 잠금 끄기)</div>`,
+      <div class="gate-note">이미 ${L && levelCode(L) ? `<b>${L.id}</b>를` : '이 등급을'} 배우고 있다면 문지기도 못 막는다<br>
+        <span class="dim">(탑을 전부 열어 두려면 ⚙️ 설정 → 🔓 타워 잠금 끄기)</span></div>`,
       { onClose: v => {
         if (v === 'king') Game.startKing(lock.prevLevel);
         else if (v === 'go' && open) Game.startFloor(open.id, Math.min(towerProg(open.id).floor, floorList(open).length));
@@ -139,24 +139,25 @@ const Game = {
   confirmForce(tower, lock) {
     const L = levelOf(tower.level);
     const gap = Math.max(0, lock.needLv - state.player.lv);
+    const code = L ? (levelCode(L) || L.name) : '이 등급';
     UI.modal(`
-      <div class="modal-title">💪 정말 들어갈 거야?</div>
-      <div class="king-taunt">"…말리지는 않겠다.<br>다치고 나서 딴소리는 마라."</div>
+      <div class="modal-title">💪 자격이 있다는 거지?</div>
+      <div class="king-taunt">"이미 <b>${code}</b>를 하고 있다고?<br>…그렇다면 막지 않겠다. 증명해 봐라."</div>
       <div class="lock-ways">
-        <div class="lock-way warn-way"><span class="big">🔥</span><div><b>몬스터가 아주 세게 느껴진다</b>
-          <div class="toggle-desc">여긴 ${L ? `${levelCode(L) || esc(L.name)} 등급, ` : ''}Lv.${lock.needLv} 이상을 위한 곳<br>지금 Lv.${state.player.lv}${gap ? ` · ${gap}레벨 부족` : ''}</div></div></div>
+        <div class="lock-way warn-way"><span class="big">🔥</span><div><b>봐주는 건 없다</b>
+          <div class="toggle-desc">여긴 ${code} 등급, Lv.${lock.needLv} 이상을 위한 곳<br>지금 Lv.${state.player.lv}${gap ? ` · ${gap}레벨 부족` : ''} — 몬스터가 아주 세게 느껴진다</div></div></div>
         <div class="lock-way"><span class="big">🃏</span><div><b>얻는 건 전부 네 것</b>
           <div class="toggle-desc">카드·경험치·골드 그대로 · 언제든 로비로 나올 수 있어요</div></div></div>
       </div>
       <div class="actions">
-        <button class="btn coral" data-close="go">💪 그래도 간다!</button>
+        <button class="btn coral" data-close="go">💪 증명하러 간다!</button>
         <button class="btn ghost" data-close="x">역시 그만둘래</button>
       </div>`,
       { onClose: v => {
         if (v !== 'go') return;
         forceOpen(tower.id);
         Sfx.levelup();
-        UI.toast(`💪 ${tower.name}의 문이 열렸다!`, 'good');
+        UI.toast(`💪 문지기가 비켜섰다 — ${tower.name}`, 'good');
         Lobby.render();
         this.startFloor(tower.id, Math.min(towerProg(tower.id).floor, floorList(tower).length));
       } });
