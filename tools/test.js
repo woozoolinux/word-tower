@@ -50,7 +50,7 @@ load('js/state.js', `\n;globalThis.S = {
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
   refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire, clearPct, BAL,
   kingCooldown, startKingCooldown, mmss, kingBeaten, raiseToLv, levelTowers, LEVELS, towerLock, prevKingLevel,
-  forceOpen, isForced, levelCode, levelTag, touchTower, lastTower,
+  forceOpen, isForced, levelCode, levelTag, touchTower, lastTower, ZONES,
   get state() { return state; }, set state(v) { state = v; },
 };`);
 load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak, wkey, statFor };`);
@@ -650,6 +650,40 @@ ok('탑이 지워져도 이어서 하기가 깨지지 않는다', (() => {
   const t = S.lastTower();
   return !t || !!sandbox.window.TOWERS.find(x => x.id === t.id);
 })());
+
+// ===================================================================
+section('지하 던전');
+// 끝없는 던전은 어른 장르다. 아이에게는 끝이 있어야 한다 — 한 판 2~3분.
+// 그리고 여기 나오는 단어는 ★이 낮은 것부터다. 던전 = 오답노트.
+// ===================================================================
+ok('한 판이 2~3분 안에 끝난다 (칸 × 제한시간)',
+  S.BAL.dungeon.planks * S.BAL.dungeon.timeLimit <= 180,
+  S.BAL.dungeon.planks + '칸 × ' + S.BAL.dungeon.timeLimit + '초');
+eq('3번 틀리면 잡힌다 (왕과 같은 규칙)', S.BAL.dungeon.gap, 3);
+ok('후보 단어가 선택지를 채우고도 남는다', S.BAL.dungeon.words >= S.BAL.quiz.choices * 4);
+ok('한 판 보상이 보스 한 층을 넘지 않는다',
+  S.BAL.dungeon.gold.escape + S.BAL.dungeon.gold.perfect + S.BAL.dungeon.planks * S.BAL.dungeon.gold.perPlank
+    <= sandbox.byFloorX(S.BAL.gold.bossClear, 10),
+  '던전 ' + (S.BAL.dungeon.gold.escape + S.BAL.dungeon.gold.perfect + S.BAL.dungeon.planks * S.BAL.dungeon.gold.perPlank)
+    + ' vs 보스 ' + sandbox.byFloorX(S.BAL.gold.bossClear, 10));
+ok('던전은 카드를 새로 뿌리지 않는다 (밀린 각인 시험만)',
+  S.BAL.dungeon.chestTests > 0 && S.BAL.dungeon.chestTests <= 5);
+// 구역 해금
+Object.keys(store).forEach(k => delete store[k]);
+S.loadState();
+const dz = S.ZONES.find(z => z.id === 'dungeon');
+ok('던전이 열려 있다', dz.ready === true);
+eq('던전은 Lv.10부터', dz.lv, 10);
+eq('던전은 카드 25장부터', dz.cards, 25);
+eq('새 저장의 던전 기록은 비어 있다', S.state.player.dungeonClears, 0);
+eq('던전 기록이 없던 옛 저장도 채워진다', (() => {
+  S.saveState();
+  const raw = JSON.parse(store['wordtower_save_v1']);
+  delete raw.player.dungeonClears; delete raw.player.dungeonSeen;
+  store['wordtower_save_v1'] = JSON.stringify(raw);
+  S.loadState();
+  return S.state.player.dungeonClears;
+})(), 0);
 
 // ===================================================================
 section('발음 읽어주기 설정');

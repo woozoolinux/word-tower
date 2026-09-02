@@ -675,6 +675,145 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .lobby-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; justify-content: center; }
 .footer-note { text-align: center; color: rgba(255,255,255,.4); font-size: 12px; margin-top: 16px; }
 
+/* ---------- 🕳️ 지하 던전 ---------- */
+/* 프롤로그: 추락 → 어둠 → 횃불 → 발견 → 도망.
+   지연(animation-delay)은 CSS가 아니라 dungeon.js 의 표에서 준다 —
+   전체판/짧은판 두 벌을 CSS로 복제하지 않기 위해서다. */
+.dg-scene {
+  position: fixed; inset: 0; z-index: 60; overflow: hidden; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #07060f; animation: fxIn .3s ease-out;
+}
+.dg-scene.out { animation: fxOut .3s ease-in forwards; }
+/* 횃불 빛 — 어둠을 걷어내는 원 */
+.dg-light {
+  position: absolute; left: 50%; top: 46%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%; opacity: 0; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,196,92,.42) 0 34%, rgba(255,160,60,.14) 58%, transparent 72%);
+  animation: dgLight 1.4s ease-out forwards;
+}
+.dg-flash {
+  position: absolute; inset: 0; background: #ff3b52; opacity: 0; pointer-events: none;
+  animation: dgFlash .5s ease-out forwards;
+}
+.dg-stage2 { position: relative; width: 300px; height: 300px; }
+.dg-ground {
+  position: absolute; left: -40px; right: -40px; bottom: 52px; height: 12px; border-radius: 6px;
+  background: linear-gradient(#3a2f56, #241d3c);
+}
+.dg-fall {
+  position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); z-index: 2;
+  animation: dgFall .95s cubic-bezier(.6,.05,.9,.6) both;
+}
+.dg-shout {
+  position: absolute; left: 62%; top: -14px; font-size: 34px; color: #ffe066; opacity: 0;
+  font-family: var(--font-en); animation: dgShout .6s cubic-bezier(.2,1.7,.4,1) both;
+}
+.dg-fall.scared { animation: dgScare .5s ease-out both !important; }
+@keyframes dgScare { 40% { transform: translate(-72%, -6px) rotate(-7deg); } 100% { transform: translate(-64%, 0) rotate(-3deg); } }
+.dg-dust {
+  position: absolute; left: 50%; bottom: 52px; width: 120px; height: 20px; margin-left: -60px;
+  border-radius: 50%; background: rgba(180,160,200,.35); opacity: 0;
+  animation: dgDust .8s ease-out both;
+}
+.dg-torch { position: absolute; left: 28%; bottom: 92px; z-index: 3; opacity: 0; animation: dgTorch .5s ease-out both; }
+.dg-torch-svg { width: 40px; height: auto; }
+.dg-torch-svg .fl { transform-origin: 20px 22px; animation: dgFlame .5s ease-in-out infinite alternate; }
+.dg-eyes {
+  position: absolute; right: 4px; bottom: 148px; display: flex; gap: 18px; opacity: 0; z-index: 2;
+  animation: dgEyes .7s ease-out both;
+}
+.dg-eyes i {
+  width: 15px; height: 11px; border-radius: 50%; background: #ff3b52;
+  box-shadow: 0 0 16px 5px rgba(255,59,82,.75);
+}
+.dg-beast { position: absolute; right: -96px; bottom: 52px; z-index: 1; opacity: 0; animation: dgBeast .7s cubic-bezier(.2,1.5,.4,1) both; }
+.dg-beast-svg { width: 240px; height: auto; }
+.dg-beast-svg .eyes { animation: dgGlow 1.1s ease-in-out infinite; }
+.dg-caps { position: relative; height: 58px; width: 100%; }
+.dg-cap {
+  position: absolute; left: 0; right: 0; text-align: center; opacity: 0;
+  font-size: 19px; color: var(--panel); text-shadow: 0 2px 12px #000;
+  animation: dgCap 1.5s ease-out both;
+}
+.dg-cap.big { font-size: 40px; color: #ff6b7a; text-shadow: 0 0 24px rgba(255,59,82,.7); }
+.dg-go { opacity: 0; font-size: 20px; padding: 14px 28px; animation: fxUp .5s ease-out both; }
+.dg-scene.rush * { animation-delay: 0s !important; animation-duration: .16s !important; }
+.dg-scene.rush .dg-torch-svg .fl, .dg-scene.rush .dg-beast-svg .eyes { animation-duration: 1s !important; }
+.dg-stage2.lit .dg-ground { opacity: 1; }
+
+@keyframes dgFall { from { transform: translate(-50%, -110vh) rotate(-18deg); } to { transform: translate(-50%, 0) rotate(0); } }
+@keyframes dgDust { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(2.1); } }
+@keyframes dgTorch { from { opacity: 0; transform: translateY(14px) rotate(-30deg); } to { opacity: 1; transform: none; } }
+@keyframes dgFlame { to { transform: scale(1.15) rotate(4deg); } }
+@keyframes dgLight { to { opacity: 1; width: 500px; height: 500px; margin: -250px 0 0 -250px; } }
+@keyframes dgEyes { 0% { opacity: 0; } 60% { opacity: 1; } 100% { opacity: 1; } }
+@keyframes dgShout { from { opacity: 0; transform: translateY(10px) scale(.4); } to { opacity: 1; transform: none; } }
+@keyframes dgFlash { 0% { opacity: 0; } 22% { opacity: .5; } 100% { opacity: 0; } }
+@keyframes dgBeast { from { opacity: 0; transform: translate(60px, 20px) scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes dgGlow { 50% { opacity: .45; } }
+@keyframes dgCap { 0% { opacity: 0; transform: translateY(10px); } 16% { opacity: 1; transform: none; } 78% { opacity: 1; } 100% { opacity: 0; } }
+
+/* 다리 화면 */
+#screen-dungeon { padding-bottom: 10px; }
+.dg-hud { padding: 12px 14px; margin-bottom: 10px; }
+.dg-ask { text-align: center; }
+.dg-ask-label { display: block; font-size: 12px; color: var(--ink-dim); letter-spacing: 1px; }
+.dg-ask-word { display: block; font-size: 30px; color: var(--ink); line-height: 1.25; text-wrap: balance; }
+.dg-bar { height: 9px; border-radius: 6px; background: var(--panel2); overflow: hidden; margin-top: 10px; }
+.dg-bar-fill { height: 100%; width: 100%; background: var(--mint); transition: width .1s linear; }
+.dg-bar-fill.warn { background: var(--coral); }
+
+.dg-field {
+  background: linear-gradient(#171331, #0d0a1e); border-radius: 18px; padding: 14px 14px 10px; margin-bottom: 14px;
+}
+.dg-chase { display: flex; align-items: center; gap: 8px; }
+.dg-mon { flex: 0 0 auto; }
+.dg-mon .dg-beast-svg { width: 74px; height: auto; }
+.dg-chase { min-height: 68px; }
+.dg-dots { flex: 1; display: flex; gap: 6px; align-items: center; justify-content: center; }
+.dg-dots i {
+  width: 26px; height: 8px; border-radius: 4px; background: var(--coral);
+  box-shadow: 0 0 10px rgba(255,107,122,.6);
+}
+.dg-dots i.gone { background: rgba(255,255,255,.14); box-shadow: none; }
+.dg-me { flex: 0 0 auto; }
+.dg-me.hop { animation: dgHop .5s cubic-bezier(.3,1.6,.5,1); }
+@keyframes dgHop { 50% { transform: translate(10px, -16px); } }
+.dg-track { display: flex; align-items: center; gap: 4px; margin: 10px 0 4px; }
+.dg-tick { flex: 1; height: 7px; border-radius: 4px; background: rgba(255,255,255,.14); }
+.dg-tick.done { background: var(--gold); }
+.dg-tick.now { background: var(--mint); animation: dgNow 1s ease-in-out infinite; }
+@keyframes dgNow { 50% { opacity: .45; } }
+.dg-exit { font-size: 18px; }
+.dg-count { text-align: center; font-size: 13px; color: rgba(255,255,255,.6); font-variant-numeric: tabular-nums; }
+
+.dg-planks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dg-plank {
+  border: 0; cursor: pointer; padding: 22px 10px; border-radius: 13px;
+  font-family: var(--font-en); font-size: 21px; line-height: 1.15; word-break: break-all;
+  color: #fff6e0; text-shadow: 0 2px 4px rgba(0,0,0,.55);
+  background: linear-gradient(#a37c50, #7d5f3c);
+  box-shadow: 0 5px 0 #4a3722, inset 0 2px 0 rgba(255,255,255,.22);
+}
+.dg-plank:active { transform: translateY(4px); box-shadow: 0 1px 0 #4a3722, inset 0 2px 0 rgba(255,255,255,.22); }
+.dg-plank[disabled] { cursor: default; }
+.dg-plank.safe {
+  background: linear-gradient(#3ee0c4, #1fa08a); color: #06342c; text-shadow: none;
+  box-shadow: 0 5px 0 #12695a, inset 0 2px 0 rgba(255,255,255,.4); animation: dgSafe .4s ease-out;
+}
+.dg-plank.broken { animation: dgBreak .55s ease-in forwards; }
+@keyframes dgSafe { 50% { transform: translateY(-7px) scale(1.03); } }
+@keyframes dgBreak { to { opacity: .15; transform: translateY(30px) rotate(9deg); } }
+.dg-msg { text-align: center; min-height: 24px; margin-top: 10px; font-size: 16px; }
+.dg-msg.good { color: var(--mint); }
+.dg-msg.bad { color: var(--coral); }
+.dg-end-art { display: flex; justify-content: center; margin: -2px 0 8px; }
+.dg-end-art .dg-beast-svg { width: 150px; height: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .dg-torch-svg .fl, .dg-beast-svg .eyes, .dg-tick.now, .dg-me.hop { animation: none; }
+}
+
 /* ---------- 미로 ---------- */
 .maze-hud { padding: 10px 14px; margin-bottom: 10px; display: grid; gap: 6px; }
 .door-target { font-size: 18px; }
