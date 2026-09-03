@@ -675,6 +675,41 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .lobby-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; justify-content: center; }
 .footer-note { text-align: center; color: rgba(255,255,255,.4); font-size: 12px; margin-top: 16px; }
 
+/* ---------- 🏘️ 마을 ---------- */
+#screen-town { padding-bottom: 6px; }
+.tw-hud {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--panel); color: var(--ink); border-radius: 16px; padding: 8px 12px; margin-bottom: 8px;
+}
+.tw-hud b { font-size: 16px; }
+.tw-me { font-size: 22px; line-height: 1; }
+.tw-me .char, .tw-me svg { width: 26px; height: 26px; }
+.tw-stat { font-size: 14px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.tw-hud .btn { margin-left: auto; }
+.tw-wrap { position: relative; border-radius: 18px; overflow: hidden; touch-action: none; user-select: none; }
+.tw-wrap canvas { display: block; width: 100%; }
+.tw-hint {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  background: var(--gold); color: #3b2a12; border: 0; border-radius: 999px; padding: 11px 20px;
+  font-family: inherit; font-size: 16px; white-space: nowrap; cursor: pointer;
+  box-shadow: 0 4px 0 var(--gold-dark); opacity: 0; transition: opacity .16s; pointer-events: none;
+  max-width: 90%; overflow: hidden; text-overflow: ellipsis;
+}
+.tw-hint.on { opacity: 1; pointer-events: auto; animation: twPop .25s cubic-bezier(.2,1.6,.4,1); }
+.tw-hint:active { transform: translate(-50%, 3px); box-shadow: 0 1px 0 var(--gold-dark); }
+@keyframes twPop { from { transform: translate(-50%, 10px) scale(.9); } }
+.tw-joy {
+  position: absolute; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%;
+  background: rgba(255,255,255,.10); border: 2px solid rgba(255,255,255,.22);
+  opacity: 0; transition: opacity .12s; pointer-events: none;
+}
+.tw-joy.on { opacity: 1; }
+.tw-joy i {
+  position: absolute; left: 50%; top: 50%; width: 42px; height: 42px; margin: -21px 0 0 -21px;
+  border-radius: 50%; background: rgba(255,200,61,.75); display: block;
+}
+.tw-tip { text-align: center; font-size: 12px; color: rgba(255,255,255,.45); margin-top: 8px; }
+
 /* ---------- 🕳️ 지하 던전 ---------- */
 /* 프롤로그: 추락 → 어둠 → 횃불 → 발견 → 도망.
    지연(animation-delay)은 CSS가 아니라 dungeon.js 의 표에서 준다 —

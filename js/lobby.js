@@ -29,6 +29,7 @@ const Lobby = (() => {
         <button class="btn small ghost" data-act="skills">📜 스킬</button>
         <button class="btn small ghost" data-act="settings">⚙️ 설정</button>
         <button class="btn small ghost" data-act="save">💾 저장코드</button>
+        <button class="btn small mint" data-act="town">🏘️ 마을로</button>
       </div>
       <p class="footer-note">진행 상황은 이 브라우저에 자동 저장돼요.</p>`;
   }
@@ -242,7 +243,7 @@ const Lobby = (() => {
     if (zone) { enterZone(zone.dataset.zone); return; }
     const act = e.target.closest('[data-act]');
     if (act) {
-      const fn = { shop, skills, settings, save: saveCode, diag,
+      const fn = { shop, skills, settings, save: saveCode, diag, town: toTown,
         dress: () => charCreator(false), book: () => Cards.book() }[act.dataset.act];
       if (fn) fn(); else UI.toast('알 수 없는 버튼: ' + act.dataset.act, 'bad');
     }
@@ -515,6 +516,8 @@ const Lobby = (() => {
   }
 
   function init() { root().addEventListener('click', onClick); }
+  // 로비 목록에서 마을로 돌아가는 문
+  function toTown() { if (typeof Town !== 'undefined') Town.start(); }
 
-  return { render, init, charCreator, diag };
+  return { render, init, charCreator, diag, shop, skills, settings, saveCode, toTown };
 })();

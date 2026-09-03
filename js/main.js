@@ -458,11 +458,13 @@ const Game = {
     `, { onClose: () => this.flushLevelUps(() => this.toLobby()) });
   },
 
+  home: 'town',           // 미니게임이 끝나면 돌아갈 곳
   toLobby() {
     Runner.stop();
     if (typeof Dungeon !== 'undefined') Dungeon.stop();
     state.player.hp = playerMaxHp(); saveState();
     this.run = null;
+    if (this.home === 'town' && typeof Town !== 'undefined') { Town.resume(); return; }
     Lobby.render(); UI.show('lobby');
   },
 
@@ -547,6 +549,7 @@ window.addEventListener('DOMContentLoaded', () => {
   step('금고', () => Vault.init());
   step('달리기', () => Runner.init());
   step('로비 그리기', () => Lobby.render());
+  step('마을', () => { if (state.player.avatar) Town.start(); });
   if (typeof Avatar === 'undefined') {
     // 오래된 캐시로 새 파일이 안 실린 경우
     UI.toast('새 버전이 있어요! 새로고침해 주세요 (Ctrl+Shift+R)', 'bad');
