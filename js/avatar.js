@@ -372,9 +372,11 @@ const Avatar = (() => {
       return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="12 -8 96 96">${head}</svg>`;
     }
     const outfit = (o.av && o.avOutfit) || state.player.outfit || 'tunic';
+    // walk: 0 모은 다리 · 1 벌린 다리. 두 장을 번갈아 그리면 걷는 것처럼 보인다.
+    const wk = o.walk ? 5 : 0, wl = o.walk ? 2 : 0;
     const body = `
-      <rect x="49" y="116" width="9" height="20" rx="4" fill="${skin}"/><rect x="62" y="116" width="9" height="20" rx="4" fill="${skin}"/>
-      <rect x="46" y="132" width="14" height="9" rx="4.5" fill="#4a4380"/><rect x="60" y="132" width="14" height="9" rx="4.5" fill="#4a4380"/>
+      <rect x="${49 - wk}" y="116" width="9" height="${20 - wl}" rx="4" fill="${skin}"/><rect x="${62 + wk}" y="116" width="9" height="${20 - wl}" rx="4" fill="${skin}"/>
+      <rect x="${46 - wk}" y="${132 - wl}" width="14" height="9" rx="4.5" fill="#4a4380"/><rect x="${60 + wk}" y="${132 - wl}" width="14" height="9" rx="4.5" fill="#4a4380"/>
       ${outfitSvg(o.outfit || outfit, skin)}`;
     const weapon = o.weapon === false ? '' : weaponSvg(o.weaponId || state.player.weapon);
     const auraId = o.aura !== undefined ? o.aura : (state.player.aura || 'none');
@@ -393,14 +395,18 @@ const Avatar = (() => {
   }
 
   // 러너용: SVG를 이미지로 (로딩 전엔 ready=false)
-  function image() {
+  function image(o) {
     const av = state.player.avatar || defaults();
     const img = new Image();
     const box = { img, ready: false };
     img.onload = () => { box.ready = true; };
-    img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg(av, {}).replace('<svg ', '<svg width="120" height="165" '));
+    img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg(av, o || {}).replace('<svg ', '<svg width="120" height="165" '));
     return box;
   }
+  // 걷기용 두 장 (모은 다리 / 벌린 다리)
+  function walkFrames(o) {
+    return [image(Object.assign({}, o)), image(Object.assign({ walk: 1 }, o))];
+  }
 
-  return { SKINS, HAIRCOLORS, HAIRSTYLES, defaults, svg, html, image };
+  return { SKINS, HAIRCOLORS, HAIRSTYLES, defaults, svg, html, image, walkFrames };
 })();

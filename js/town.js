@@ -12,13 +12,65 @@
 const Town = (() => {
   const WW = 560;                     // 월드 폭
   const SPEED = 132;                  // px/초
-  const C = {                         // 게임 팔레트를 그대로 쓴다 (빨간 지붕 같은 이물감 금지)
-    stone: '#4a4480', stoneDark: '#332e5c',
-    wall: '#f0e6cc', wallDark: '#cdbf9d',
-    roof: '#6b5fa8', roofDark: '#4d4382',
-    gold: '#ffc83d', ink: '#0d0a20',
+  // 낮의 마을. 어두운 밤 배경은 "멋있다"에는 맞지만 "예쁘다"에는 안 맞는다.
+  // 그리고 빈 땅이 넓으면 휑해 보인다 — 나무·꽃·울타리·벤치로 촘촘히 채운다.
+  const C = {
+    grass: '#a9d47f', grass2: '#8fc468', road: '#e6d6ad', roadEdge: '#c9b183',
+    wall: '#fff4dc', wallDark: '#e6d5b4',
+    roof: '#e8735e', roofDark: '#c4523f',
+    stone: '#8f86c9', stoneDark: '#6a61a3', stoneLit: '#a9a1de',
+    wood: '#8a6a44', trunk: '#7a5636', leaf: '#5faa4e', leaf2: '#7cc55f',
+    gold: '#ffc83d', ink: '#3a2d1c',
   };
-  let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, joy, keys, nearP, hint, lamps, tufts;
+  const DECO = [];
+  function scatter(W, H, blocked) {
+    DECO.length = 0;
+    const kinds = ['tree', 'tree', 'bush', 'flower', 'flower', 'rock', 'fence'];
+    let guard = 0;
+    while (DECO.length < 96 && guard++ < 4000) {
+      const x = 14 + Math.random() * (W - 28), y = 30 + Math.random() * (H - 50);
+      if (Math.abs(x - W / 2) < 92) continue;                 // 길은 비운다
+      if (blocked(x, y)) continue;
+      if (DECO.some(d => Math.abs(d.x - x) < 26 && Math.abs(d.y - y) < 20)) continue;
+      DECO.push({ kind: kinds[(Math.random() * kinds.length) | 0], x, y, s: .8 + Math.random() * .5, f: Math.random() * 6.3 });
+    }
+  }
+  function drawDeco(d, t) {
+    const sway = Math.sin(t * 1.4 + d.f) * 1.6;
+    ctx.save(); ctx.translate(d.x, d.y); ctx.scale(d.s, d.s);
+    if (d.kind === 'tree') {
+      ctx.fillStyle = 'rgba(60,80,40,.22)'; ctx.beginPath(); ctx.ellipse(0, 2, 13, 5, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = C.trunk; ctx.fillRect(-3, -16, 6, 17);
+      ctx.translate(sway, 0);
+      ctx.fillStyle = C.leaf;
+      [[0, -34, 15], [-11, -25, 11], [11, -25, 11]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); });
+      ctx.fillStyle = C.leaf2;
+      [[-4, -38, 9], [7, -32, 7]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); });
+    } else if (d.kind === 'bush') {
+      ctx.fillStyle = 'rgba(60,80,40,.2)'; ctx.beginPath(); ctx.ellipse(0, 2, 12, 4, 0, 0, 6.3); ctx.fill();
+      ctx.translate(sway * .5, 0);
+      ctx.fillStyle = C.leaf;
+      [[-7, -6, 8], [7, -6, 8], [0, -11, 10]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); });
+      ctx.fillStyle = C.leaf2; ctx.beginPath(); ctx.arc(-3, -13, 6, 0, 6.3); ctx.fill();
+    } else if (d.kind === 'flower') {
+      ctx.strokeStyle = '#5faa4e'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(sway * .6, -9); ctx.stroke();
+      const cols = ['#ff8fa8', '#ffe066', '#c9a3ff', '#fff'];
+      ctx.fillStyle = cols[(d.f * 3 | 0) % cols.length];
+      for (let i = 0; i < 5; i++) { const a = i * 1.256; ctx.beginPath(); ctx.arc(sway * .6 + Math.cos(a) * 3, -9 + Math.sin(a) * 3, 2.4, 0, 6.3); ctx.fill(); }
+      ctx.fillStyle = '#ffd24a'; ctx.beginPath(); ctx.arc(sway * .6, -9, 1.8, 0, 6.3); ctx.fill();
+    } else if (d.kind === 'rock') {
+      ctx.fillStyle = 'rgba(60,80,40,.18)'; ctx.beginPath(); ctx.ellipse(0, 1, 9, 3, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#b6b0c9'; ctx.beginPath(); ctx.ellipse(0, -4, 9, 6, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#d3cee0'; ctx.beginPath(); ctx.ellipse(-2, -6, 5, 3, 0, 0, 6.3); ctx.fill();
+    } else {
+      ctx.fillStyle = C.wood;
+      ctx.fillRect(-14, -14, 3.5, 15); ctx.fillRect(0, -16, 3.5, 17); ctx.fillRect(14, -14, 3.5, 15);
+      ctx.fillRect(-15, -11, 32, 3); ctx.fillRect(-15, -5, 32, 3);
+    }
+    ctx.restore();
+  }
+  let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts;
 
   const el = id => document.getElementById(id);
   const vw = () => cv.width / (window.devicePixelRatio || 1);
@@ -50,7 +102,9 @@ const Town = (() => {
       lamps.push({ x: W / 2 - 96, y: zy + 150 }, { x: W / 2 + 96, y: zy + 150 });
     });
     lamps.push({ x: W / 2 - 108, y: H - 44 }, { x: W / 2 + 108, y: H - 44 });
-    for (let i = 0; i < 90; i++) tufts.push({ x: 10 + Math.random() * (W - 20), y: 20 + Math.random() * (H - 40), s: 2 + Math.random() * 3 });
+    for (let i = 0; i < 130; i++) tufts.push({ x: 10 + Math.random() * (W - 20), y: 20 + Math.random() * (H - 40), s: 2 + Math.random() * 3 });
+    // 빈 땅이 넓으면 휑하다 — 건물과 길을 피해 나무·꽃·울타리를 촘촘히 뿌린다
+    scatter(W, H, (x, y) => places.some(p => x > p.x - 22 && x < p.x + p.w + 22 && y > p.y - 20 && y < p.y + p.h + 26));
 
     solids.push({ x: -40, y: -40, w: W + 80, h: 40 }, { x: -40, y: H, w: W + 80, h: 40 },
       { x: -40, y: -40, w: 40, h: H + 80 }, { x: W, y: -40, w: 40, h: H + 80 });
@@ -67,7 +121,7 @@ const Town = (() => {
     Game.home = 'town';
     if (!el('screen-town')) return;
     build();
-    pimg = Avatar.image();
+    frames = Avatar.walkFrames(); pimg = frames[0];
     joy = null; keys = {}; nearP = null; hint = '';
     shell(); UI.show('town'); run();
   }
@@ -94,7 +148,7 @@ const Town = (() => {
       </div>
       <div class="tw-wrap"><canvas id="tw-cv"></canvas>
         <button class="tw-hint" id="tw-hint"></button>
-        <div class="tw-joy" id="tw-joy"><i></i></div>
+        <div class="tw-joy on idle" id="tw-joy"><i></i></div>
       </div>
       <div class="tw-tip">화면을 끌어서 움직이고, 문 앞에서 노란 버튼을 눌러요</div>`;
     cv = el('tw-cv'); ctx = cv.getContext('2d');
@@ -102,6 +156,10 @@ const Town = (() => {
     el('tw-list').onclick = () => { stop(); Game.home = 'lobby'; Lobby.render(); UI.show('lobby'); };
     el('tw-hint').onclick = e => { e.stopPropagation(); if (nearP) enter(nearP); };
     bindInput();
+    requestAnimationFrame(() => {                       // 늘 보이는 조이스틱을 제자리에
+      const wrap = cv.parentElement, s = el('tw-joy'), r = wrap.getBoundingClientRect();
+      s.style.left = '62px'; s.style.top = (r.height - 62) + 'px';
+    });
   }
   function resize() {
     if (!cv) return;
@@ -117,7 +175,14 @@ const Town = (() => {
     const at = e => { const r = wrap.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
     const down = e => { if (e.target.closest('.tw-hint')) return; const p = at(e); joy = { ox: p.x, oy: p.y, x: p.x, y: p.y }; showStick(stick); e.preventDefault(); };
     const move = e => { if (!joy) return; const p = at(e); joy.x = p.x; joy.y = p.y; showStick(stick); e.preventDefault(); };
-    const up = () => { joy = null; stick.classList.remove('on'); };
+    const home = () => { const r = wrap.getBoundingClientRect(); return { x: 62, y: r.height - 62 }; };
+    const rest = () => {
+      const h = home();
+      stick.classList.add('idle');
+      stick.style.left = h.x + 'px'; stick.style.top = h.y + 'px';
+      stick.firstElementChild.style.transform = 'translate(0,0)';
+    };
+    const up = () => { joy = null; rest(); };
     wrap.addEventListener('touchstart', down, { passive: false });
     wrap.addEventListener('touchmove', move, { passive: false });
     wrap.addEventListener('touchend', up); wrap.addEventListener('touchcancel', up);
@@ -126,7 +191,7 @@ const Town = (() => {
   }
   function showStick(stick) {
     const d = clampVec(joy.x - joy.ox, joy.y - joy.oy, 42);
-    stick.classList.add('on');
+    stick.classList.add('on'); stick.classList.remove('idle');
     stick.style.left = joy.ox + 'px'; stick.style.top = joy.oy + 'px';
     stick.firstElementChild.style.transform = `translate(${d.x}px, ${d.y}px)`;
   }
@@ -154,7 +219,8 @@ const Town = (() => {
     if (keys.l) vx -= 1; if (keys.r) vx += 1; if (keys.u) vy -= 1; if (keys.d) vy += 1;
     const len = Math.hypot(vx, vy);
     if (len > 1) { vx /= len; vy /= len; }
-    if (Math.hypot(vx, vy) > .05) { walkT += dt * 9; if (Math.abs(vx) > .2) dir = vx > 0 ? 1 : -1; }
+    moving = Math.hypot(vx, vy) > .05;
+    if (moving) { walkT += dt * 9; if (Math.abs(vx) > .2) dir = vx > 0 ? 1 : -1; }
     step(vx * SPEED * dt, vy * SPEED * dt);
 
     let best = null, bd = 1e9;
@@ -246,12 +312,15 @@ const Town = (() => {
     ctx.save(); ctx.translate(-cam.x, -cam.y);
     ground();
     lamps.forEach(lampGlow);
-    const sorted = places.slice().sort((a, b) => (a.y + a.h) - (b.y + b.h));
+    const t = performance.now() / 1000;
+    const items = places.map(p => ({ y: p.y + p.h, p })).concat(DECO.map(d => ({ y: d.y, d })));
+    items.sort((a, b) => a.y - b.y);
     let drewMe = false;
-    sorted.forEach(p => {
-      if (!drewMe && p.y + p.h > py) { me(); drewMe = true; }
-      if (p === nearP) ring(p);
-      draws[p.kind](p);
+    items.forEach(it => {
+      if (!drewMe && it.y > py) { me(); drewMe = true; }
+      if (it.d) { drawDeco(it.d, t); return; }
+      if (it.p === nearP) ring(it.p);
+      draws[it.p.kind](it.p);
     });
     if (!drewMe) me();
     lamps.forEach(lampPost);
@@ -262,26 +331,29 @@ const Town = (() => {
   }
   function ground() {
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#141130'); g.addColorStop(.45, '#1b1a40'); g.addColorStop(1, '#232150');
+    g.addColorStop(0, C.grass2); g.addColorStop(.5, C.grass); g.addColorStop(1, C.grass2);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    const x0 = W / 2 - 78;
-    ctx.fillStyle = '#2c2a5c'; ctx.fillRect(x0, 0, 156, H);
-    ctx.fillStyle = 'rgba(255,255,255,.03)';
-    for (let y = 0; y < H; y += 40) for (let i = 0; i < 3; i++) ctx.fillRect(x0 + 10 + i * 48, y + 6, 40, 26);
-    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(x0 - 3, 0, 3, H); ctx.fillRect(x0 + 156, 0, 3, H);
-    ctx.fillStyle = 'rgba(255,255,255,.05)';
-    ctx.fillRect(0, H - 236, W, 96);
-    ctx.fillStyle = 'rgba(120,200,160,.13)';
+    // 풀결
+    ctx.fillStyle = 'rgba(60,120,50,.18)';
     tufts.forEach(t => ctx.fillRect(t.x, t.y, t.s, t.s * 2));
+    // 북쪽으로 난 돌길
+    const x0 = W / 2 - 78;
+    ctx.fillStyle = C.roadEdge; ctx.fillRect(x0 - 4, 0, 164, H);
+    ctx.fillStyle = C.road; ctx.fillRect(x0, 0, 156, H);
+    ctx.fillStyle = 'rgba(0,0,0,.05)';
+    for (let y = 0; y < H; y += 34) for (let i = 0; i < 3; i++) ctx.fillRect(x0 + 8 + i * 50, y + 5, 44, 24);
+    // 광장 바닥
+    ctx.fillStyle = C.roadEdge; ctx.fillRect(0, H - 240, W, 108);
+    ctx.fillStyle = C.road; ctx.fillRect(0, H - 236, W, 100);
+    ctx.fillStyle = 'rgba(0,0,0,.05)';
+    for (let y = H - 232; y < H - 140; y += 30) for (let x = 6; x < W; x += 44) ctx.fillRect(x, y, 38, 22);
   }
-  function lampGlow(l) {
-    const g = ctx.createRadialGradient(l.x, l.y - 24, 2, l.x, l.y - 24, 92);
-    g.addColorStop(0, 'rgba(255,200,61,.20)'); g.addColorStop(1, 'rgba(255,200,61,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(l.x, l.y - 24, 92, 0, 6.3); ctx.fill();
-  }
+  function lampGlow() {}
   function lampPost(l) {
-    ctx.fillStyle = '#3b3468'; ctx.fillRect(l.x - 2, l.y - 30, 4, 30);
-    ctx.fillStyle = C.gold; ctx.beginPath(); ctx.arc(l.x, l.y - 34, 5, 0, 6.3); ctx.fill();
+    ctx.fillStyle = 'rgba(60,80,40,.2)'; ctx.beginPath(); ctx.ellipse(l.x, l.y + 1, 7, 3, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#7a6a4a'; ctx.fillRect(l.x - 2.5, l.y - 34, 5, 34);
+    ctx.fillStyle = '#5c4f38'; ctx.fillRect(l.x - 7, l.y - 42, 14, 9);
+    ctx.fillStyle = C.gold; ctx.beginPath(); ctx.arc(l.x, l.y - 37, 4, 0, 6.3); ctx.fill();
   }
   function shadow(p, rx) {
     ctx.fillStyle = 'rgba(0,0,0,.32)';
@@ -400,14 +472,16 @@ const Town = (() => {
     Aura.paint(ctx, px, py + bob, au, at, 'back');
     ctx.save(); ctx.translate(px, py + bob);
     if (dir < 0) ctx.scale(-1, 1);
-    if (pimg && pimg.ready) ctx.drawImage(pimg.img, -17, -44, 34, 46);
+    const fr = frames && frames[moving && Math.sin(walkT) > 0 ? 1 : 0];
+    const img = fr && fr.ready ? fr : pimg;
+    if (img && img.ready) ctx.drawImage(img.img, -17, -44, 34, 46);
     else { ctx.font = '30px serif'; ctx.textAlign = 'center'; ctx.fillText(UI.charEmoji(), 0, 0); }
     ctx.restore();
     Aura.paint(ctx, px, py + bob, au, at, 'front');
   }
   function vignette(w, h) {
     const g = ctx.createRadialGradient(w / 2, h / 2, h * .34, w / 2, h / 2, w * .78);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.42)');
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(40,60,30,.18)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
   }
   function northHint(w) {
