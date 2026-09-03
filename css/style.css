@@ -675,6 +675,44 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .lobby-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; justify-content: center; }
 .footer-note { text-align: center; color: rgba(255,255,255,.4); font-size: 12px; margin-top: 16px; }
 
+/* ---------- 💥 타격감 ---------- */
+/* 히트스톱: 그 순간의 자세를 붙잡는다. 0.06초면 충분하고, 길면 답답해진다. */
+.fx-freeze, .fx-freeze * { animation-play-state: paused !important; }
+/* 화면 펀치 */
+.battle-arena { transform-origin: 50% 60%; }
+.fx-punch { animation: fxPunch .16s ease-out; }
+.fx-punch-hard { animation: fxPunchHard .22s ease-out; }
+@keyframes fxPunch { 0% { transform: scale(1.035); } 100% { transform: none; } }
+@keyframes fxPunchHard { 0% { transform: scale(1.07) rotate(-.7deg); } 60% { transform: scale(.99); } 100% { transform: none; } }
+/* 넉백 */
+.fx-knock { animation: fxKnock .34s cubic-bezier(.2, 1.5, .4, 1); }
+@keyframes fxKnock {
+  0% { transform: translate(0, 0); }
+  18% { transform: translate(var(--kx, 8px), var(--ky, -8px)); }
+  100% { transform: translate(0, 0); }
+}
+/* 파편 */
+.fx-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 3; }
+.fx-burst i {
+  position: absolute; left: 0; top: 0; border-radius: 50%; display: block;
+  animation: fxChip .5s ease-out forwards;
+}
+@keyframes fxChip {
+  0% { opacity: 1; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.3); }
+}
+#battle-monster, #battle-player { position: relative; }
+/* 내가 맞으면 화면 가장자리가 붉게 */
+.fx-hurt::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 40;
+  background: radial-gradient(circle, rgba(255,59,82,0) 45%, rgba(255,59,82,.42) 100%);
+  animation: fxHurt .42s ease-out forwards;
+}
+@keyframes fxHurt { 0% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .fx-punch, .fx-punch-hard, .fx-knock, .fx-burst, .fx-hurt::after { animation: none; }
+}
+
 /* ---------- 🏘️ 마을 ---------- */
 #screen-town { padding-bottom: 6px; }
 .tw-hud {

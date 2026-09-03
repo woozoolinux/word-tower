@@ -115,12 +115,20 @@ const Battle = (() => {
     combo = 0; charge = 0; Sfx.bad();
     const art = $('mon-art');
     if (art) { art.classList.remove('lunge', 'hurt'); void art.offsetWidth; art.classList.add('lunge'); }
-    if (shieldReady()) { useShield(); UI.toast('🛡️ 실드가 막았다!', 'good'); }
-    else {
-      state.player.hp -= mon.atk;
-      UI.shake($('battle-player')); UI.floatText($('battle-player'), `-${mon.atk}`, 'dmg-p');
-    }
+    const blocked = shieldReady();
+    if (blocked) { useShield(); UI.toast('🛡️ 실드가 막았다!', 'good'); }
+    else state.player.hp -= mon.atk;
     renderBars(); renderItems(); saveState();
+    if (!blocked) {
+      // renderBars 가 #battle-player 를 다시 그리므로 효과는 그 뒤에 건다
+      UI.shake($('battle-player')); UI.floatText($('battle-player'), `-${mon.atk}`, 'dmg-p');
+      HitFx.impact({
+        who: 'me', power: 1.2, target: $('battle-player'), host: $('battle-player'),
+        dx: -9, dy: 4, colors: ['#ff8090', '#ffd0d6', '#d9455a'],
+      });
+      const st = document.querySelector('#screen-battle');
+      if (st) HitFx.replay(st, 'fx-hurt');
+    }
     if (state.player.hp <= 0) { setTimeout(() => o.onLose(missed), 700); return; }
     setTimeout(next, 1600);
   }
@@ -158,10 +166,16 @@ const Battle = (() => {
     UI.floatText($('battle-monster'), label ? `${dmg} ${label}` : `${dmg}`, 'dmg-m' + (crit ? ' crit' : ''));
     const art = $('mon-art');
     if (art) {
-      art.classList.remove('hurt', 'lunge'); void art.offsetWidth; art.classList.add('hurt');
+      HitFx.replay(art, 'hurt');
       const sl = $('mon-slash');
-      if (sl) { sl.classList.remove('go'); void sl.offsetWidth; sl.classList.add('go'); }
+      if (sl) HitFx.replay(sl, 'go');
     }
+    // 히트스톱 + 넉백 + 파편. 아래(주인공)에서 올려치니 몬스터는 위로 밀린다.
+    HitFx.impact({
+      who: 'mon', power: crit ? 1.6 : 1, target: art, host: $('battle-monster'),
+      dx: 7, dy: -9, spread: crit ? 0 : 2.6,
+      colors: crit ? ['#fff', '#ffe08a', '#ffc83d'] : ['#ffe08a', '#fff6e0', '#ffc83d'],
+    });
     if (crit) UI.flash();
     renderBars(); saveState();
   }
@@ -169,6 +183,8 @@ const Battle = (() => {
     if (mon.hp <= 0) {
       clearTimer(); Sfx.win();
       const art = $('mon-art'); if (art) art.classList.add('die');
+      HitFx.impact({ who: 'mon', power: 2, target: null, host: $('battle-monster'),
+        colors: ['#fff6e0', '#ffc83d', '#ff8090'] });
       setTimeout(() => o.onWin(missed), 950);
     }
     else setTimeout(next, 800);
@@ -188,7 +204,16 @@ const Battle = (() => {
       if (ok) {
         recordResult(o.towerId, word, true, false);
         UI.flash(); Sfx.crit(); heroAttack('attack-ult');
-        setTimeout(() => { hit(ultDamage(), '💥 필살기!', true); renderItems(); check(); }, 260);
+        setTimeout(() => {
+          hit(ultDamage(), '💥 필살기!', true);
+          // 평타보다 확실히 크게: 오래 멈추고, 크게 밀고, 많이 터진다
+          HitFx.impact({
+            who: 'mon', power: 2.4, target: $('mon-art'), host: $('battle-monster'),
+            dx: 9, dy: -13, colors: ['#fff', '#ffe08a', '#ffc83d', '#3ee0c4'],
+          });
+          UI.confetti({ count: 40, life: 1.2, colors: ['#ffc83d', '#fff6e0', '#3ee0c4'] });
+          renderItems(); check();
+        }, 260);
       } else {
         Sfx.bad();
         UI.toast(`아쉬워! 정답은 "${word.w}"`, 'bad');
