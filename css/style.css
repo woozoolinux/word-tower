@@ -1060,10 +1060,10 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 }
 .runner-overlay.show { opacity: 1; }
 /* 위는 위에, 아래는 아래에. 좌우로 놓으면 방향과 손이 어긋난다.
-   오른쪽에 몰아 한 손으로 엄지만 움직여 조작하게 한다. */
+   가운데에 둬서 왼손잡이든 오른손잡이든 똑같이 닿게 한다. */
 .runner-controls {
-  display: flex; flex-direction: column; gap: 10px; margin-top: 12px;
-  margin-left: auto; width: min(58%, 220px);
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 12px auto 0; width: min(58%, 220px);
 }
 .runner-controls .dpad-btn.big { padding: 18px 14px; font-size: 21px; }
 @media (max-width: 380px) { .runner-controls { width: 66%; } }
