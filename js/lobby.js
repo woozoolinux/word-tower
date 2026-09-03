@@ -501,17 +501,38 @@ const Lobby = (() => {
         ${row('화면 덮개', overlays.length ? bad(esc(overlays.join(', '))) : '없음')}
         ${row('에러', errs.length ? bad(esc(errs.join(' | '))) : '없음')}
         ${row('진행', 'Lv.' + state.player.lv + ' · 🃏 ' + Cards.count() + '장 · 💰 ' + state.player.gold)}
+        ${row('잠긴 탑', (() => {
+          const L = (window.TOWERS || []).filter(t => towerLock(t));
+          const all = (window.TOWERS || []).length;
+          return `${L.length} / ${all}개${L.length ? ' · ' + L.map(t => esc(t.name)).join(', ') : ''}`;
+        })())}
+        ${row('잠금 끄기', state.settings.noLock ? bad('켜져 있음 — 전부 열림') : '꺼짐')}
+        ${row('강행한 탑', (() => {
+          const f = Object.keys(state.player.forced || {});
+          return f.length ? bad(f.join(', ')) : '없음';
+        })())}
+        ${row('격파한 왕', (() => {
+          const k = Object.keys(state.player.kings || {});
+          return k.length ? k.map(id => (levelOf(id) || {}).name || id).join(', ') + ' (다음 등급이 열립니다)' : '없음';
+        })())}
         ${row('화면', innerWidth + '×' + innerHeight + ' @' + (devicePixelRatio || 1))}
         ${row('브라우저', esc(navigator.userAgent.slice(0, 95)))}
       </div>
       <div class="actions">
         <button class="btn" data-close="fix">🧹 덮개 치우기</button>
+        <button class="btn ghost" data-close="lock">🔒 잠금 되돌리기</button>
         <button class="btn ghost" data-close="x">닫기</button>
       </div>`,
       { onClose: v => {
-        if (v !== 'fix') return;
-        document.querySelectorAll('.modal-wrap, .fx-scene').forEach(e => e.remove());
-        UI.toast('화면을 덮고 있던 것을 치웠어요', 'good');
+        if (v === 'fix') {
+          document.querySelectorAll('.modal-wrap, .fx-scene').forEach(e => e.remove());
+          UI.toast('화면을 덮고 있던 것을 치웠어요', 'good');
+        }
+        if (v === 'lock') {
+          // 강행 기록과 전체 잠금 끄기를 되돌린다. 왕 격파는 실력이라 건드리지 않는다.
+          state.player.forced = {}; state.settings.noLock = false; saveState();
+          render(); UI.toast('강행 기록을 지우고 잠금을 다시 켰어요', 'good');
+        }
       } });
   }
 
