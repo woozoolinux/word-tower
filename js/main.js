@@ -82,7 +82,7 @@ const Game = {
     const r = this.run, base = BOSSES[r.plan.bossIdx % BOSSES.length];
     UI.toast(`👑 ${r.floor}층 보스 등장!`, 'bad');
     Battle.start({
-      monster: this.monsterFor(r.floor, true, base, r.tower), words: r.words, pool: r.pool, towerId: r.towerId, floor: r.floor, boss: true,
+      monster: this.monsterFor(r.floor, true, base, r.tower), words: r.words, pool: r.pool, towerId: r.towerId, floor: r.floor, tower: r.tower, boss: true,
       onWin: () => this.floorClear(), onLose: () => this.playerDown(),
     });
   },
@@ -285,7 +285,7 @@ const Game = {
   // 아이가 "지금 뭘 거는지" 알고 스스로 도전을 누르게 만드는 화면.
   kingIntro(k) {
     const L = k.level, tower = k.towers[k.towers.length - 1];
-    const kAtk = Math.round(monsterAtk(BAL.king.floor, true, tower) * BAL.king.atkMul);
+    const kAtk = Math.round(monsterAtk(BAL.king.floor, true, tower, true) * BAL.king.atkMul);
     const mistakes = Math.max(1, Math.floor(playerMaxHp() / kAtk));
     UI.modal(`
       <div class="king-hero">${Art.king(L.animal)}</div>
@@ -317,8 +317,8 @@ const Game = {
     Battle.start({
       monster: {
         id: k.level.animal, name: `${k.level.name} 왕`, emoji: k.level.emoji, king: true,
-        hp: Math.round(monsterHp(f, true, tower) * BAL.king.hpMul),
-        atk: Math.round(monsterAtk(f, true, tower) * BAL.king.atkMul),
+        hp: Math.round(monsterHp(f, true, tower, true) * BAL.king.hpMul),
+        atk: Math.round(monsterAtk(f, true, tower, true) * BAL.king.atkMul),
       },
       words: k.words, pool: k.words, towerId: tower.id, floor: f, boss: true, king: true,
       onWin: missed => { this.kingCtx = null; this.kingWin(k.level.id, missed); },
@@ -374,8 +374,9 @@ const Game = {
     const r = this.run;
     if (!r) { this.toLobby(); return; } // 관문에 막혀 층이 시작되지 않은 경우
     const boss = r.plan.type === 'boss';
-    const gold = Math.round(byFloor(boss ? BAL.gold.bossClear : BAL.gold.floorClear, r.floor) * r.tier * r.mul);
-    const exp = Math.round(byFloor(boss ? BAL.exp.bossClear : BAL.exp.floorClear, r.floor) * r.tier);
+    const nf = normFloor(r.floor, r.tower);
+    const gold = Math.round(byFloor(boss ? BAL.gold.bossClear : BAL.gold.floorClear, nf) * r.tier * r.mul);
+    const exp = Math.round(byFloor(boss ? BAL.exp.bossClear : BAL.exp.floorClear, nf) * r.tier);
     addGold(gold); this.gainExpQuiet(exp);
     const prog = towerProg(r.towerId);
     if (r.floor >= prog.floor) prog.floor = r.floor + 1;

@@ -15,7 +15,7 @@ const Runner = (() => {
     while (missions.length < BAL.runner.missions) missions = missions.concat(ws);
     missions = missions.slice(0, BAL.runner.missions);
     mi = 0; tiles = []; coins = []; particles = []; missed = 0; msgs = []; pimg = Avatar.image();
-    speed = byFloor(BAL.runner.speed, run.floor);
+    speed = byFloor(BAL.runner.speed, normFloor(run.floor, run.tower));
     dashLeft = hasSkill('dash') ? 1 : 0;
     active = false; waveActive = false; groundOff = 0; bgOff = 0; initBg();
     hud(); draw();
@@ -114,7 +114,7 @@ const Runner = (() => {
   function collect(t) {
     t.collected = true; Sfx.ok(); burst(PX, laneY(lane), '#3ee0c4');
     recordResult(run.towerId, missions[mi], true, false);
-    Game.gainExpQuiet(Math.round(byFloor(BAL.exp.runnerMission, run.floor))); Game.gainGold(BAL.gold.runnerMission);
+    Game.gainExpQuiet(Math.round(byFloor(BAL.exp.runnerMission, normFloor(run.floor, run.tower)))); Game.gainGold(BAL.gold.runnerMission);
     tiles.forEach(x => x.hit = true);
     mi++;
     if (mi >= missions.length) { finish(); return; }

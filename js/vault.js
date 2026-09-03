@@ -78,7 +78,7 @@ const Vault = (() => {
       card.used = true; lock.open = true; sel = null;
       Sfx.door();
       recordResult(run.towerId, lock.word, true, false);
-      Game.gainExpQuiet(Math.round(byFloor(BAL.exp.vaultLock, run.floor)));
+      Game.gainExpQuiet(Math.round(byFloor(BAL.exp.vaultLock, normFloor(run.floor, run.tower))));
       Game.gainGold(BAL.gold.vaultLock);
       UI.toast(`🔓 열렸다! "${lock.word.m}"`, 'good');
       render(); saveState();
@@ -107,7 +107,7 @@ const Vault = (() => {
     UI.toast('👀 금고지기가 깨어났다!', 'bad');
     Battle.start({
       monster: Game.monsterFor(run.floor, false, null, run.tower),
-      words: run.words, pool: run.pool, towerId: run.towerId, floor: run.floor,
+      words: run.words, pool: run.pool, towerId: run.towerId, floor: run.floor, tower: run.tower,
       onWin: () => { busy = false; UI.show('vault'); render(); UI.toast('금고지기를 물리쳤다!', 'good'); },
       onLose: () => Game.playerDown(),
     });

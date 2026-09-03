@@ -141,7 +141,7 @@ const Battle = (() => {
       heroAttack(crit ? 'attack-crit' : 'attack');
       renderItems();
       if (crit) Sfx.crit(); else Sfx.ok();
-      Game.gainExpQuiet(Math.round(byFloor(BAL.exp.battleCorrect, o.floor || 1))); Game.gainGold(BAL.gold.battleCorrect);
+      Game.gainExpQuiet(Math.round(byFloor(BAL.exp.battleCorrect, normFloor(o.floor || 1, o.tower)))); Game.gainGold(BAL.gold.battleCorrect);
       setTimeout(() => {                       // 캐릭터가 닿는 순간에 데미지
         hit(Math.round(playerAtk() * (crit ? B.critMul : 1)), crit ? 'CRITICAL!' : '', crit);
         if (hasSkill('double') && combo >= 2 && combo % 2 === 0 && mon.hp > 0) {

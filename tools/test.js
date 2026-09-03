@@ -48,7 +48,7 @@ fs.readdirSync(path.join(ROOT, 'data')).filter(f => f.endsWith('.js')).sort()
 load('js/state.js', `\n;globalThis.S = {
   loadState, saveState, resetState, importCode, exportCode, backupInfo, restoreBackup,
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
-  refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire, clearPct, BAL,
+  refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire, clearPct, BAL, normFloor,
   kingCooldown, startKingCooldown, mmss, kingBeaten, raiseToLv, levelTowers, LEVELS, towerLock, prevKingLevel,
   forceOpen, isForced, levelCode, levelTag, touchTower, lastTower, ZONES,
   get state() { return state; }, set state(v) { state = v; },
@@ -94,12 +94,15 @@ S.state.player.lv = 8;
 S.state.player.weapon = 'flame';   // +75%
 eq('Lv8 + 불꽃검 공격력', S.playerAtk(), 60);
 
-eq('바벨 5층 몬스터를 3방에', hits(S.playerAtk(), S.monsterHp(5, false, main)), 3);
-eq('DSD1 5층 몬스터를 4방에', hits(S.playerAtk(), S.monsterHp(5, false, dsd1)), 4);
-eq('DSD1 5층 보스를 11방에', hits(S.playerAtk(), S.monsterHp(5, true, dsd1)), 11);
+// 난이도는 층 번호가 아니라 "탑을 얼마나 올라왔나"로 정해진다(normFloor).
+// 그래서 기준점도 절대 층수가 아니라 절반 지점으로 잡는다.
+const midOf = t => Math.round(W.floorList(t).length / 2);
+eq('바벨 중간 지점 몬스터를 3방에', hits(S.playerAtk(), S.monsterHp(midOf(main), false, main)), 3);
+eq('DSD1 중간 지점 몬스터를 4방에', hits(S.playerAtk(), S.monsterHp(midOf(dsd1), false, dsd1)), 4);
+eq('DSD1 중간 지점 보스를 11방에', hits(S.playerAtk(), S.monsterHp(midOf(dsd1), true, dsd1)), 11);
 
 S.state.player.lv = 50;
-eq('Lv50이 바벨 5층 몬스터를 1방에 (의도된 통쾌함)', hits(S.playerAtk(), S.monsterHp(5, false, main)), 1);
+eq('Lv50이 바벨 중간 몬스터를 1방에 (의도된 통쾌함)', hits(S.playerAtk(), S.monsterHp(midOf(main), false, main)), 1);
 
 S.state.player.lv = 8;
 ok('티어가 높은 타워가 더 아프다',
@@ -136,16 +139,22 @@ ok('레벨이 오르면 다음 레벨까지 필요한 경험치가 늘어난다'
 section('층 구성');
 // ===================================================================
 const floors = W.floorList(main);
-eq('바벨 6단원 → 15층 (단원당 2층 + 2단원마다 보스)', floors.length, 15);
-eq('5층은 보스 (2단원 = 일반 4층 뒤)', floors[4].type, 'boss');
+const boss1 = floors.findIndex(f => f.type === 'boss') + 1;   // 1-based
+eq('바벨 6단원 → 27층 (단원당 4층 + 2단원마다 보스)', floors.length, 27);
+eq('첫 보스는 2단원을 마친 9층', boss1, 9);
 ok('마지막 층은 반드시 보스', floors[floors.length - 1].type === 'boss');
 ok('보스 층은 그때까지의 단원을 전부 출제',
-  W.floorWords(main, 5).every(w => w.unit <= floors[4].upTo) && W.floorWords(main, 5).length > W.floorWords(main, 1).length);
+  W.floorWords(main, boss1).every(w => w.unit <= floors[boss1 - 1].upTo)
+  && W.floorWords(main, boss1).length > W.floorWords(main, 1).length);
 
+// 한 층이 맡는 단어가 적어야 반복이 생긴다 — 예전엔 12개였고 단어당 1.1회밖에 못 만났다
+const perFloor = W.floorWords(main, 1).length;
+ok('일반 층 하나가 맡는 단어가 8개 이하', perFloor <= 8, perFloor + '개');
 const u1 = W.allWords(main).filter(w => w.unit === 1);
-const h0 = W.floorWords(main, 1), h1 = W.floorWords(main, 2);
-ok('일반 층 두 개가 단원을 빠짐없이 나눠 갖는다',
-  h0.length + h1.length === u1.length && new Set([...h0, ...h1].map(w => w.w)).size === u1.length);
+const parts = [1, 2, 3, 4].map(n => W.floorWords(main, n));
+ok('일반 층 네 개가 단원을 빠짐없이 나눠 갖는다',
+  parts.reduce((a, p) => a + p.length, 0) === u1.length
+  && new Set([].concat(...parts).map(w => w.w)).size === u1.length);
 
 let emptyFloor = null;
 sandbox.window.TOWERS.forEach(t =>
@@ -291,7 +300,9 @@ section('성장 곡선 — 게임 전체가 말이 되는가');
     const r = S.towerRange(t), F = W.floorList(t).length;
     S.state.player.lv = r[1]; S.state.player.weapon = 'dragon';
     const ult = S.playerAtk() * ultMul;
-    if (ult >= S.monsterHp(F, true, t)) oneShot = t.name;
+    // 기초 탑(티어 1.0)은 예외다. 만렙 아이가 첫 탑 보스를 한 방에 지우는 건
+    // 막을 일이 아니라 의도된 통쾌함이다. 진도 탑에서만 막는다.
+    if (S.towerTier(t) > 1 && ult >= S.monsterHp(F, true, t)) oneShot = t.name;
     if (ult < S.monsterHp(F, false, t)) tooWeak = t.name;   // 일반 몬스터는 한 방이어야 통쾌하다
   });
   ok('카드를 다 모아도 필살기가 보스를 한 방에 지우지 못한다', !oneShot, oneShot);
@@ -303,7 +314,7 @@ section('성장 곡선 — 게임 전체가 말이 되는가');
   const bf = sandbox.byFloorX;
   let totalExp = 0;
   towers.forEach(t => W.floorList(t).forEach((pl, i) => {
-    const f = i + 1, tier = S.towerTier(t);
+    const f = S.normFloor(i + 1, t), tier = S.towerTier(t);
     totalExp += pl.type === 'boss'
       ? Math.round(bf(BAL.exp.bossClear, f) * tier) + Math.round(bf(BAL.exp.battleCorrect, f)) * 14
       : Math.round(bf(BAL.exp.battleCorrect, f)) * 10 + Math.round(bf(BAL.exp.mazeDoor, f))
@@ -365,7 +376,7 @@ ok('모든 조합이 실제로 나온다',
 
 // 보스 층은 스테이지 없이 곧장 배틀
 S.loadState();
-G.startFloor('main', 5);
+G.startFloor('main', boss1);
 eq('보스 층은 스테이지를 뽑지 않는다', G.run.stages.length, 0);
 
 // 파이프라인이 등록된 스테이지를 순서대로 전부 지나 층 클리어까지 가는가.
@@ -420,7 +431,7 @@ section('투기장');
   ok('투기장 판에 제한시간이 실려 있다', b && b.timeLimit === t(0), b && String(b.timeLimit));
   ok('투기장 판에 포기 콜백이 있다', b && typeof b.onRetire === 'function');
   ok('일반 층 배틀에는 포기가 없다 (도중에 나가면 안 되니까)',
-    (() => { sandbox.lastBattle = null; G.startFloor('main', 5); return !sandbox.lastBattle.onRetire; })());
+    (() => { sandbox.lastBattle = null; G.startFloor('main', W.floorList(W.towerById ? W.towerById('main') : main).findIndex(f => f.type === 'boss') + 1); return !sandbox.lastBattle.onRetire; })());
 
   // 포기해도 기록이 남아야 한다
   S.loadState(); S.state.player.arenaBest = 0;
@@ -650,6 +661,50 @@ ok('탑이 지워져도 이어서 하기가 깨지지 않는다', (() => {
   const t = S.lastTower();
   return !t || !!sandbox.window.TOWERS.find(x => x.id === t.id);
 })());
+
+// ===================================================================
+section('난이도 정규화와 층 구조 이전');
+// 난이도는 층 번호가 아니라 "그 탑을 얼마나 올라왔나"로 정한다.
+// 층수로 재면 단원 8개짜리 탑이 티어가 더 높은 4단원 탑보다 세지는 역전이 생긴다.
+// ===================================================================
+S.loadState(); S.state.player.lv = 20; S.state.player.weapon = 'silver';
+const byTier = sandbox.window.TOWERS.slice().sort((a, b) => S.towerTier(a) - S.towerTier(b));
+let inversion = null;
+for (let i = 1; i < byTier.length; i++) {
+  const a = byTier[i - 1], b = byTier[i];
+  const ha = S.monsterHp(W.floorList(a).length, true, a), hb = S.monsterHp(W.floorList(b).length, true, b);
+  if (hb < ha) inversion = `${b.name}(티어 ${S.towerTier(b)}) < ${a.name}(티어 ${S.towerTier(a)})`;
+}
+ok('티어가 높은 탑의 마지막 보스가 항상 더 세다', !inversion, inversion);
+eq('맨 위 층은 어느 탑이든 같은 지점', Math.round(S.normFloor(W.floorList(dsd1).length, dsd1)), BAL.monster.refFloors);
+ok('단원이 두 배인 탑도 같은 곡선을 탄다', (() => {
+  const long = sandbox.window.TOWERS.find(t => t.units.length === 8);
+  if (!long) return true;
+  return Math.round(S.normFloor(W.floorList(long).length, long)) === BAL.monster.refFloors;
+})());
+// 왕은 이미 환산된 층을 쓴다 — 정규화를 또 먹으면 약해진다
+ok('왕은 층수 정규화를 두 번 먹지 않는다',
+  S.monsterHp(BAL.king.floor, true, dsd1, true) > S.monsterHp(BAL.king.floor, true, dsd1));
+
+// 옛 세이브(2등분 시절)의 층 진행이 새 번호로 옮겨진다
+Object.keys(store).forEach(k => delete store[k]);
+store['wordtower_save_v1'] = JSON.stringify({
+  version: 1, player: { name: '우주', lv: 9, cards: {} },
+  towers: { main: { floor: 6, cleared: 5, words: {} } }, settings: {},
+});
+S.loadState();
+eq('옛 세이브가 새 버전으로 올라간다', S.state.version, S.SAVE_VERSION);
+const mainFloors = W.floorList(main);
+const firstBoss = mainFloors.findIndex(f => f.type === 'boss') + 1;
+eq('옛 5층(첫 보스)까지 깬 기록이 새 첫 보스 층으로 옮겨진다', S.state.towers.main.cleared, firstBoss);
+eq('다음에 갈 층도 같이 옮겨진다', S.state.towers.main.floor, firstBoss + 1);
+ok('진행을 잃지 않는다 (깬 층이 줄지 않는다)', S.state.towers.main.cleared >= 5);
+eq('아무 데도 안 간 탑은 그대로 0', (() => {
+  Object.keys(store).forEach(k => delete store[k]);
+  store['wordtower_save_v1'] = JSON.stringify({ version: 1, player: { name: 'a', lv: 1, cards: {} },
+    towers: { main: { floor: 1, cleared: 0, words: {} } }, settings: {} });
+  S.loadState(); return S.state.towers.main.cleared;
+})(), 0);
 
 // ===================================================================
 section('지하 던전');

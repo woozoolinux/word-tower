@@ -38,6 +38,10 @@ const BAL = {
   // 그래서 바벨에서 키운 캐릭이 새 타워 1층에서 한 방에 죽는 일이 없다.
   //   기준레벨 = lvRange[0] + (clamp(내Lv, lvRange) − lvRange[0]) × growth
   monster: {
+    // 난이도는 "몇 층이냐"가 아니라 "그 탑을 얼마나 올라왔냐"로 정한다.
+    // 층수로 세기면 단원 8개짜리 탑(20층)이 티어가 더 높은 4단원 탑(10층)보다
+    // 세지는, 티어를 뒤집는 일이 생긴다. 모든 탑을 이 기준 층수로 환산한다.
+    refFloors: 10,
     growth: 0.7,                   // 내 성장의 70%만 따라온다 → 같은 타워에서 레벨업이 체감됨
     defaultRange: [1, 12],         // 타워에 lvRange가 없을 때
     defaultTier: 1,                // 타워에 tier가 없을 때
@@ -123,11 +127,11 @@ const BAL = {
   // ---------- 골드 ----------
   // 층 클리어·보스·상자는 타워 티어를 곱한다. 한 층 대략 130G.
   gold: {
-    battleCorrect: 1, mazeDoor: 2, runnerMission: 3, coin: 3, arenaKill: 3,
-    vaultLock: 3,         // 자물쇠 하나 열 때마다
-    vaultClear: 25,       // 전부 열면 보너스 (× 티어)
-    chest:      { base: 15, perFloor: 3 },
-    floorClear: { base: 20, perFloor: 3 },
+    battleCorrect: 1, mazeDoor: 1, runnerMission: 2, coin: 2, arenaKill: 3,
+    vaultLock: 2,         // 자물쇠 하나 열 때마다
+    vaultClear: 14,       // 전부 열면 보너스 (× 티어)
+    chest:      { base: 9,  perFloor: 1.7 },
+    floorClear: { base: 11, perFloor: 1.7 },
     bossClear:  { base: 60, perFloor: 8 },
     petDupBonus: 80,      // 이미 가진 펫이 또 드랍될 때
     unitComplete: 150,    // 단원의 카드를 전부 모았을 때 (× 타워 티어). 오라는 따로 마일스톤
@@ -135,13 +139,15 @@ const BAL = {
   },
 
   // ---------- 경험치 ----------
+  // 층이 단원의 1/4이 되면서 층수가 거의 두 배가 됐다. 내용(단어)은 그대로이므로
+  // 층당 보상을 그대로 두면 총량만 두 배가 된다 — 한 층의 일이 절반이니 보상도 절반.
   exp: {
-    battleCorrect:  { base: 2,  perFloor: 0.6 },
-    mazeDoor:       { base: 3,  perFloor: 0.6 },
-    runnerMission:  { base: 2,  perFloor: 0.6 },
-    vaultLock:      { base: 3,  perFloor: 0.6 },
-    floorClear:     { base: 20, perFloor: 3 },
-    bossClear:      { base: 50, perFloor: 6 },
+    battleCorrect:  { base: 1.2, perFloor: 0.34 },
+    mazeDoor:       { base: 1.7, perFloor: 0.34 },
+    runnerMission:  { base: 1.2, perFloor: 0.34 },
+    vaultLock:      { base: 1.7, perFloor: 0.34 },
+    floorClear:     { base: 11,  perFloor: 1.7 },
+    bossClear:      { base: 50,  perFloor: 6 },   // 보스 수는 그대로라 안 건드린다
   },
 
   // ---------- 단어 카드 ----------

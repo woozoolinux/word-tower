@@ -7,12 +7,35 @@ const BACKUP_KEY = 'wordtower_backup';  // 되돌릴 수 없는 조작 직전의
 
 // 세이브 "구조" 버전. 필드의 뜻이 바뀔 때만 +1 하고 MIGRATIONS에 함수를 추가한다.
 // 필드를 더하기만 하는 변경은 fillShape()가 알아서 채우므로 올릴 필요 없다.
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 
 // key n = "버전 n-1 세이브를 n으로 올리는 함수". 낮은 것부터 순서대로 전부 적용된다.
 // 예) cards 값을 숫자 pt에서 객체로 바꾼다면 SAVE_VERSION을 2로 올리고:
 //   2: s => Object.keys(s.player.cards).forEach(k => { s.player.cards[k] = { pt: s.player.cards[k] }; }),
-const MIGRATIONS = {};
+const MIGRATIONS = {
+  // v2: 단원을 2등분에서 4등분으로 바꿨다. 층 번호의 뜻이 달라졌으므로
+  // 아이가 올라둔 층수를 새 번호로 옮긴다. 안 하면 다 깬 탑이 절반만 깬 걸로 보인다.
+  2: s => {
+    if (!window.TOWERS || typeof floorList !== 'function') return;
+    window.TOWERS.forEach(t => {
+      const p = s.towers && s.towers[t.id];
+      if (!p) return;
+      const oldList = floorListLegacy(t), newList = floorList(t);
+      const map = oldIdx => {                       // 1-based → 1-based
+        const f = oldList[oldIdx - 1];
+        if (!f) return 0;
+        const i = f.type === 'boss'
+          ? newList.findIndex(x => x.type === 'boss' && x.upTo === f.upTo)
+          // 옛 앞칸(half 0)은 새 2번째 조각까지, 뒷칸(half 1)은 마지막 조각까지 덮는다
+          : newList.findIndex(x => x.type === 'normal' && x.unit === f.unit && x.part === (f.half === 0 ? 1 : 3));
+        return i < 0 ? 0 : i + 1;
+      };
+      const cleared = Math.max(0, Math.min(oldList.length, p.cleared | 0));
+      p.cleared = cleared ? map(cleared) : 0;
+      p.floor = Math.min(newList.length, Math.max(1, p.cleared + 1));
+    });
+  },
+};
 
 // 무기는 더하기가 아니라 곱하기(%). 레벨 성장을 건너뛰지 못하게.
 const WEAPONS = {
@@ -178,7 +201,7 @@ const BOSSES = [
 
 function defaultState() {
   return {
-    version: 1,
+    version: SAVE_VERSION,
     player: {
       name: '용사', lv: 1, exp: 0, gold: 0, hp: 100,
       weapon: 'stick', hat: 'none', pet: null,
@@ -337,15 +360,22 @@ function refLv(tower) {
   const clamped = Math.max(r[0], Math.min(r[1], state.player.lv));
   return r[0] + (clamped - r[0]) * BAL.monster.growth;
 }
-function monsterHp(floor, boss, tower) {
+// 탑마다 층수가 달라도 난이도 곡선은 같아야 한다 — 층 번호를 기준 층수로 환산한다.
+// raw = true 면 이미 환산된 값(예: 왕의 층)이라 그대로 쓴다.
+function normFloor(floor, tower, raw) {
+  if (raw || !tower || typeof floorList !== 'function') return floor;
+  const n = floorList(tower).length;
+  return n ? floor / n * BAL.monster.refFloors : floor;
+}
+function monsterHp(floor, boss, tower, raw) {
   const rb = baseAtk(refLv(tower)), t = towerTier(tower);
-  return Math.round(rb * byFloor(boss ? BAL.monster.bossHp : BAL.monster.hp, floor) * t);
+  return Math.round(rb * byFloor(boss ? BAL.monster.bossHp : BAL.monster.hp, normFloor(floor, tower, raw)) * t);
 }
 // 적의 피해량은 카드/장비 보너스를 뺀 "기본 HP" 기준.
 // (최대 HP에 비례시키면 HP를 올려주는 보상이 스스로 상쇄돼 버린다)
-function monsterAtk(floor, boss, tower) {
+function monsterAtk(floor, boss, tower, raw) {
   const m = BAL.monster;
-  return Math.max(m.minAtk, Math.round(hpAt(state.player.lv) * byFloor(m.atk, floor) * towerTier(tower) * (boss ? m.bossAtkMul : 1)));
+  return Math.max(m.minAtk, Math.round(hpAt(state.player.lv) * byFloor(m.atk, normFloor(floor, tower, raw)) * towerTier(tower) * (boss ? m.bossAtkMul : 1)));
 }
 function hazardDmg(ratio, tower) {
   return Math.max(BAL.hazard.min, Math.round(hpAt(state.player.lv) * ratio * towerTier(tower)));

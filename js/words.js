@@ -14,7 +14,21 @@ function allWords(tower) {
 }
 
 // 단원 1개 → 일반 층 2개, 단원 2개마다 보스 층 (마지막 단원 뒤엔 무조건 보스)
+// 단원 하나를 PARTS 개 층으로 쪼갠다.
+// 2등분이던 시절엔 한 층이 단어 12개를 맡았는데, 한 층의 실제 접촉은 13~15회라
+// 단어당 1.1회밖에 안 됐다. ★★★(카드)에는 힌트 없이 3번 정답이 필요하니
+// 카드 하나에 같은 층을 세 번 돌아야 했다 — 반복이 아니라 노동이다.
+const UNIT_PARTS = 4;
 function floorList(tower) {
+  const floors = []; let bossIdx = 0;
+  tower.units.forEach((u, i) => {
+    for (let p = 0; p < UNIT_PARTS; p++) floors.push({ type: 'normal', unit: u.unit, part: p, half: p < UNIT_PARTS / 2 ? 0 : 1 });
+    if (i % 2 === 1 || i === tower.units.length - 1) floors.push({ type: 'boss', upTo: u.unit, bossIdx: bossIdx++ });
+  });
+  return floors;
+}
+// 옛 세이브의 층 번호를 새 번호로 옮기기 위한, 2등분 시절의 층 목록
+function floorListLegacy(tower) {
   const floors = []; let bossIdx = 0;
   tower.units.forEach((u, i) => {
     floors.push({ type: 'normal', unit: u.unit, half: 0 });
@@ -29,8 +43,9 @@ function floorWords(tower, n) {
   if (f.type === 'boss') return all.filter(w => w.unit <= f.upTo);
   const uw = all.filter(w => w.unit === f.unit);
   if (uw.length <= 6) return uw;
-  const half = Math.ceil(uw.length / 2);
-  return f.half === 0 ? uw.slice(0, half) : uw.slice(half);
+  const per = Math.ceil(uw.length / UNIT_PARTS);
+  const p = f.part === undefined ? (f.half === 0 ? 0 : UNIT_PARTS / 2) : f.part;
+  return uw.slice(p * per, (p + 1) * per);
 }
 // 이 타워에서 틀렸던 단어(★<3)를 최대 2개 섞어 넣는다 — 복습
 function withReview(towerId, words, pool) {
