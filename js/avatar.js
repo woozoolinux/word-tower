@@ -101,7 +101,176 @@ const Aura = (() => {
   function svgFor(id) {
     return { back: BACK[id] || '', front: FRONT[id] || '' };
   }
-  return { svgFor };
+  // ---------- 캔버스용 오라 ----------
+  // 마을·던전에서는 캐릭터를 래스터 이미지로 그린다. 그러면 SVG 안의 CSS 애니메이션이
+  // 죽어서 오라가 안 보인다. 그래서 캔버스에는 여기서 직접 그린다.
+  // 좌표 원점은 캐릭터의 발밑, 몸은 위로 46 정도, 폭 34 기준.
+  const TAU = Math.PI * 2;
+  function glow(ctx, x, y, r, color, alpha) {
+    const g = ctx.createRadialGradient(x, y, 1, x, y, r);
+    g.addColorStop(0, color.replace('ALPHA', alpha)); g.addColorStop(1, color.replace('ALPHA', 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  }
+  function starPath(ctx, x, y, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + i * TAU / 5, b = a + Math.PI / 5;
+      ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+      ctx.lineTo(x + Math.cos(b) * r * .45, y + Math.sin(b) * r * .45);
+    }
+    ctx.closePath(); ctx.fill();
+  }
+  // 발밑에서 피어오르는 불. 가운데가 높고 바깥으로 갈수록 낮아야 "발밑의 불"로 보인다.
+  function flames(ctx, t, cols, spread, h) {
+    for (let i = 0; i < 9; i++) {
+      const f = i / 8 * 2 - 1;                          // -1 ~ 1
+      const ph = t * 4.2 + i * 1.1;
+      const x = f * spread + Math.sin(ph) * 1.6;
+      const hh = h * (1 - Math.abs(f) * .55) * (.7 + Math.abs(Math.sin(ph * .9)) * .5);
+      const w = 5.5 - Math.abs(f) * 2;
+      ctx.fillStyle = cols[i % cols.length];
+      ctx.beginPath();
+      ctx.moveTo(x - w, 2);
+      ctx.quadraticCurveTo(x - w * .9, -hh * .5, x, -hh);
+      ctx.quadraticCurveTo(x + w * .9, -hh * .5, x + w, 2);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  // 깃털이 갈라진 날개. 어깨에서 뻗어 나가 끝이 세 갈래로 나뉜다.
+  function wing(ctx, side, t, fill, edge) {
+    const flap = Math.sin(t * 3.2) * .2;
+    ctx.save(); ctx.translate(0, -30); ctx.scale(side, 1); ctx.rotate(-flap);
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(0, -4);
+    ctx.quadraticCurveTo(-20, -24, -40, -20);      // 앞선
+    ctx.quadraticCurveTo(-32, -8, -36, 0);         // 깃 1
+    ctx.quadraticCurveTo(-26, -3, -28, 8);         // 깃 2
+    ctx.quadraticCurveTo(-18, 1, -17, 13);         // 깃 3
+    ctx.quadraticCurveTo(-9, 3, 0, 6);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = edge;
+    ctx.beginPath();
+    ctx.moveTo(0, -2);
+    ctx.quadraticCurveTo(-13, -14, -25, -12);
+    ctx.quadraticCurveTo(-16, -3, -12, 6);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  const FX_BACK = {
+    aqua(ctx, t) {
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 3; i++) {
+        const k = ((t * .8 + i / 3) % 1);
+        ctx.strokeStyle = `rgba(62,224,196,${(1 - k) * .8})`;
+        ctx.beginPath(); ctx.ellipse(0, 0, 8 + k * 24, 3 + k * 9, 0, 0, TAU); ctx.stroke();
+      }
+      glow(ctx, 0, -6, 26, 'rgba(62,224,196,ALPHA)', .16);
+    },
+    flame(ctx, t) {
+      glow(ctx, 0, -14, 34, 'rgba(255,138,61,ALPHA)', .3);
+      flames(ctx, t, ['#ff8a3d', '#ffb03d', '#ffe08a'], 17, 24);
+    },
+    dragon(ctx, t) {
+      glow(ctx, 0, -18, 40, 'rgba(192,74,214,ALPHA)', .34);
+      flames(ctx, t, ['#7b3fd6', '#c04ad6', '#ff6bd6'], 19, 29);
+      for (let i = 0; i < 5; i++) {
+        const p = (t * .6 + i / 5) % 1, a = i * 2.1 + t * 1.4;
+        ctx.globalAlpha = 1 - p; ctx.fillStyle = '#ff9bec';
+        ctx.beginPath(); ctx.arc(Math.cos(a) * 22, -12 - p * 44, 2.2, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    },
+    fairy(ctx, t) { wing(ctx, -1, t, 'rgba(143,220,255,.7)', 'rgba(217,244,255,.65)'); wing(ctx, 1, t, 'rgba(143,220,255,.7)', 'rgba(217,244,255,.65)'); },
+    angel(ctx, t) {
+      glow(ctx, 0, -26, 42, 'rgba(255,255,255,ALPHA)', .2);
+      wing(ctx, -1, t, 'rgba(255,255,255,.95)', 'rgba(223,230,245,.9)');
+      wing(ctx, 1, t, 'rgba(255,255,255,.95)', 'rgba(223,230,245,.9)');
+    },
+    rainbow(ctx, t) {
+      const cols = ['#ff6b7a', '#ffc83d', '#3ee0c4', '#8f7bff'];
+      ctx.lineWidth = 5; ctx.lineCap = 'round';
+      cols.forEach((c, i) => {
+        ctx.strokeStyle = c; ctx.globalAlpha = .5 + Math.sin(t * 2 + i) * .18;
+        ctx.beginPath(); ctx.arc(0, -6, 34 - i * 6, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+    },
+    moon(ctx, t) {
+      glow(ctx, 0, -24, 52, 'rgba(203,191,255,ALPHA)', .3);
+      glow(ctx, 0, -24, 30, 'rgba(234,228,255,ALPHA)', .22);
+      for (let i = 0; i < 7; i++) {
+        const p = (t * .22 + i / 7) % 1, a = i * 1.9;
+        ctx.globalAlpha = Math.sin(p * Math.PI) * .8; ctx.fillStyle = '#eae4ff';
+        ctx.beginPath(); ctx.arc(Math.cos(a + t * .5) * 26, -8 - p * 46, 1.8, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    },
+    comet(ctx, t) {
+      ctx.lineCap = 'round';
+      [[13, '#ffc83d', .8, 0], [10, '#ffe08a', .7, 8], [8, '#ff9f3d', .6, 16]].forEach(([w, c, al, off], i) => {
+        const wob = Math.sin(t * 4 + i) * 3;
+        ctx.strokeStyle = c; ctx.globalAlpha = al; ctx.lineWidth = w;
+        ctx.beginPath(); ctx.moveTo(-6, -26 + off);
+        ctx.quadraticCurveTo(-26, -22 + off + wob, -44, -8 + off);
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+      for (let i = 0; i < 4; i++) {
+        const p = (t * 1.1 + i / 4) % 1;
+        ctx.globalAlpha = 1 - p; ctx.fillStyle = '#fff8e0';
+        ctx.beginPath(); ctx.arc(-10 - p * 40, -22 + Math.sin(i * 2 + t * 3) * 9, 2.4, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    },
+  };
+
+  const FX_FRONT = {
+    sparkle(ctx, t) {
+      for (let i = 0; i < 6; i++) {
+        const a = t * 1.1 + i * TAU / 6;
+        const x = Math.cos(a) * 24, y = -24 + Math.sin(a) * 20;
+        const tw = .45 + Math.abs(Math.sin(t * 3 + i * 1.3)) * .55;
+        ctx.globalAlpha = tw; ctx.fillStyle = '#ffe08a';
+        starPath(ctx, x, y, 3 + tw * 2.6);
+      }
+      ctx.globalAlpha = 1;
+    },
+    thunder(ctx, t) {
+      const flash = Math.sin(t * 5) > .55;
+      ctx.strokeStyle = '#ffe94a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const a = t * 2 + i * 2.1, x = Math.cos(a) * 22, y = -26 + Math.sin(a * 1.4) * 18;
+        ctx.globalAlpha = .5 + Math.sin(t * 9 + i) * .4;
+        ctx.beginPath(); ctx.moveTo(x, y - 7); ctx.lineTo(x + 3, y - 1); ctx.lineTo(x - 2, y + 1); ctx.lineTo(x + 2, y + 8); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      if (flash) {
+        ctx.fillStyle = '#ffe94a';
+        ctx.beginPath();
+        ctx.moveTo(-6, -58); ctx.lineTo(6, -58); ctx.lineTo(0, -46); ctx.lineTo(9, -46);
+        ctx.lineTo(-8, -24); ctx.lineTo(-2, -42); ctx.lineTo(-11, -42);
+        ctx.closePath(); ctx.fill();
+        glow(ctx, 0, -42, 30, 'rgba(255,233,74,ALPHA)', .35);
+      }
+    },
+    angel(ctx, t) {
+      const bob = Math.sin(t * 2) * 1.6;
+      ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.ellipse(0, -54 + bob, 13, 4, 0, 0, TAU); ctx.stroke();
+      glow(ctx, 0, -54 + bob, 18, 'rgba(255,224,138,ALPHA)', .3);
+    },
+  };
+
+  // layer: 'back'(캐릭터 뒤) | 'front'(앞)
+  function paint(ctx, x, y, id, t, layer) {
+    const f = (layer === 'front' ? FX_FRONT : FX_BACK)[id];
+    if (!f) return;
+    ctx.save(); ctx.translate(x, y); f(ctx, t); ctx.restore();
+  }
+
+  return { svgFor, paint };
 })();
 
 const Avatar = (() => {

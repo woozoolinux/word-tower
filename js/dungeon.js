@@ -426,10 +426,13 @@ const Dungeon = (() => {
       x = K - (p < .75 ? 8 : 8 * (1 - (p - .75) / .25));
       rot = p < .3 ? p / .3 * .35 : .2;
     }
+    const at = performance.now() / 1000, au = state.player.aura;
+    Aura.paint(ctx, x, y + 50, au, at, 'back');
     ctx.save(); ctx.translate(x, y + 22); ctx.rotate(rot);
     if (pimg && pimg.ready) ctx.drawImage(pimg.img, -22, -28, 46, 62);
     else { ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.fillText('🧒', 0, 14); }
     ctx.restore();
+    Aura.paint(ctx, x, y + 50, au, at, 'front');
     if (run && Math.random() < .3) puff(x - 16, LINE + 7, 1);
   }
   function drawBeast(K) {

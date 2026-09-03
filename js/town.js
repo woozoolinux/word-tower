@@ -395,11 +395,15 @@ const Town = (() => {
     }
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath(); ctx.ellipse(px, py + 3, 12, 5, 0, 0, 6.3); ctx.fill();
+    // 오라는 캔버스에서 직접 그린다 — 래스터 이미지 안의 CSS 애니메이션은 안 돈다
+    const at = performance.now() / 1000, au = state.player.aura;
+    Aura.paint(ctx, px, py + bob, au, at, 'back');
     ctx.save(); ctx.translate(px, py + bob);
     if (dir < 0) ctx.scale(-1, 1);
     if (pimg && pimg.ready) ctx.drawImage(pimg.img, -17, -44, 34, 46);
     else { ctx.font = '30px serif'; ctx.textAlign = 'center'; ctx.fillText(UI.charEmoji(), 0, 0); }
     ctx.restore();
+    Aura.paint(ctx, px, py + bob, au, at, 'front');
   }
   function vignette(w, h) {
     const g = ctx.createRadialGradient(w / 2, h / 2, h * .34, w / 2, h / 2, w * .78);
