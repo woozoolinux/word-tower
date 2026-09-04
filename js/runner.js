@@ -3,8 +3,9 @@
 const Runner = (() => {
   // 화면 구성: [미션 띠] + [레인 3개] + [메시지 줄]
   const LANES = BAL.runner.lanes;                       // 난이도 수치는 js/balance.js
-  const PX = 90, BAND = 58, LANE_H = 74, MSG_H = 26;    // 화면 배치(px)
-  const HGT = BAND + LANES * LANE_H + MSG_H;
+  const PX = 90, BAND = 58, MSG_H = 26;                // 화면 배치(px)
+  // 레인 높이는 화면에 맞춰 늘어난다 (좁은 폰 74 → 태블릿 150)
+  let LANE_H = 74, HGT = BAND + LANES * LANE_H + MSG_H;
   let cv, ctx, run, onDone, lane, curY, missions, mi, tiles, coins, particles, speed, last, raf, dashLeft, active, waveActive, groundOff, missed, msgs, pimg, bgOff, stars, bldgs, bgSpan;
 
   function start(r, done) {
@@ -27,20 +28,24 @@ const Runner = (() => {
   function stop() { active = false; if (raf) cancelAnimationFrame(raf); }
   function resize() {
     if (!cv) return;
-    const w = cv.parentElement.clientWidth || 320, dpr = window.devicePixelRatio || 1;
-    cv.width = w * dpr; cv.height = HGT * dpr; cv.style.height = HGT + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const r = UI.fitCanvas(cv, { designW: 360, maxScale: 1.55, minH: 270, maxH: 430 });
+    VW = r.w; HGT = r.h;
+    LANE_H = (HGT - BAND - MSG_H) / LANES;      // 남는 높이는 레인이 나눠 가진다
+    curY = laneY(lane === undefined ? 1 : lane);
     if (stars) initBg();
   }
-  const width = () => cv.width / (window.devicePixelRatio || 1);
+  let VW = 360;
+  const width = () => VW;
   // 멀리 보이는 별과 건물 (달리면 천천히 흘러간다)
   function initBg() {
     const W = width();
     stars = [];
-    for (let i = 0; i < 30; i++) stars.push({ x: Math.random() * W, y: BAND + 8 + Math.random() * 70, r: 0.6 + Math.random() * 1.4 });
+    const air = HGT - BAND - MSG_H;                    // 하늘로 쓸 수 있는 높이
+    for (let i = 0; i < 34; i++) stars.push({ x: Math.random() * W, y: BAND + 8 + Math.random() * air * 0.78, r: 0.6 + Math.random() * 1.4 });
     bldgs = []; let x = 0;
+    const tall = air / 222;                             // 화면이 커지면 건물도 같이 큰다
     while (x < W + 140) {
-      const w = 22 + Math.random() * 42, h = 34 + Math.random() * 78;
+      const w = 22 + Math.random() * 42, h = (34 + Math.random() * 78) * tall;
       bldgs.push({ x, w, h, win: Math.random() < 0.75 });
       x += w + 6 + Math.random() * 22;
     }

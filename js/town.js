@@ -73,8 +73,9 @@ const Town = (() => {
   let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts;
 
   const el = id => document.getElementById(id);
-  const vw = () => cv.width / (window.devicePixelRatio || 1);
-  const vh = () => cv.height / (window.devicePixelRatio || 1);
+  let VIEW = { w: 380, h: 400, s: 1 };
+  const vw = () => VIEW.w;
+  const vh = () => VIEW.h;
 
   // ---------- 세계 만들기 ----------
   function build() {
@@ -125,12 +126,12 @@ const Town = (() => {
     build();
     frames = Avatar.walkFrames(); pimg = frames[0];
     joy = null; keys = {}; nearP = null; hint = '';
-    shell(); UI.show('town'); run();
+    shell(); UI.show('town'); resize(); run();
   }
   function resume() {
     if (!places) { start(); return; }
     Game.home = 'town';
-    shell(); UI.show('town'); run();
+    shell(); UI.show('town'); resize(); run();
   }
   function run() {
     active = true; last = performance.now();
@@ -165,10 +166,8 @@ const Town = (() => {
   }
   function resize() {
     if (!cv) return;
-    const w = cv.parentElement.clientWidth || 320, dpr = window.devicePixelRatio || 1;
-    const h = Math.max(300, Math.min(500, Math.round(window.innerHeight * 0.62)));
-    cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const r = UI.fitCanvas(cv, { designW: 380, maxScale: 1.6, minH: 280, maxH: 620 });
+    VIEW = r;                     // 설계 좌표계 크기 — 카메라가 이걸로 잡힌다
   }
 
   // ---------- 입력 ----------

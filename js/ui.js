@@ -153,5 +153,33 @@ const UI = (() => {
     document.getElementById('modal-root').appendChild(el);
     setTimeout(() => el.remove(), 300);
   }
-  return { show, current, toast, modal, rescueModals, charEmoji, charHtml, charMini, charWalk, hpBar, floatText, shake, flash, confetti, levelUpModal };
+  // 캔버스를 화면에 맞춘다 — **크기만 늘리는 게 아니라 그림을 통째로 확대한다.**
+  //
+  // 태블릿(768×1024)에서 화면의 절반이 비어 있었다. 그런데 캔버스만 키우면
+  // 여백만 커지고 아이·몬스터는 그대로 작다. 그래서 설계 좌표계(designW)를 정해 두고
+  // 캔버스 폭에 맞게 ctx 를 통째로 확대한다. 그리는 코드는 하나도 안 바꿔도 된다.
+  //
+  //   designW  그림을 그릴 때 쓰는 가로 기준 (360이면 폰 한 화면)
+  //   maxScale 너무 커지지 않게 (아이 얼굴이 주먹만 해지면 곤란하다)
+  //   minH/maxH 설계 좌표계 기준 세로 한계
+  // 반환 { w, h, s } 의 w·h 는 **설계 좌표계** 크기다. 그리는 쪽은 이것만 쓰면 된다.
+  function fitCanvas(cv, o) {
+    o = o || {};
+    const wrap = cv.parentElement, sc = cv.closest('.screen') || wrap.parentElement;
+    const cssW = wrap.clientWidth || 320;
+    // 이 화면에서 캔버스 말고 다른 것들이 쓰는 높이를 빼면 남는 자리가 나온다
+    let used = 0;
+    if (sc) Array.prototype.forEach.call(sc.children, el => { if (!el.contains(cv)) used += el.offsetHeight + 10; });
+    let room = window.innerHeight - 62 - used;            // 62 = #app 위아래 여백
+    if (!(room > 120)) room = Math.round(window.innerHeight * 0.5);
+    const s = Math.max(1, Math.min(o.maxScale || 2, cssW / (o.designW || cssW)));
+    const cssH = Math.round(Math.max((o.minH || 190) * s, Math.min((o.maxH || 4000) * s, room)));
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+    cv.style.height = cssH + 'px';
+    cv.getContext('2d').setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
+    return { w: cssW / s, h: cssH / s, s };
+  }
+
+  return { show, current, toast, modal, rescueModals, fitCanvas, charEmoji, charHtml, charMini, charWalk, hpBar, floatText, shake, flash, confetti, levelUpModal };
 })();

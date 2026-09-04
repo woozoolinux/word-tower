@@ -87,19 +87,24 @@ const SkyIsland = (() => {
   }
 
   // ---------- 오르기 ----------
-  const HGT = 320, KY = 178, STEP = 44;
+  let HGT = 320, KY = 178;            // 캔버스 높이 / 아이가 서는 높이 (화면에 맞춰 늘어난다)
+  const STEP = 44;                    // 한 칸의 높이는 고정 — 화면이 크면 더 많이 보인다
   const JUMP = .46, DROP = .5;
   let cv, ctx, raf, last, active;
   let pool, queue, qi, runWords, q, lock;
   let alt, maxAlt, floorAlt, combo, wind, misses, gold;
   let phase, ph, t, camAlt, jumpFrom, jumpTo, placedWord, msg, shakeT, puffs, drift, pimg, streamer;
 
-  function width() { return cv.width / (window.devicePixelRatio || 1); }
+  let VW = 360;
+  function width() { return VW; }
   // 높이 오를수록 발밑이 빨리 옅어진다. 그래도 던전보다 훨씬 여유롭다 —
   // 하늘섬의 압박은 시간이 아니라 **되돌릴 수 없는 고도**여야 한다.
   function limitNow() { return Math.max(D().timeMin, D().timeLimit - alt * D().timeStep); }
   function cloudX(a) { return width() / 2 + Math.sin(a * .9) * Math.min(46, width() * .13); }
   function cloudY(a) { return KY - (a - camAlt) * STEP; }
+  // 카메라가 이 아래로는 안 내려간다 — 바닥에 서 있을 때 초록 땅이 화면 절반을 먹지 않게.
+  // 낮은 고도에서는 아이가 화면 아래에 서서 위를 올려다보는 그림이 된다.
+  function camMin() { return Math.max(0, (HGT * 0.86 - KY) / STEP); }
   function isIsland(a) { return a > 0 && a % D().safeEvery === 0 && a < D().height; }
 
   function start() {
@@ -119,6 +124,8 @@ const SkyIsland = (() => {
     UI.show('sky');
     shell();
     nextWord();
+    resize();          // 보기 버튼이 채워진 뒤에 다시 재야 높이가 맞는다
+    camAlt = Math.max(alt, camMin());
     active = true; last = performance.now();
     if (raf) cancelAnimationFrame(raf);
     raf = requestAnimationFrame(loop);
@@ -145,9 +152,9 @@ const SkyIsland = (() => {
   }
   function resize() {
     if (!cv) return;
-    const w = cv.parentElement.clientWidth || 320, dpr = window.devicePixelRatio || 1;
-    cv.width = w * dpr; cv.height = HGT * dpr; cv.style.height = HGT + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const r = UI.fitCanvas(cv, { designW: 360, maxScale: 1.55, minH: 280, maxH: 560 });
+    VW = r.w; HGT = r.h;
+    KY = Math.round(HGT * 0.48);       // 아이는 가운데 — 아래로 올라온 길, 위로 남은 길이 같이 보인다
   }
 
   // 한 판의 단어 줄 세우기 — 던전과 같은 규칙. 반복이 외우게 한다.
@@ -263,7 +270,7 @@ const SkyIsland = (() => {
   function update(dt) {
     drift += dt;
     if (shakeT > 0) shakeT -= dt;
-    camAlt += (alt - camAlt) * Math.min(1, dt * 7);
+    camAlt += (Math.max(alt, camMin()) - camAlt) * Math.min(1, dt * 7);
     puffs = puffs.filter(p => (p.life -= dt) > 0);
     puffs.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 60 * dt; });
     if (wind && Math.random() < dt * 22) streamer.push({ x: (Math.random() - .5) * 130, y: HGT * .8, life: 1 });
@@ -317,7 +324,9 @@ const SkyIsland = (() => {
     if (wind) drawStreamers(W);
 
     // 구름 기둥: 화면에 걸리는 칸만 그린다
-    const lo = Math.floor(camAlt) - 5, hi = Math.ceil(camAlt) + 6;
+    // 화면에 실제로 걸리는 범위만 (캔버스가 커지면 그만큼 더 보인다)
+    const lo = Math.floor(camAlt - (HGT - KY) / STEP) - 1;
+    const hi = Math.ceil(camAlt + KY / STEP) + 1;
     for (let a = Math.max(0, lo); a <= Math.min(D().height, hi); a++) {
       if (a > alt && !(phase === 'jump' && a <= jumpTo)) ghost(a);
       else rung(a);
@@ -367,13 +376,17 @@ const SkyIsland = (() => {
     ctx.ellipse(x + rx * .55, y + ry * .25, rx * .5, ry * .7, 0, 0, 6.3);
     ctx.fill();
   }
-  // 아직 안 밟은 칸 — 어렴풋한 자리만
+  // 아직 안 밟은 칸 — **점선 자국**이다. 배경 구름과 헷갈리면 안 된다.
+  // 채워진 구름으로 그렸더니 어느 게 발판이고 어느 게 배경인지 구분이 안 됐다.
   function ghost(a) {
     const y = cloudY(a);
     if (y < -40 || y > HGT + 40) return;
-    ctx.globalAlpha = .45; ctx.fillStyle = '#ffffff';
-    blob(cloudX(a), y + 8, 26, 8);
-    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.globalAlpha = .6;
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+    ctx.setLineDash([7, 7]); ctx.lineDashOffset = -drift * 9;
+    ctx.beginPath(); ctx.ellipse(cloudX(a), y + 8, 28, 9, 0, 0, 6.3); ctx.stroke();
+    ctx.restore();
   }
   function rung(a) {
     const x = cloudX(a), y = cloudY(a);
@@ -405,6 +418,29 @@ const SkyIsland = (() => {
     ctx.fillStyle = '#a9d47f'; ctx.fillRect(-10, y + 4, W + 20, 9);
     ctx.fillStyle = 'rgba(60,120,50,.25)';
     for (let i = -1; i < W / 18 + 1; i++) ctx.fillRect(i * 18 + (x % 18), y + 13, 3, 6);
+    village(y + 4);
+  }
+  // 떠나온 마을. 올라갈수록 발밑으로 멀어진다 — 높이가 숫자가 아니라 그림으로 느껴져야 한다.
+  // (정상 대사 "마을이 손톱만 하게 보인다"가 말이 되려면 마을이 실제로 있어야 한다)
+  function village(gy) {
+    const W = width();
+    const hut = (hx, s, roof) => {
+      const w = 26 * s, h = 20 * s;
+      ctx.fillStyle = '#fff4dc'; ctx.fillRect(hx - w / 2, gy - h, w, h);
+      ctx.fillStyle = roof;
+      ctx.beginPath(); ctx.moveTo(hx - w / 2 - 4 * s, gy - h);
+      ctx.lineTo(hx, gy - h - 13 * s); ctx.lineTo(hx + w / 2 + 4 * s, gy - h); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#3a2d1c'; ctx.fillRect(hx - 3 * s, gy - 9 * s, 6 * s, 9 * s);
+    };
+    const tree = (tx, s) => {
+      ctx.fillStyle = '#7a5636'; ctx.fillRect(tx - 1.5 * s, gy - 12 * s, 3 * s, 12 * s);
+      ctx.fillStyle = '#5faa4e';
+      ctx.beginPath(); ctx.arc(tx, gy - 18 * s, 8 * s, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#7cc55f';
+      ctx.beginPath(); ctx.arc(tx - 3 * s, gy - 21 * s, 5 * s, 0, 6.3); ctx.fill();
+    };
+    tree(W * .08, .8); hut(W * .2, 1, '#e8735e'); tree(W * .32, .95);
+    hut(W * .74, .85, '#8f7bff'); tree(W * .62, .8); tree(W * .9, 1);
   }
   function island(x, y, reached) {
     ctx.fillStyle = '#8a6a44';

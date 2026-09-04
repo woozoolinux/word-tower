@@ -122,13 +122,15 @@ const Dungeon = (() => {
   // 계단달리기와 같은 캔버스지만 방식이 다르다. 거기선 레인을 바꿔 타일을 줍고,
   // 여기선 **끊긴 다리가 다가온다**. 시간이 게이지가 아니라 낭떠러지까지의 거리다.
   // 글자는 캔버스가 아니라 아래 버튼에 둔다 — 폰에서 작은 글자를 정확히 누르게 하면 안 된다.
-  const HGT = 212, LINE = 150, GAPW = 92;
+  let HGT = 212, LINE = 150;          // 캔버스 높이 / 다리가 놓인 높이 (화면에 맞춰 늘어난다)
+  const GAPW = 92;
   const DROP = .42, WALK = .62;       // 널빤지가 박히는 시간 / 건너가는 시간   // 캔버스 높이 / 다리 높이 / 끊긴 폭
   let cv, ctx, raf, last, active;
   let pool, plank, gap, used, q, lock, phase, t, ph, bgOff, pimg, beastLunge, msg, shakeT, chosen, dust, placed;
   let queue, qi, runWords;
 
-  function width() { return cv.width / (window.devicePixelRatio || 1); }
+  let VW = 360;
+  function width() { return VW; }
   // 깊이 들어갈수록 낭떠러지가 빨리 온다
   function limitNow() { return Math.max(D().timeMin, D().timeLimit - plank * D().timeStep); }
   function kidX() { return width() * 0.56; }   // 아이를 오른쪽에 두어야 뒤가 보인다
@@ -150,6 +152,7 @@ const Dungeon = (() => {
     UI.show('dungeon');
     shell();
     next();
+    resize();          // 널빤지 버튼이 채워진 뒤에 다시 재야 높이가 맞는다
     active = true; last = performance.now();
     if (raf) cancelAnimationFrame(raf);
     raf = requestAnimationFrame(loop);
@@ -175,9 +178,9 @@ const Dungeon = (() => {
   }
   function resize() {
     if (!cv) return;
-    const w = cv.parentElement.clientWidth || 320, dpr = window.devicePixelRatio || 1;
-    cv.width = w * dpr; cv.height = HGT * dpr; cv.style.height = HGT + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const r = UI.fitCanvas(cv, { designW: 360, maxScale: 1.7, minH: 200, maxH: 460 });
+    VW = r.w; HGT = r.h;
+    LINE = Math.round(HGT * 0.62);     // 다리는 화면의 2/3 지점. 아래는 낭떠러지 몫
   }
 
   function next() { nextWord(0); }
@@ -341,13 +344,25 @@ const Dungeon = (() => {
     }
     ctx.restore();
   }
+  function stalactite(x, w, h) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + w, 0); ctx.lineTo(x + w / 2, h); ctx.closePath(); ctx.fill();
+  }
+  // 천장. 길이를 섞어야 동굴로 보인다 — 같은 삼각형이 반복되면 무늬가 된다.
+  // 화면이 커지면 종유석도 같이 길어진다(안 그러면 커진 천장이 텅 빈다).
   function drawSpikes(W) {
-    const span = 120, shift = (bgOff * .25) % span;
+    const span = 120, grow = Math.max(1, HGT / 212);
+    const far = (bgOff * .12) % span;
+    ctx.fillStyle = 'rgba(46,36,86,.55)';                 // 먼 층 — 천천히 흐른다
+    for (let x = -span; x < W + span; x += span) {
+      const px = x - far + 40;
+      stalactite(px, 30, 92 * grow); stalactite(px + 64, 20, 54 * grow);
+    }
+    const shift = (bgOff * .25) % span;
     ctx.fillStyle = '#2e2456';
     for (let x = -span; x < W + span; x += span) {
       const px = x - shift;
-      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px + 26, 0); ctx.lineTo(px + 13, 44); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(px + 58, 0); ctx.lineTo(px + 74, 0); ctx.lineTo(px + 66, 26); ctx.closePath(); ctx.fill();
+      stalactite(px, 26, 46 * grow); stalactite(px + 34, 13, 22 * grow);
+      stalactite(px + 58, 17, 70 * grow); stalactite(px + 88, 11, 30 * grow);
     }
     ctx.fillStyle = 'rgba(255,255,255,.05)';
     const s2 = (bgOff * .5) % 90;
