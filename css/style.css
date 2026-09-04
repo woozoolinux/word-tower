@@ -334,16 +334,16 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 @keyframes heroIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @keyframes heroDash {
   0% { transform: translate(0, 0) scale(1); }
-  32% { transform: translate(215%, -85%) scale(1.2); }
-  46% { transform: translate(245%, -78%) scale(1.2); }
-  70% { transform: translate(60%, -20%) scale(1.05); }
+  32% { transform: translate(var(--dash, 190px), -22%) scale(1.18); }
+  46% { transform: translate(calc(var(--dash, 190px) + 14px), -18%) scale(1.18); }
+  70% { transform: translate(calc(var(--dash, 190px) * .26), -6%) scale(1.05); }
   100% { transform: translate(0, 0) scale(1); }
 }
 @keyframes heroUlt {
   0% { transform: translate(0, 0) scale(1) rotate(0); }
   18% { transform: translate(-40%, 8%) scale(.9); }
-  40% { transform: translate(230%, -85%) scale(1.45) rotate(12deg); }
-  58% { transform: translate(255%, -80%) scale(1.45) rotate(-8deg); }
+  40% { transform: translate(var(--dash, 190px), -24%) scale(1.42) rotate(12deg); }
+  58% { transform: translate(calc(var(--dash, 190px) + 18px), -20%) scale(1.42) rotate(-8deg); }
   80% { transform: translate(70%, -18%) scale(1.1); }
   100% { transform: translate(0, 0) scale(1) rotate(0); }
 }
@@ -652,7 +652,7 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 @keyframes kingIn { 0% { transform: scale(.5) rotate(-8deg); opacity: 0; } 70% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); } }
 
 /* 왕은 일반 보스보다 크게 */
-.mon-art.king { width: 260px; height: 260px; }
+
 .char svg .k-aura, .mon-art svg .k-aura { transform-box: fill-box; transform-origin: 50% 50%; animation: breathe 2.6s ease-in-out infinite; }
 .char svg .k-aura2, .mon-art svg .k-aura2 { transform-box: fill-box; transform-origin: 50% 50%; animation: breathe 2.6s ease-in-out infinite 1.3s; }
 
@@ -688,7 +688,7 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 /* 히트스톱: 그 순간의 자세를 붙잡는다. 0.06초면 충분하고, 길면 답답해진다. */
 .fx-freeze, .fx-freeze * { animation-play-state: paused !important; }
 /* 화면 펀치 */
-.battle-arena { transform-origin: 50% 60%; }
+
 .fx-punch { animation: fxPunch .16s ease-out; }
 .fx-punch-hard { animation: fxPunchHard .22s ease-out; }
 @keyframes fxPunch { 0% { transform: scale(1.035); } 100% { transform: none; } }
@@ -710,7 +710,8 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   0% { opacity: 1; transform: translate(0, 0) scale(1); }
   100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.3); }
 }
-#battle-monster, #battle-player { position: relative; }
+/* 파편·대미지 숫자가 여기 기준으로 뜬다. 무대에서의 자리는 아래 .monster-box 가 잡는다 */
+#battle-player { position: relative; }
 /* 내가 맞으면 화면 가장자리가 붉게 */
 .fx-hurt::after {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 40;
@@ -989,25 +990,23 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .vcard.broken { background:#4a4560; color:#8a83a5; text-decoration:line-through; box-shadow:none; cursor:default; }
 
 /* ---------- 배틀 ---------- */
-.battle-arena { position: relative; text-align: center; padding: 8px 0 4px; min-height: 210px; }
+
 /* 내 캐릭터가 전장에 서 있다가 정답이면 달려가 벤다 */
-#battle-hero {
-  position: absolute; left: 5%; bottom: -4px; width: 52px; height: 68px; z-index: 4;
-  animation: heroIdle 2.2s ease-in-out infinite;
-}
+
 #battle-hero .char, #battle-hero span { display: block; }
 #battle-hero.attack { animation: heroDash .55s cubic-bezier(.3,.9,.4,1); }
 #battle-hero.attack-crit { animation: heroDash .55s cubic-bezier(.3,.9,.4,1); filter: drop-shadow(0 0 10px var(--gold)); }
 #battle-hero.attack-ult { animation: heroUlt .8s cubic-bezier(.3,.9,.4,1); filter: drop-shadow(0 0 16px var(--coral)); }
-.monster-box { position: relative; display: inline-block; min-width: 200px; padding: 6px 0 2px; }
+
 .mon-emoji { font-size: 96px; line-height: 1.1; animation: bob 1.6s ease-in-out infinite; filter: drop-shadow(0 10px 14px rgba(0,0,0,.45)); }
 .mon-emoji.boss { font-size: 130px; }
+
+
 .mon-art {
-  position: relative; width: 150px; height: 150px; margin: 0 auto;
+  position: relative; margin: 0 auto;
   animation: bob 1.9s ease-in-out infinite;
-  filter: drop-shadow(0 10px 14px rgba(0,0,0,.45));
+  filter: drop-shadow(0 8px 12px rgba(0,0,0,.4));
 }
-.mon-art.boss { width: 205px; height: 205px; }
 .mon-art svg { display: block; width: 100%; height: 100%; }
 .mon-art.hurt { animation: monHurt .42s ease-out; }
 .mon-art.die { animation: monDie .9s ease-in forwards; }
@@ -1029,9 +1028,9 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .char.walk { display: block; width: 100%; height: 132%; margin-top: -26%; }
 .char.walk svg { width: 100%; height: 100%; display: block; }
 .char-pet svg { display: block; width: 100%; height: 100%; }
-.mon-name { font-size: 18px; color: rgba(255,255,255,.85); margin-top: 2px; }
+
 .mon-name .atk { font-family: var(--font-en); font-size: 13px; color: var(--coral); margin-left: 6px; }
-#battle-mon-hp { max-width: 260px; margin: 6px auto 0; }
+
 .battle-card { margin-top: 10px; padding: 12px 14px 14px; }
 .timer { height: 6px; border-radius: 3px; background: rgba(42,36,80,.12); overflow: hidden; margin-bottom: 10px; }
 .timer-fill { height: 100%; width: 100%; background: var(--gold); border-radius: 3px; }
@@ -1265,4 +1264,146 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 
 @media (prefers-reduced-motion: reduce) {
   .sk-far i, .sk-stair i, .sk-first, .sk-hero, .sk-cloud.gone { animation: none !important; opacity: 1; }
+}
+
+/* ===================== ⚔️ 배틀 무대 ===================== */
+/* 몬스터가 별밭에 떠 있었다. 바닥도 벽도 마주 선 느낌도 없으면 배틀이 아니라 퀴즈다.
+   등급의 world(숲·야생·전설…)에 따라 무대가 바뀐다 — 어디까지 왔는지가 배경으로 보인다. */
+.battle-arena {
+  --ah: 260px;                       /* 실제 높이는 JS 가 재서 다시 넣는다 */
+  position: relative; margin-bottom: 6px;
+  flex: 1 1 auto; min-height: 230px; max-height: min(46vh, 460px);
+  border-radius: 20px; overflow: hidden; text-align: left; padding: 0;
+  transform-origin: 50% 60%;
+  box-shadow: 0 10px 26px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.07);
+}
+.ar-scene { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.ar-scene i, .ar-scene u { position: absolute; display: block; }
+.ar-ground { left: -2%; right: -2%; bottom: 0; height: 32%; z-index: 1; }
+/* 가장자리를 어둡게 — 가운데 싸움에 눈이 간다 */
+.ar-scene::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 62%, transparent 42%, rgba(8,6,24,.42) 100%);
+}
+
+/* 🏰 탑 안 — 기초 */
+.sc-stone .ar-scene { background: linear-gradient(#3a3568, #262147 62%, #1c1838); }
+.sc-stone .ar-a, .sc-stone .ar-b {
+  width: 16%; height: 36%; top: 21%; border-radius: 50% 50% 4px 4px;
+  background: linear-gradient(#8496de, #47569c);
+  box-shadow: 0 0 30px rgba(150,175,255,.4), inset 0 -6px 0 rgba(0,0,0,.22);
+}
+.sc-stone .ar-a { left: 11%; } .sc-stone .ar-b { right: 11%; }
+.sc-stone .ar-c {
+  inset: 0; opacity: .2;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 24px, rgba(0,0,0,.6) 24px 27px),
+    repeating-linear-gradient(90deg, transparent 0 48px, rgba(0,0,0,.6) 48px 51px);
+}
+.sc-stone .ar-ground { background: linear-gradient(#4a4380, #2e2856); box-shadow: inset 0 4px 0 rgba(255,255,255,.1); }
+
+/* 🌱 새싹 들판 — 병아리 */
+.sc-field .ar-scene { background: linear-gradient(#9fd8f7 0%, #d3efff 52%, #eaf7d8 100%); }
+.sc-field .ar-a {
+  width: 17%; padding-bottom: 17%; border-radius: 50%; right: 13%; top: 10%;
+  background: radial-gradient(circle at 40% 36%, #fff8d0, #ffd84a);
+  box-shadow: 0 0 44px rgba(255,216,74,.65);
+}
+.sc-field .ar-b, .sc-field .ar-c { border-radius: 50% 50% 0 0; bottom: 30%; }
+.sc-field .ar-b { width: 64%; height: 22%; left: -10%; background: #8fc468; }
+.sc-field .ar-c { width: 56%; height: 16%; right: -8%; background: #a9d47f; }
+.sc-field .ar-ground { background: linear-gradient(#a9d47f, #74ad57); box-shadow: inset 0 4px 0 rgba(255,255,255,.28); }
+
+/* 🌳 숲 — 토끼·여우·늑대·곰 */
+.sc-forest .ar-scene { background: linear-gradient(#17403f, #245c4c 56%, #35714f); }
+.sc-forest .ar-a, .sc-forest .ar-b, .sc-forest .ar-c {
+  bottom: 30%; background: #0d2a28; clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.sc-forest .ar-a { left: 2%;  width: 20%; height: 40%; }
+.sc-forest .ar-b { left: 24%; width: 15%; height: 30%; opacity: .7; }
+.sc-forest .ar-c { right: 3%; width: 23%; height: 46%; }
+.sc-forest .ar-ground { background: linear-gradient(#3f8a5c, #235a3c); box-shadow: inset 0 4px 0 rgba(180,240,190,.2); }
+
+/* 🏜️ 야생 — 독수리·표범·사자·호랑이 */
+.sc-wild .ar-scene { background: linear-gradient(#3a2360 0%, #a4456a 42%, #ff9a5b 78%, #ffc76b 100%); }
+.sc-wild .ar-a {
+  width: 24%; padding-bottom: 24%; border-radius: 50%; left: 50%; transform: translateX(-50%); bottom: 26%;
+  background: radial-gradient(circle, #fff0b0, #ff8a3d);
+  box-shadow: 0 0 66px rgba(255,138,61,.6);
+}
+.sc-wild .ar-b, .sc-wild .ar-c { bottom: 30%; background: #4b2a4e; z-index: 1; }
+.sc-wild .ar-b { left: 0; width: 32%; height: 20%; border-radius: 6px 26px 0 0; }
+.sc-wild .ar-c { right: 0; width: 38%; height: 30%; border-radius: 30px 6px 0 0; }
+.sc-wild .ar-ground { background: linear-gradient(#8a5340, #4a2c26); box-shadow: inset 0 4px 0 rgba(255,190,120,.28); }
+
+/* 🔥 전설 — 드래곤·불사조 */
+.sc-legend .ar-scene { background: linear-gradient(#160c2a, #45123c 52%, #8a1f36); }
+.sc-legend .ar-a { left: 0; right: 0; bottom: 26%; height: 22%; background: linear-gradient(transparent, rgba(255,96,40,.6)); }
+.sc-legend .ar-b, .sc-legend .ar-c { bottom: 28%; width: 9%; background: linear-gradient(90deg, #3a2656, #1e1236); z-index: 2; }
+.sc-legend .ar-b { left: 9%;  height: 58%; }
+.sc-legend .ar-c { right: 11%; height: 72%; }
+.sc-legend .ar-ground { background: linear-gradient(#3a1c30, #180d1c); box-shadow: inset 0 4px 0 rgba(255,96,40,.55); }
+
+/* 🏟️ 투기장 */
+.sc-colosseum .ar-scene { background: linear-gradient(#26356a, #46538c 54%, #7880b2); }
+.sc-colosseum .ar-a {
+  left: 3%; right: 3%; top: 6%; bottom: 36%; border-radius: 14px 14px 0 0;
+  background: repeating-linear-gradient(90deg, #3c4577 0 32px, #2a3160 32px 42px);
+}
+.sc-colosseum .ar-b {
+  left: 7%; right: 7%; top: 11%; bottom: 40%; border-radius: 16px 16px 0 0;
+  background: repeating-linear-gradient(90deg, transparent 0 12px, rgba(8,8,26,.8) 12px 32px);
+}
+.sc-colosseum .ar-ground { background: linear-gradient(#e6cd97, #b9975e); box-shadow: inset 0 4px 0 rgba(255,255,255,.3); }
+
+/* 👑 왕의 방 */
+.sc-throne .ar-scene { background: linear-gradient(#241a3a, #3a2350 58%, #4a2a44); }
+.sc-throne .ar-a {
+  right: 7%; bottom: 30%; width: 32%; height: 52%;
+  background: linear-gradient(#7a2f4a, #45182b); border-radius: 50% 50% 0 0;
+  box-shadow: inset 0 0 0 4px rgba(255,200,61,.3);
+}
+/* 붉은 카펫이 왕좌에서 내 발밑으로 흐른다 */
+.sc-throne .ar-b {
+  left: 0; right: 0; bottom: 0; height: 34%; z-index: 2;
+  background: linear-gradient(#b03a4e, #7a2334);
+  clip-path: polygon(60% 0, 86% 0, 100% 100%, 14% 100%);
+}
+.sc-throne .ar-c { inset: 0; background: radial-gradient(ellipse at 50% 26%, rgba(255,200,61,.2), transparent 62%); }
+.sc-throne .ar-ground { background: linear-gradient(#3a2f56, #241d3c); }
+
+/* 이름표와 HP 는 무대 위쪽에 (보스 체력바처럼) */
+.ar-plate { position: absolute; left: 12px; right: 12px; top: 9px; z-index: 6; }
+.ar-plate::before {
+  content: ''; position: absolute; left: -12px; right: -12px; top: -9px; height: calc(100% + 26px);
+  background: linear-gradient(rgba(8,6,24,.55), transparent); z-index: -1; pointer-events: none;
+}
+.ar-plate .mon-name {
+  font-size: 16px; color: #fff; margin: 0 0 5px; text-shadow: 0 2px 5px rgba(0,0,0,.75);
+}
+.ar-plate .mon-name .atk { color: #ffb3bd; }
+#battle-mon-hp { max-width: none; margin: 0; }
+
+/* 둘이 같은 바닥에 마주 선다 (id 선택자를 이겨야 해서 #battle-monster 로 적는다) */
+#battle-monster.monster-box {
+  position: absolute; right: 5%; bottom: 12%; min-width: 0; padding: 0; z-index: 3;
+  display: block; text-align: center;
+}
+#battle-hero {
+  position: absolute; left: 6%; bottom: 12%; width: auto; height: auto; z-index: 4;
+  animation: heroIdle 2.2s ease-in-out infinite;
+}
+.mon-art { width: calc(var(--ah) * .54); height: calc(var(--ah) * .54); }
+.mon-art.boss { width: calc(var(--ah) * .66); height: calc(var(--ah) * .66); }
+.mon-art.king { width: calc(var(--ah) * .74); height: calc(var(--ah) * .74); }
+/* 발밑 그림자 — 이게 있어야 떠 있지 않고 서 있는 것으로 보인다 */
+.monster-box::after, #battle-hero::after {
+  content: ''; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
+  width: 74%; height: 13px; border-radius: 50%; background: rgba(0,0,0,.34);
+  filter: blur(3px); z-index: -1;
+}
+#battle-hero::after { width: 110%; height: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ar-scene i { animation: none !important; }
 }

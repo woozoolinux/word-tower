@@ -9,6 +9,18 @@ const Battle = (() => {
   let missed;   // 이 판에서 틀린 단어 (진 뒤 "어디서 무너졌나"를 보여주려고)
   const $ = id => document.getElementById(id);
 
+  // 등급마다 사는 곳이 다르다 (LEVELS 의 world). 몬스터가 별밭에 떠 있으면 퀴즈지 배틀이 아니다.
+  const SCENES = {
+    '시작': 'stone', '새싹 들판': 'field', '숲': 'forest', '숲의 왕': 'forest',
+    '야생': 'wild', '야생의 왕': 'wild', '전설': 'legend', '전설의 정점': 'legend',
+  };
+  function sceneFor(o) {
+    if (o.arena) return 'colosseum';
+    if (o.king) return 'throne';
+    const L = o.tower && typeof levelOf === 'function' ? levelOf(o.tower.level) : null;
+    return (L && SCENES[L.world]) || 'stone';
+  }
+
   function start(opts) {
     clearTimer();
     o = opts; mon = Object.assign({}, opts.monster, { maxHp: opts.monster.hp });
@@ -19,10 +31,20 @@ const Battle = (() => {
     // 언제든 그만두고 지금까지의 보상을 챙겨 나갈 수 있는 판에서만 뜬다
     $('battle-left').innerHTML = o.onRetire ? '<button class="btn ghost small" id="battle-retire">🏳️ 여기까지</button>' : '';
     const rb = $('battle-retire'); if (rb) rb.onclick = retire;
-    $('battle-hero').innerHTML = state.player.avatar ? Avatar.html(52, { pet: '' }) : `<span style="font-size:44px">${UI.charEmoji()}</span>`;
+    // 무대: 이 등급이 사는 곳
+    const arena = $('battle-arena');
+    arena.className = 'battle-arena sc-' + sceneFor(o);
+    // 아이 크기와 달려가는 거리를 무대 크기에 맞춘다 (태블릿에서 작아 보이면 안 된다)
+    // 무대가 남는 높이를 먹은 뒤에 재야 한다 — 몬스터와 아이 크기가 여기서 나온다
+    const ah = arena.clientHeight || 250, aw = arena.clientWidth || 360;
+    arena.style.setProperty(`--ah`, ah + `px`);
+    const hero = $('battle-hero');
+    hero.style.setProperty('--dash', Math.round(aw * 0.52) + 'px');
+    hero.innerHTML = state.player.avatar ? Avatar.html(Math.round(ah * 0.26), { pet: '' })
+      : `<span style="font-size:${Math.round(ah * 0.2)}px">${UI.charEmoji()}</span>`;
     $('battle-monster').innerHTML =
-      `<div class="mon-art ${o.king ? 'king' : o.boss ? 'boss' : ''}" id="mon-art">${o.king ? Art.king(mon.id) : Art.monster(mon.id || 'slime', !!o.boss)}<span class="slash" id="mon-slash"></span></div>` +
-      `<div class="mon-name">${esc(mon.name)}<span class="atk">ATK ${mon.atk}</span></div>`;
+      `<div class="mon-art ${o.king ? 'king' : o.boss ? 'boss' : ''}" id="mon-art">${o.king ? Art.king(mon.id) : Art.monster(mon.id || 'slime', !!o.boss)}<span class="slash" id="mon-slash"></span></div>`;
+    $('battle-mon-name').innerHTML = `${esc(mon.name)}<span class="atk">ATK ${mon.atk}</span>`;
     renderBars(); renderItems();
     setTimeout(next, 400);
   }
