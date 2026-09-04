@@ -1157,3 +1157,103 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   .mon-emoji { font-size: 84px; }
   .zone .zone-name { font-size: 15px; }
 }
+
+/* ===================== ⛰️ 하늘섬 ===================== */
+/* 던전이 어둠이라면 하늘섬은 빛이다. 같은 게임의 반대쪽 끝이라야 "또 하네"가 안 된다. */
+.sk-scene {
+  position: fixed; inset: 0; z-index: 60; overflow: hidden; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(#5aa6e8 0%, #9fd2f6 46%, #dff0ff 78%, #a9d47f 78%, #7ab85f 100%);
+  animation: fxIn .3s ease-out;
+}
+.sk-scene.out { animation: fxOut .3s ease-in forwards; }
+.sk-far { position: absolute; inset: 0; pointer-events: none; }
+.sk-far i {
+  position: absolute; border-radius: 999px; background: rgba(255,255,255,.75);
+  animation: skDrift 26s linear infinite;
+}
+.sk-far i:nth-child(1) { width: 120px; height: 30px; left: -140px; top: 14%; }
+.sk-far i:nth-child(2) { width: 86px;  height: 24px; left: -120px; top: 30%; animation-duration: 34s; animation-delay: -6s; }
+.sk-far i:nth-child(3) { width: 150px; height: 36px; left: -180px; top: 46%; animation-duration: 44s; animation-delay: -18s; }
+.sk-far i:nth-child(4) { width: 70px;  height: 20px; left: -100px; top: 58%; animation-duration: 30s; animation-delay: -11s; }
+@keyframes skDrift { to { transform: translateX(140vw); } }
+/* 하늘로 뻗은 구름 계단 */
+.sk-stair { position: absolute; left: 50%; bottom: 128px; width: 0; height: 0; }
+.sk-stair i {
+  position: absolute; width: 74px; height: 22px; border-radius: 999px; background: #fff;
+  box-shadow: 0 6px 14px rgba(60,110,170,.22); opacity: 0;
+  animation: skRise .5s cubic-bezier(.2,1.5,.4,1) both;
+}
+.sk-stair i:nth-child(1) { left: -70px; bottom: 34px; }
+.sk-stair i:nth-child(2) { left: 6px;   bottom: 74px; }
+.sk-stair i:nth-child(3) { left: -60px; bottom: 114px; }
+.sk-stair i:nth-child(4) { left: 14px;  bottom: 154px; }
+.sk-stair i:nth-child(5) { left: -48px; bottom: 194px; }
+.sk-stair i:nth-child(2) { animation-duration: .55s; }
+.sk-stair i:nth-child(3) { animation-duration: .62s; }
+.sk-stair i:nth-child(4) { animation-duration: .7s; }
+.sk-stair i:nth-child(5) { animation-duration: .78s; }
+@keyframes skRise { from { opacity: 0; transform: translateY(26px) scale(.7); } to { opacity: 1; transform: none; } }
+/* 발 앞에 내려앉는 첫 구름 */
+.sk-first {
+  position: absolute; left: 50%; bottom: 96px; width: 92px; height: 26px; margin-left: -4px; z-index: 1;
+  border-radius: 999px; background: #fff; opacity: 0;
+  box-shadow: 0 8px 18px rgba(60,110,170,.26);
+  animation: skFirst .9s cubic-bezier(.3,1.4,.4,1) both;
+}
+@keyframes skFirst { from { opacity: 0; transform: translate(40px, -90px) scale(.5); } to { opacity: 1; transform: none; } }
+.sk-hero {
+  position: absolute; left: 50%; bottom: 118px; transform: translateX(-50%); z-index: 2;
+  animation: skLook 2.4s ease-in-out both;
+}
+@keyframes skLook { 0%,100% { transform: translateX(-50%) rotate(0); } 40%,70% { transform: translateX(-50%) rotate(-7deg); } }
+.sk-caps { position: absolute; left: 0; right: 0; bottom: 92px; text-align: center; pointer-events: none; }
+.sk-cap {
+  position: absolute; left: 0; right: 0; opacity: 0; font-size: 19px; color: #123a5e;
+  text-shadow: 0 2px 0 rgba(255,255,255,.85); animation: dgCap 2.4s ease-out both;
+}
+.sk-cap.big { font-size: 32px; color: #0f4f8f; }
+.sk-go {
+  position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+  opacity: 0; animation: dgGo .4s ease-out both;
+}
+.sk-scene.rush .sk-hero, .sk-scene.rush .sk-stair i, .sk-scene.rush .sk-first { animation-delay: 0s !important; opacity: 1; }
+.sk-scene.rush .sk-cap { display: none; }
+.sk-scene.rush .sk-go { animation-delay: 0s !important; opacity: 1; }
+
+.sk-hud { padding: 12px 14px; margin-bottom: 10px; }
+.sk-ask { text-align: center; }
+.sk-ask-label { display: block; font-size: 12px; color: var(--ink-dim); letter-spacing: 1px; }
+.sk-ask-word { display: block; font-size: 30px; color: var(--ink); line-height: 1.25; text-wrap: balance; }
+
+.sk-canvas-wrap { position: relative; border-radius: 18px; overflow: hidden; margin-bottom: 14px; }
+.sk-canvas-wrap canvas { display: block; width: 100%; }
+.sk-alt {
+  position: absolute; right: 10px; top: 8px; font-size: 13px; font-variant-numeric: tabular-nums;
+  color: #fff; background: rgba(30,70,120,.42); border-radius: 8px; padding: 3px 8px;
+}
+.sk-combo {
+  position: absolute; left: 10px; top: 8px; font-size: 13px; opacity: 0; transition: opacity .2s;
+  color: #fff6c0; background: rgba(30,70,120,.42); border-radius: 8px; padding: 3px 8px;
+}
+.sk-combo.on { opacity: 1; }
+
+.sk-clouds { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sk-cloud {
+  border: 0; cursor: pointer; padding: 16px 10px; border-radius: 22px;
+  font-family: var(--font-en); font-size: 21px; line-height: 1.15; word-break: break-all;
+  color: #2c5c8c; background: linear-gradient(#ffffff, #dceefc);
+  box-shadow: 0 5px 0 #a9c6dd, inset 0 2px 0 rgba(255,255,255,.9);
+}
+.sk-cloud:active { transform: translateY(4px); box-shadow: 0 1px 0 #a9c6dd, inset 0 2px 0 rgba(255,255,255,.9); }
+.sk-cloud[disabled] { cursor: default; }
+.sk-cloud.safe {
+  background: linear-gradient(#ffe08a, #ffc83d); color: #5c3f00;
+  box-shadow: 0 5px 0 #c9971c, inset 0 2px 0 rgba(255,255,255,.5); animation: dgSafe .4s ease-out;
+}
+.sk-cloud.gone { animation: skGone .55s ease-in forwards; }
+@keyframes skGone { to { opacity: 0; transform: translateY(24px) scale(1.25); filter: blur(4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-far i, .sk-stair i, .sk-first, .sk-hero, .sk-cloud.gone { animation: none !important; opacity: 1; }
+}

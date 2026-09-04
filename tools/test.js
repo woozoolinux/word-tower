@@ -748,6 +748,50 @@ eq('던전 기록이 없던 옛 저장도 채워진다', (() => {
 })(), 0);
 
 // ===================================================================
+section('하늘섬');
+// 던전과 같은 게임이 되면 안 된다. 던전은 '정해진 8칸을 살아서 건넌다'이고
+// 하늘섬은 '연쇄가 곧 높이다' — 잘한 걸 즉시 갚아주는 가속이 이 구역의 존재 이유다.
+// ===================================================================
+const SK = S.BAL.sky;
+eq('정상이 있다 — 끝이 분명해야 아이가 이겼다고 느낀다', SK.height, 24);
+ok('안전지대가 정상까지 고르게 놓인다', SK.height % SK.safeEvery === 0,
+  SK.height + '칸 / ' + SK.safeEvery + '칸마다');
+ok('바람은 몇 번만 연속해도 탄다 (너무 멀면 아무도 못 본다)',
+  SK.comboFor >= 2 && SK.comboFor <= 4, SK.comboFor + '연속');
+ok('바람을 타도 안전지대를 건너뛰지 못한다 (건너뛰면 상이 벌이 된다)',
+  SK.safeEvery >= 2, SK.safeEvery + '칸 간격 vs 두 칸 점프');
+ok('후보 단어가 선택지를 채우고도 남는다', SK.words >= S.BAL.quiz.choices * 4);
+ok('오답 보기는 넓은 후보에서 뽑는다', SK.words >= SK.wordsPerRun * 3);
+ok('한 단어가 최소 두 번은 나온다',
+  SK.height / SK.wordsPerRun >= 2, SK.height + '칸 / ' + SK.wordsPerRun + '단어');
+ok('하늘섬의 압박은 시간이 아니라 고도다 — 던전보다 넉넉하다',
+  SK.timeLimit > S.BAL.dungeon.timeLimit && SK.timeMin > S.BAL.dungeon.timeMin,
+  '하늘섬 ' + SK.timeLimit + '~' + SK.timeMin + '초 vs 던전 ' + S.BAL.dungeon.timeLimit + '~' + S.BAL.dungeon.timeMin + '초');
+ok('한 판이 5분 안에 끝난다 (칸 × 제한시간)',
+  SK.height * SK.timeLimit <= 300, SK.height + '칸 × ' + SK.timeLimit + '초');
+ok('한 판 보상이 보스 한 층을 넘지 않는다 — 복습이지 파밍이 아니다',
+  SK.height * SK.gold.perStep + SK.gold.summit + SK.gold.perfect <= sandbox.byFloorX(S.BAL.gold.bossClear, 10),
+  '하늘섬 ' + (SK.height * SK.gold.perStep + SK.gold.summit + SK.gold.perfect)
+    + ' vs 보스 ' + sandbox.byFloorX(S.BAL.gold.bossClear, 10));
+// 구역 해금
+Object.keys(store).forEach(k => delete store[k]);
+S.loadState();
+const skz = S.ZONES.find(z => z.id === 'sky');
+ok('하늘섬이 열려 있다', skz.ready === true);
+eq('하늘섬은 Lv.20부터', skz.lv, 20);
+eq('하늘섬은 카드 60장부터', skz.cards, 60);
+ok('하늘섬이 던전보다 뒤에 온다', skz.lv > S.ZONES.find(z => z.id === 'dungeon').lv);
+eq('새 저장의 하늘섬 기록은 비어 있다', S.state.player.skyClears, 0);
+eq('하늘섬 기록이 없던 옛 저장도 채워진다', (() => {
+  S.saveState();
+  const raw = JSON.parse(store['wordtower_save_v1']);
+  delete raw.player.skyClears; delete raw.player.skySeen; delete raw.player.skyBest;
+  store['wordtower_save_v1'] = JSON.stringify(raw);
+  S.loadState();
+  return S.state.player.skyClears;
+})(), 0);
+
+// ===================================================================
 section('발음 읽어주기 설정');
 // 발음(학습 도움)과 듣기 문제(난이도)는 다른 것이다.
 // 예전엔 하나로 묶여 있어서, 발음을 들으려면 난이도를 올려야 했다.

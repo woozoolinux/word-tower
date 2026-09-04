@@ -80,8 +80,8 @@ const Town = (() => {
   function build() {
     places = []; solids = []; lamps = []; tufts = [];
     const zones = LEVELS.filter(L => levelTowers(L.id).length);
-    const ZH = 224;
-    H = 250 + zones.length * ZH + 30;
+    const ZH = 224, SKYY = 130;          // 북쪽 끝에 하늘섬 관문이 설 자리
+    H = 250 + zones.length * ZH + 30 + SKYY;
     W = WW;
 
     const plazaY = H - 236;
@@ -93,6 +93,8 @@ const Town = (() => {
       { act: 'arena',  emoji: '🏟️', name: '투기장', x: 66,  y: plazaY + 4 },
     ].forEach(f => addPlace(Object.assign({ kind: 'hut', w: 78, h: 64 }, f)));
     addPlace({ kind: 'hole', act: 'dungeon', emoji: '🕳️', name: '지하 던전', x: 400, y: plazaY + 14, w: 84, h: 46 });
+    // 북쪽 길 끝 — 마을에서 제일 먼 곳이 제일 나중에 열리는 곳이다
+    addPlace({ kind: 'gate', act: 'sky', x: W / 2 - 54, y: 40, w: 108, h: 78 });
 
     // 등급 구역: 큰 탑 하나 + 왕의 성
     zones.forEach((L, i) => {
@@ -258,6 +260,12 @@ const Town = (() => {
       return `👑 ${p.level.name} 왕${k && k.ok ? ' · 도전!' : k ? ` · 🃏 ${k.have}/${k.need}` : ''}`;
     }
     if (p.kind === 'hole') return '🕳️ 지하 던전 · 들어가기';
+    if (p.kind === 'gate') {
+      const z = ZONES.find(x => x.id === 'sky');
+      if (state.player.lv < z.lv) return `🔒 하늘섬 · Lv.${z.lv}부터`;
+      if (Cards.count() < z.cards) return `🔒 하늘섬 · 🃏 ${Cards.count()}/${z.cards}`;
+      return '⛰️ 하늘섬 · 오르기';
+    }
     return `${p.emoji} ${p.name}`;
   }
   function enter(p) {
@@ -266,6 +274,7 @@ const Town = (() => {
     if (p.kind === 'king') { Game.startKing(p.level.id); resume(); return; }
     const go = {
       dungeon: () => Dungeon.start(), arena: () => Game.startArena(),
+      sky: () => Lobby.enterZone('sky'),
       shop: () => Lobby.shop(), book: () => Cards.book(),
       dress: () => Lobby.charCreator(false), skills: () => Lobby.skills(),
     }[p.act];
@@ -449,6 +458,27 @@ const Town = (() => {
       ctx.fillText(p.emoji, p.cx, p.y + 41);
       want(p, p.name);
     },
+    // 하늘섬 관문 — 구름 계단이 하늘로 뻗어 있다
+    gate(p) {
+      const z = ZONES.find(x => x.id === 'sky');
+      const open = state.player.lv >= z.lv && Cards.count() >= z.cards;
+      shadow(p, p.w * .4);
+      ctx.fillStyle = '#8f86c9';
+      ctx.beginPath(); ctx.moveTo(p.x + 8, p.y + p.h); ctx.lineTo(p.x + 20, p.y + 26); ctx.lineTo(p.x + 30, p.y + 26); ctx.lineTo(p.x + 26, p.y + p.h); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(p.x + p.w - 8, p.y + p.h); ctx.lineTo(p.x + p.w - 20, p.y + 26); ctx.lineTo(p.x + p.w - 30, p.y + 26); ctx.lineTo(p.x + p.w - 26, p.y + p.h); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#a9a1de'; ctx.fillRect(p.x + 14, p.y + 18, p.w - 28, 10);
+      // 구름 계단
+      const t = performance.now() / 1000;
+      for (let i = 0; i < 4; i++) {
+        const yy = p.y + 6 - i * 15 + Math.sin(t * 1.2 + i) * 2;
+        const xx = p.cx + (i % 2 ? 17 : -17);
+        ctx.fillStyle = open ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.42)';
+        ctx.beginPath(); ctx.ellipse(xx, yy, 20 - i * 2, 7, 0, 0, 6.3); ctx.fill();
+      }
+      ctx.font = '17px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(open ? '⛰️' : '🔒', p.cx, p.y + 46);
+      want(p, open ? '하늘섬' : '하늘섬 · 잠김', open ? '#bfe6ff' : '#9a94c0');
+    },
     hole(p) {
       ctx.fillStyle = '#0a0718';
       ctx.beginPath(); ctx.ellipse(p.cx, p.y + p.h - 10, p.w / 2, 22, 0, 0, 6.3); ctx.fill();
@@ -499,6 +529,10 @@ const Town = (() => {
   window.addEventListener('keydown', e => { if (UI.current() === 'town') key(e, true); });
   window.addEventListener('keyup', e => { if (UI.current() === 'town') key(e, false); });
 
-  function debug() { return { px, py, W, H, near: nearP && placeLabel(nearP), places: places && places.length }; }
+  // 테스트에서 먼 곳을 확인할 때 좌표를 넣는다 (마을이 세로로 길어 걸어가면 오래 걸린다)
+  function debug(nx, ny) {
+    if (nx !== undefined) { px = nx; py = ny; }
+    return { px, py, W, H, near: nearP && placeLabel(nearP), places: places && places.length };
+  }
   return { start, resume, stop, debug };
 })();

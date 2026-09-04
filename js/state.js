@@ -187,7 +187,7 @@ function towerLock(tower) {
 const ZONES = [
   { lv: 5,  id: 'arena',   name: '투기장',    emoji: '🏟️', desc: '몬스터를 몇 마리나 잡을까?', ready: true },
   { lv: 10, id: 'dungeon', name: '지하 던전', emoji: '🕳️', desc: '자주 틀리는 단어만 나온다', ready: true, cards: 25 },
-  { lv: 20, id: 'sky',     name: '하늘섬',    emoji: '⛰️', desc: '구름 위의 세계 (준비 중)', ready: false, cards: 60 },
+  { lv: 20, id: 'sky',     name: '하늘섬',    emoji: '⛰️', desc: '연속으로 맞히면 두 칸씩 오른다', ready: true, cards: 60 },
 ];
 const MONSTERS = [
   { id: 'slime', name: '슬라임', emoji: '👾' }, { id: 'bat', name: '박쥐', emoji: '🦇' }, { id: 'ghost', name: '유령', emoji: '👻' },
@@ -210,6 +210,7 @@ function defaultState() {
       towerClear: {}, titles: [],
       items: { hint: 1, erase: 0, potion: 1 },
       shieldDate: '', arenaBest: 0, dungeonBest: null, dungeonClears: 0, dungeonSeen: false,
+      skyBest: null, skyClears: 0, skySeen: false,
       cards: {}, pendingCards: [], setBonus: {}, kings: {}, kingCd: {}, forced: {},
     },
     towers: {},

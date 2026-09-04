@@ -462,6 +462,7 @@ const Game = {
   toLobby() {
     Runner.stop();
     if (typeof Dungeon !== 'undefined') Dungeon.stop();
+    if (typeof SkyIsland !== 'undefined') SkyIsland.stop();
     state.player.hp = playerMaxHp(); saveState();
     this.run = null;
     if (this.home === 'town' && typeof Town !== 'undefined') { Town.resume(); return; }
