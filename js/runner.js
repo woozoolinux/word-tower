@@ -19,7 +19,8 @@ const Runner = (() => {
     speed = byFloor(BAL.runner.speed, normFloor(run.floor, run.tower));
     dashLeft = hasSkill('dash') ? 1 : 0;
     active = false; waveActive = false; groundOff = 0; bgOff = 0; initBg();
-    hud(); draw();
+    hud(); resize();          // HUD 를 채운 뒤에 재야 높이가 맞는다
+    draw();
     const ov = document.getElementById('runner-overlay');
     ov.textContent = 'READY'; ov.classList.add('show');
     setTimeout(() => { ov.textContent = 'GO!'; }, 700);

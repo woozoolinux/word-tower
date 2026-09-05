@@ -167,13 +167,24 @@ const UI = (() => {
     o = o || {};
     const wrap = cv.parentElement, sc = cv.closest('.screen') || wrap.parentElement;
     const cssW = wrap.clientWidth || 320;
-    // 이 화면에서 캔버스 말고 다른 것들이 쓰는 높이를 빼면 남는 자리가 나온다
-    let used = 0;
-    if (sc) Array.prototype.forEach.call(sc.children, el => { if (!el.contains(cv)) used += el.offsetHeight + 10; });
-    let room = window.innerHeight - 62 - used;            // 62 = #app 위아래 여백
+    // 남는 자리 = 화면 높이 - (캔버스 말고 이 화면이 쓰는 높이).
+    // .screen 은 flex 로 늘어나 있어서 그 높이에서 빼면 안 된다 — 형제를 직접 더한다.
+    // margin 까지 세야 한다(안 그러면 작은 폰에서 몇십 px 씩 넘친다).
+    const mg = el => { const cs = getComputedStyle(el); return (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0); };
+    // 위쪽은 캔버스가 실제로 시작하는 자리로 잰다 (상단바·HUD·여백이 전부 들어 있다).
+    // 아래쪽은 캔버스 뒤에 오는 형제들만 더한다.
+    const top = wrap.getBoundingClientRect().top + (window.scrollY || 0);
+    let below = mg(wrap), passed = false;
+    if (sc) Array.prototype.forEach.call(sc.children, el => {
+      if (el.contains(cv)) { passed = true; return; }
+      if (passed) below += el.getBoundingClientRect().height + mg(el);
+    });
+    let room = window.innerHeight - top - below - 26;      // 26 = #app 아래 여백 + 숨돌릴 틈
     if (!(room > 120)) room = Math.round(window.innerHeight * 0.5);
     const s = Math.max(1, Math.min(o.maxScale || 2, cssW / (o.designW || cssW)));
-    const cssH = Math.round(Math.max((o.minH || 190) * s, Math.min((o.maxH || 4000) * s, room)));
+    // 남는 자리를 **절대 넘지 않는다**. 작은 폰에서 아래쪽 버튼이 밀려나면 안 된다.
+    const want = Math.max((o.minH || 190) * s, Math.min((o.maxH || 4000) * s, room));
+    const cssH = Math.round(Math.max(130, Math.min(want, room)));
     const dpr = window.devicePixelRatio || 1;
     cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
     cv.style.height = cssH + 'px';
