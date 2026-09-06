@@ -149,7 +149,7 @@ function prevKingLevel(levelId) {
 // 구역에 못 들어가는 이유. 로비·마을이 같은 답을 써야 해서 여기 둔다.
 function zoneLock(z) {
   if (!z) return null;
-  if (state.player.lv < z.lv) return { kind: 'lv', tag: `🔒 Lv.${z.lv}`, text: `Lv.${z.lv}부터 갈 수 있어요` };
+  if (z.lv && state.player.lv < z.lv) return { kind: 'lv', tag: `🔒 Lv.${z.lv}`, text: `Lv.${z.lv}부터 갈 수 있어요` };
   if (z.aura && typeof Cards !== 'undefined' && !Cards.hasAura(z.aura)) {
     const a = AURAS[z.aura];
     return { kind: 'aura', aura: z.aura, tag: `🔒 ${a.emoji} ${a.name}`, text: `${a.name}이 있어야 갈 수 있어요` };
@@ -204,7 +204,8 @@ const ZONES = [
   { lv: 10, id: 'dungeon', name: '지하 던전', emoji: '🕳️', desc: '자주 틀리는 단어만 나온다', ready: true, cards: 25 },
   // 하늘섬은 걸어서 갈 수 없다 — 🦋 요정 날개(카드 90장)가 있어야 한다.
   // 오라가 꾸미기용 장식이 아니라 **열쇠**가 되는 유일한 자리다.
-  { lv: 20, id: 'sky',     name: '하늘섬',    emoji: '⛰️', desc: '요정 날개로만 갈 수 있다', ready: true, aura: 'fairy' },
+  // 레벨 조건은 없다 — 조건이 둘이면 무엇 때문에 못 가는지 흐려진다. 날개 하나면 된다.
+  { lv: 0,  id: 'sky',     name: '하늘섬',    emoji: '⛰️', desc: '요정 날개로만 갈 수 있다', ready: true, aura: 'fairy' },
 ];
 const MONSTERS = [
   { id: 'slime', name: '슬라임', emoji: '👾' }, { id: 'bat', name: '박쥐', emoji: '🦇' }, { id: 'ghost', name: '유령', emoji: '👻' },

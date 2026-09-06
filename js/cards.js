@@ -173,6 +173,16 @@ const Cards = (() => {
       }
     });
   }
+  // 이 오라가 여는 구역이 있으면 같이 알려준다.
+  // 레벨업 화면의 "새 구역" 안내는 레벨로 걸러서 여기 걸리지 않는다 —
+  // 오라를 받는 그 순간이 그 구역이 열리는 순간이다.
+  function zoneOpenedBy(auraId) {
+    const z = (typeof ZONES !== 'undefined' ? ZONES : []).find(x => x.aura === auraId && x.ready);
+    if (!z) return '';
+    return `<div class="unlock"><span class="big">${z.emoji}</span><div><div>새 구역: <b>${z.name}</b></div>
+      <div class="toggle-desc">이제 날아갈 수 있어요! 마을 북쪽 끝에서 올려다보세요</div></div></div>`;
+  }
+
   // 잠긴 오라도 미리 보여준다 — 목표가 눈에 보여야 모으고 싶어진다
   function previewAura(id) {
     const owned = hasAura(id);
@@ -335,6 +345,7 @@ const Cards = (() => {
           <div class="creator-preview">${Avatar.html(120, { aura: r.aura, pet: '', weapon: false })}</div>
           <div class="unlock"><span class="big">${AURAS[r.aura].emoji}</span><div><div>새 오라: <b>${AURAS[r.aura].name}</b></div>
             <div class="toggle-desc">골드로는 살 수 없어요! 🎨 꾸미기에서 바꿀 수 있어요</div></div></div>
+          ${zoneOpenedBy(r.aura)}
           <div class="actions"><button class="btn" data-close="ok">멋지다!</button></div>`,
           { cls: 'celebrate', onClose: () => { Lobby.render(); next(); } });
       } else {

@@ -779,9 +779,9 @@ Object.keys(store).forEach(k => delete store[k]);
 S.loadState();
 const skz = S.ZONES.find(z => z.id === 'sky');
 ok('하늘섬이 열려 있다', skz.ready === true);
-eq('하늘섬은 Lv.20부터', skz.lv, 20);
+ok('하늘섬에는 레벨 조건이 없다 — 조건이 둘이면 왜 못 가는지 흐려진다', !skz.lv, '지금 lv: ' + skz.lv);
 eq('하늘섬은 🦋 요정 날개가 있어야 간다', skz.aura, 'fairy');
-ok('하늘섬이 던전보다 뒤에 온다', skz.lv > S.ZONES.find(z => z.id === 'dungeon').lv);
+
 
 // 🦋 날개 = 열쇠. 오라가 꾸미기용 장식이 아니라 무언가를 여는 유일한 자리다.
 S.state.player.lv = 25;
@@ -789,11 +789,13 @@ S.state.player.owned.auras = ['none'];
 const wingLock = S.zoneLock(skz);
 ok('날개가 없으면 못 간다', !!wingLock && wingLock.kind === 'aura', JSON.stringify(wingLock));
 ok('레벨만 높다고 열리지 않는다', !!S.zoneLock(skz));
+ok('투기장·던전의 레벨 조건은 그대로 있다',
+  S.ZONES.find(z => z.id === 'arena').lv > 0 && S.ZONES.find(z => z.id === 'dungeon').lv > 0);
 S.state.player.owned.auras = ['none', 'fairy'];
 ok('날개를 얻으면 열린다', S.zoneLock(skz) === null);
 ok('날개를 달지 않아도(보유만 해도) 갈 수 있다', S.state.player.aura !== 'fairy' && S.zoneLock(skz) === null);
-S.state.player.lv = 5;
-ok('날개가 있어도 레벨이 안 되면 못 간다', !!S.zoneLock(skz) && S.zoneLock(skz).kind === 'lv');
+S.state.player.lv = 1;
+ok('레벨 1이어도 날개만 있으면 간다', S.zoneLock(skz) === null);
 // 요정 날개는 던전 조건보다 뒤에 있어야 순서가 말이 된다
 ok('요정 날개가 던전 입장 카드 수보다 뒤에 있다',
   AV.AURAS.fairy.need.cards > S.ZONES.find(z => z.id === 'dungeon').cards,
