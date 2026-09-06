@@ -364,13 +364,7 @@ const Avatar = (() => {
       <path d="M91,99 l4,1.4" stroke="#5a3819" stroke-width="1.8" stroke-linecap="round"/>
       <path d="M100,76 q6,-4 4,-9" fill="none" stroke="#8a5a2b" stroke-width="4" stroke-linecap="round"/>`;
 
-    const K = {
-      bronze: { blade: '#d08a45', guard: '#8a5624', grip: '#6b4423', gem: '', w: 6, len: 32 },
-      silver: { blade: '#d4dbe4', guard: '#8e99a6', grip: '#5d3a1a', gem: '', w: 6.5, len: 37 },
-      steel:  { blade: '#aab6c4', guard: '#4a5361', grip: '#3a2d1c', gem: '#3ee0c4', w: 8, len: 42 },
-      flame:  { blade: '#ffb066', guard: '#8a3a12', grip: '#5d2a10', gem: '#ff6b3d', w: 8, len: 45 },
-      dragon: { blade: '#ffd76b', guard: '#7b3fd6', grip: '#4a2a7a', gem: '#c04ad6', w: 9.5, len: 50 },
-    }[weapon] || { blade: '#cdd6e0', guard: '#8e99a6', grip: '#5d3a1a', gem: '', w: 6.5, len: 36 };
+    const K = WEAPON_LOOK[weapon] || WEAPON_LOOK.silver;
     const edge = tone(K.blade, .14), dark = tone(K.blade, -.16);
 
     const hx = 85, hy = 109;                       // 손잡이 끝 (손이 여기 온다)
@@ -410,14 +404,25 @@ const Avatar = (() => {
 
   // 코스튬. 기준색 하나에서 밝은 면·그늘을 뽑아 쓴다.
   // kind 로 실루엣이 갈린다: 튜닉 / 원피스 / 판금 / 로브 / 망토
+  // 2D·3D 가 같은 표를 읽어야 두 마을의 옷 색이 같다
+  const OUTFIT_LOOK = {
+    tunic:  { base: '#3fae6a', belt: '#8a5a2b', trim: '#ffc83d', kind: 'tunic' },
+    dress:  { base: '#ff8fab', belt: '#e0708f', trim: '#ffffff', kind: 'dress' },
+    knight: { base: '#9aa5b1', belt: '#5f6a78', trim: '#f5c33b', kind: 'plate' },
+    wizard: { base: '#7b5cd6', belt: '#5a3fa8', trim: '#ffc83d', kind: 'robe' },
+    hero:   { base: '#e2574c', belt: '#8e2f24', trim: '#f5c33b', kind: 'cape' },
+  };
+  const WEAPON_LOOK = {
+    stick:  { blade: '#8a5a2b', guard: '#5a3819', grip: '#6b4423', gem: '', w: 5,   len: 26 },
+    bronze: { blade: '#d08a45', guard: '#8a5624', grip: '#6b4423', gem: '', w: 6,   len: 32 },
+    silver: { blade: '#d4dbe4', guard: '#8e99a6', grip: '#5d3a1a', gem: '', w: 6.5, len: 37 },
+    steel:  { blade: '#aab6c4', guard: '#4a5361', grip: '#3a2d1c', gem: '#3ee0c4', w: 8, len: 42 },
+    flame:  { blade: '#ffb066', guard: '#8a3a12', grip: '#5d2a10', gem: '#ff6b3d', w: 8, len: 45 },
+    dragon: { blade: '#ffd76b', guard: '#7b3fd6', grip: '#4a2a7a', gem: '#c04ad6', w: 9.5, len: 50 },
+  };
+
   function outfitSvg(id, skin) {
-    const O = {
-      tunic:  { base: '#3fae6a', belt: '#8a5a2b', trim: '#ffc83d', kind: 'tunic' },
-      dress:  { base: '#ff8fab', belt: '#e0708f', trim: '#ffffff', kind: 'dress' },
-      knight: { base: '#9aa5b1', belt: '#5f6a78', trim: '#f5c33b', kind: 'plate' },
-      wizard: { base: '#7b5cd6', belt: '#5a3fa8', trim: '#ffc83d', kind: 'robe' },
-      hero:   { base: '#e2574c', belt: '#8e2f24', trim: '#f5c33b', kind: 'cape' },
-    }[id] || { base: '#3fae6a', belt: '#8a5a2b', trim: '#ffc83d', kind: 'tunic' };
+    const O = OUTFIT_LOOK[id] || OUTFIT_LOOK.tunic;
     const lit = tone(O.base, .13), dim = tone(O.base, -.11), deep = tone(O.base, -.2);
 
     // 치마·로브 밑단 (부츠를 덮지 않는다 — 발이 안 보이면 걷는 게 안 보인다)
@@ -577,5 +582,5 @@ const Avatar = (() => {
     return WALK_PHASES.map(ph => image(Object.assign({ walk: ph }, o || {})));
   }
 
-  return { SKINS, HAIRCOLORS, HAIRSTYLES, defaults, svg, html, image, walkFrames };
+  return { SKINS, HAIRCOLORS, HAIRSTYLES, OUTFIT_LOOK, WEAPON_LOOK, tone, defaults, svg, html, image, walkFrames };
 })();

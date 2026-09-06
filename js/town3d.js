@@ -23,6 +23,9 @@ const Town3D = (() => {
   let loading = false;
   let sc, cam, rd, root, hero, ghost, heroSh, raf, last, active;
   let map, px, py, dir, dirS, walkT, stepAt, moving, joy, keys, nearP, hint, camAt;
+  let faceTo = 0;                  // 몸이 향할 방향 (라디안)
+  // 각도 차이를 -π~π 로. 안 하면 359도에서 1도로 갈 때 한 바퀴를 돈다.
+  function angDiff(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }
   let frames, texes, texIdx;
 
   const el = id => document.getElementById(id);
@@ -85,6 +88,7 @@ const Town3D = (() => {
         <button class="btn small ghost" id="t3-list">📋 목록</button>
       </div>
       <div class="tw-wrap" id="t3-wrap">
+        <div class="t3-sky"><i></i><i></i><i></i><i></i><i></i></div>
         <button class="tw-hint" id="t3-hint"></button>
         <div class="tw-joy on idle" id="t3-joy"><i></i></div>
       </div>
@@ -106,7 +110,7 @@ const Town3D = (() => {
     const h = Math.max(280, Math.min(700, window.innerHeight - wrap.getBoundingClientRect().top - 60));
     wrap.style.height = h + 'px';
 
-    tags.length = 0; clouds = null;
+    tags.length = 0;
     for (const k in GEO) delete GEO[k];
     sc = new THREE.Scene();
     sc.background = null;                    // 하늘은 CSS 그라데이션이 깔린다 (공짜다)
@@ -121,7 +125,8 @@ const Town3D = (() => {
     rd.shadowMap.enabled = true; rd.shadowMap.type = THREE.PCFSoftShadowMap;
     rd.domElement.className = 't3-cv';
     // 조이스틱·버튼보다 아래에 깔린다
-    wrap.insertBefore(rd.domElement, wrap.firstChild);
+    const sky = wrap.querySelector('.t3-sky');
+    wrap.insertBefore(rd.domElement, sky ? sky.nextSibling : wrap.firstChild);
 
     // 빛 — 2D 마을과 같은 방향(왼쪽 위)
     const sun = new THREE.DirectionalLight(0xfff0d0, 0.95);
@@ -264,7 +269,6 @@ const Town3D = (() => {
   // ---------- 하늘 · 구름 · 먼 산 ----------
   // 하늘이 단색이면 마을이 종이 위에 놓인 것처럼 보인다.
   // 그라데이션은 CSS 로 깔고(공짜다) 그 위에 구름과 먼 산만 3D 로 얹는다.
-  let clouds = null;
   function skyStuff() {
     const W = map.W * M, H = map.H * M;
     // 먼 산 — 마을 둘레에 눌러 놓은 구. 여기가 세상의 끝이라는 표시
@@ -280,38 +284,6 @@ const Town3D = (() => {
     const hm = instance(geo('hill', () => new THREE.SphereGeometry(1, 10, 7)), 0x86ac9a, hills, false);
     if (hm) { hm.receiveShadow = false; hm.material.fog = true; }
 
-    // 구름 — 천천히 흘러간다
-    const cl = [];
-    for (let i = 0; i < 16; i++) {
-      cl.push({
-        x: Math.random() * (W + 30) - 15, y: 15 + Math.random() * 7, z: Math.random() * (H + 30) - 15,
-        sx: 1.5 + Math.random() * 1.6, sy: 0.4 + Math.random() * 0.3, sz: 1.0 + Math.random() * 1.0,
-      });
-    }
-    clouds = { list: cl, mesh: null, W };
-    const cm = new THREE.InstancedMesh(
-      geo('cloud', () => new THREE.SphereGeometry(1, 9, 7)),
-      new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.82, fog: false }),
-      cl.length);
-    cm.castShadow = false; cm.receiveShadow = false; cm.renderOrder = -1;
-    sc.add(cm); clouds.mesh = cm;
-    moveClouds(0);
-  }
-  // ⚠️ 이 파일은 three.js 보다 먼저 로드된다. 불러오는 시점에 THREE 를 만지면
-  // 모듈이 통째로 죽는다 — 그래서 재사용 객체도 **쓸 때** 만든다.
-  let _m4, _v, _q, _s;
-  function moveClouds(dt) {
-    if (!clouds) return;
-    if (!_m4) { _m4 = new THREE.Matrix4(); _v = new THREE.Vector3(); _q = new THREE.Quaternion(); _s = new THREE.Vector3(); }
-    const span = clouds.W + 40;
-    clouds.list.forEach((c, i) => {
-      c.x += dt * 0.35;
-      if (c.x > clouds.W + 20) c.x -= span;
-      _v.set(c.x, c.y, c.z); _s.set(c.sx, c.sy, c.sz);
-      _m4.compose(_v, _q, _s);
-      clouds.mesh.setMatrixAt(i, _m4);
-    });
-    clouds.mesh.instanceMatrix.needsUpdate = true;
   }
 
   // ---------- 나무·풀·소품 ----------
@@ -431,31 +403,15 @@ const Town3D = (() => {
       });
   }
 
-  // 캐릭터 — 지금 쓰는 SVG 아바타를 판때기에 붙여 세운다
+  // 캐릭터 — 상자로 조립한 **진짜 3D**. 걸어가는 쪽으로 몸이 돌고 팔다리가 흔들린다.
+  // 판때기(평면 그림)로는 북쪽으로 걸어도 이쪽을 보고 있었다.
   function heroMake() {
-    const face = Math.atan2(CAM.x, CAM.z);        // 아이소메트릭 카메라를 정면으로
-    // 건물 뒤로 걸어가면 아이가 통째로 사라진다. 그래서 **가려져도 비치는 그림자 하나**를
-    // 건물 위에 겹쳐 그린다. 안 가려졌을 땐 진짜 아이가 그 위를 덮으니 티가 안 난다.
-    ghost = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 1.85),
-      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, color: 0x9ec4ff,
-        depthTest: false, depthWrite: false }));
-    ghost.rotation.y = face; ghost.renderOrder = 5; sc.add(ghost);
-    const m = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.4, depthWrite: false });
-    hero = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 1.85), m);
-    hero.rotation.y = face; hero.renderOrder = 6;
-    sc.add(hero);
-    heroSh = new THREE.Mesh(new THREE.CircleGeometry(0.32, 20),
-      new THREE.MeshBasicMaterial({ color: 0x2a3a1e, transparent: true, opacity: 0.3, depthWrite: false }));
+    hero = Char3D.build({});
+    hero.group.scale.setScalar(0.95);
+    sc.add(hero.group);
+    heroSh = new THREE.Mesh(new THREE.CircleGeometry(0.34, 20),
+      new THREE.MeshBasicMaterial({ color: 0x2a3a1e, transparent: true, opacity: 0.32, depthWrite: false }));
     heroSh.rotation.x = -Math.PI / 2; sc.add(heroSh);
-  }
-  // 걷기 네 장을 텍스처로 (이미지가 준비된 것부터)
-  function heroTex(i) {
-    if (texes[i]) return texes[i];
-    const f = frames && frames[i];
-    if (!f || !f.ready) return null;
-    const t = new THREE.Texture(f.img);
-    t.needsUpdate = true; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearFilter;
-    texes[i] = t; return t;
   }
 
   // ---------- 입력 (2D 마을과 같은 방식) ----------
@@ -511,9 +467,8 @@ const Town3D = (() => {
     const len = Math.hypot(vx, vy);
     if (len > 1) { vx /= len; vy /= len; }
     moving = Math.hypot(vx, vy) > .05;
-    if (moving) { walkT += dt * 13; if (Math.abs(vx) > .2) dir = vx > 0 ? 1 : -1; }
+    if (moving) { walkT += dt * 13; faceTo = Math.atan2(vx, vy); }
     else walkT = 0;
-    dirS += (dir - dirS) * Math.min(1, dt * 16);
 
     const r = 9, nx = vx * SPEED * dt, ny = vy * SPEED * dt;
     if (!hits(px + nx, py, r)) px += nx;
@@ -540,19 +495,13 @@ const Town3D = (() => {
 
   function draw() {
     const hx = px * M, hz = py * M;
-    const bob = moving ? Math.abs(Math.sin(walkT)) * 0.06 : Math.sin(performance.now() / 700) * 0.02;
-    hero.position.set(hx, 0.94 + bob, hz);
-    // 방향은 판때기를 좌우로 뒤집어서 (0을 지날 때 사라지지 않게 최소 폭을 남긴다)
-    hero.scale.x = dirS < 0 ? Math.min(-0.18, dirS) : Math.max(0.18, dirS);
-    ghost.position.copy(hero.position); ghost.scale.x = hero.scale.x;
-    heroSh.position.set(hx, 0.13, hz);
-    const t = heroTex(moving ? ((Math.floor(walkT / (Math.PI / 2)) % 4) + 4) % 4 : 0);
-    if (t && hero.material.map !== t) {
-      hero.material.map = t; hero.material.needsUpdate = true;
-      ghost.material.map = t; ghost.material.needsUpdate = true;
-    }
-
-    moveClouds(1 / 60);
+    const now2 = performance.now() / 1000;
+    hero.group.position.set(hx, 0, hz);
+    // 몸이 **걸어가는 쪽**으로 돈다 (얼굴은 +z 를 보게 만들어 두었다)
+    hero.group.rotation.y += angDiff(faceTo - hero.group.rotation.y) * Math.min(1, 1 / 60 * 12);
+    Char3D.animate(hero, now2, moving, 1 / 60);
+    hero.group.position.y += 0;
+    heroSh.position.set(hx, 0.06, hz);
 
     // 하늘섬은 둥둥 떠 있다
     const now = performance.now() / 1000;
