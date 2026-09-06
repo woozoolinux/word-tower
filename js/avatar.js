@@ -324,10 +324,13 @@ const Avatar = (() => {
       <line x1="82" y1="114" x2="87" y2="106" stroke="#5d3a1a" stroke-width="5" stroke-linecap="round"/>`;
   }
   function outfitSvg(outfit, skin) {
+    // 팔은 몸통 **바깥**으로 나와야 보인다. 안쪽에 붙이면 옷에 묻혀 손만 남는다.
     const arms = (sleeve) => `
-      <path d="M46,90 Q36,100 38,112" fill="none" stroke="${sleeve}" stroke-width="9" stroke-linecap="round"/>
-      <path d="M74,90 Q84,100 82,112" fill="none" stroke="${sleeve}" stroke-width="9" stroke-linecap="round"/>
-      <circle cx="38" cy="113" r="5.5" fill="${skin}"/><circle cx="82" cy="113" r="5.5" fill="${skin}"/>`;
+      <path d="M45,88 Q32,99 34,113" fill="none" stroke="${sleeve}" stroke-width="11.5" stroke-linecap="round"/>
+      <path d="M75,88 Q88,99 86,113" fill="none" stroke="${sleeve}" stroke-width="11.5" stroke-linecap="round"/>
+      <path d="M75,90 Q88,100 86,113" fill="none" stroke="rgba(26,18,56,.10)" stroke-width="11.5" stroke-linecap="round"/>
+      <circle cx="34.5" cy="115" r="6.2" fill="${skin}"/><circle cx="85.5" cy="115" r="6.2" fill="${skin}"/>
+      <circle cx="36" cy="116.5" r="6.2" fill="rgba(26,18,56,.08)"/>`;
     if (outfit === 'dress') return `
       <path d="M44,84 Q60,78 76,84 L88,128 Q60,138 32,128 Z" fill="#ff8fab"/>
       <path d="M50,86 Q60,92 70,86 L68,94 Q60,98 52,94 Z" fill="#fff"/>
@@ -354,22 +357,45 @@ const Avatar = (() => {
   }
 
   // o: { headOnly, av, hat, weapon:false로 숨김 }
+  //
+  // 디자인 규칙 (2026-09-06 개편) — "너무 장난감 같다"를 고치면서 정한 것:
+  //   ① 비율. 머리가 키의 절반이면 인형이다. 머리를 줄이고 다리를 늘려 2.3등신쯤으로.
+  //      단 **SVG 상자(120×155)는 안 건드린다** — 마을·던전·러너·3D 가 이 크기를
+  //      기준으로 그리고 있어서, 상자를 바꾸면 여섯 군데를 같이 고쳐야 한다.
+  //      대신 상자 안에서 머리를 축소하고 다리를 늘린다.
+  //   ② 음영. 빛은 **왼쪽 위**에서 온다 (마을·배틀과 같은 방향).
+  //      같은 도형을 조금 밀어 뒤에 깔면 테두리 그림자가 되고, 위쪽에 흰 타원을
+  //      얹으면 광택이 된다. 그라데이션(<defs>)은 안 쓴다 —
+  //      한 화면에 아바타가 여럿일 때 id 가 충돌한다.
+  const SHADE = 'rgba(26,18,56,.13)';     // 그늘진 쪽
+  const GLOSS = 'rgba(255,255,255,.17)';  // 빛 받는 쪽
+
   function svg(av, o = {}) {
     const skin = SKINS[av.skin] || SKINS[0];
     const hairC = HAIRCOLORS[av.hairColor] || HAIRCOLORS[1];
     const hat = o.hat !== undefined ? o.hat : state.player.hat;
+    // 머리를 통째로 줄여 위로 올린다. 안쪽 좌표(머리카락·모자 path)는 그대로 둘 수 있다.
     const head = `
-      ${backHairSvg(av.hairStyle, hairC)}
-      <circle cx="27" cy="54" r="6" fill="${skin}"/><circle cx="93" cy="54" r="6" fill="${skin}"/>
-      <circle cx="60" cy="52" r="32" fill="${skin}"/>
-      <circle cx="48" cy="58" r="3.6" fill="#2a2450"/><circle cx="49.5" cy="56.5" r="1.3" fill="#fff"/>
-      <circle cx="72" cy="58" r="3.6" fill="#2a2450"/><circle cx="73.5" cy="56.5" r="1.3" fill="#fff"/>
-      <ellipse cx="42" cy="67" rx="4.5" ry="2.8" fill="#ff9aa8" opacity=".55"/><ellipse cx="78" cy="67" rx="4.5" ry="2.8" fill="#ff9aa8" opacity=".55"/>
-      <path d="M54,69 Q60,75 66,69" fill="none" stroke="#b3563f" stroke-width="2.5" stroke-linecap="round"/>
-      ${bangsSvg(hairC)}
-      ${hatSvg(hat)}`;
+      <g transform="translate(60,48.5) scale(.85) translate(-60,-52)">
+        ${backHairSvg(av.hairStyle, hairC)}
+        <circle cx="27" cy="54" r="6" fill="${skin}"/><circle cx="93" cy="54" r="6" fill="${skin}"/>
+        <circle cx="62.5" cy="54.5" r="32" fill="${SHADE}"/>
+        <circle cx="60" cy="52" r="32" fill="${skin}"/>
+        <ellipse cx="47" cy="34" rx="15" ry="7.5" fill="${GLOSS}" transform="rotate(-24 47 34)"/>
+        <path d="M43,52 Q48,48 53,52" fill="none" stroke="#2a2450" stroke-width="1.6" stroke-linecap="round" opacity=".45"/>
+        <path d="M67,52 Q72,48 77,52" fill="none" stroke="#2a2450" stroke-width="1.6" stroke-linecap="round" opacity=".45"/>
+        <circle cx="48" cy="59" r="4.2" fill="#2a2450"/>
+        <circle cx="49.8" cy="57.2" r="1.7" fill="#fff"/><circle cx="46.6" cy="60.6" r=".9" fill="#fff" opacity=".6"/>
+        <circle cx="72" cy="59" r="4.2" fill="#2a2450"/>
+        <circle cx="73.8" cy="57.2" r="1.7" fill="#fff"/><circle cx="70.6" cy="60.6" r=".9" fill="#fff" opacity=".6"/>
+        <ellipse cx="41" cy="68" rx="5" ry="3" fill="#ff9aa8" opacity=".5"/><ellipse cx="79" cy="68" rx="5" ry="3" fill="#ff9aa8" opacity=".5"/>
+        <path d="M54,70 Q60,76.5 66,70" fill="none" stroke="#b3563f" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M56,72.5 Q60,75 64,72.5" fill="#e8859a" opacity=".7"/>
+        ${bangsSvg(hairC)}
+        ${hatSvg(hat)}
+      </g>`;
     if (o.headOnly) {
-      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="12 -8 96 96">${head}</svg>`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 4 80 80">${head}</svg>`;
     }
     const outfit = (o.av && o.avOutfit) || state.player.outfit || 'tunic';
     // walk: 걷기 주기 0~1. **한 발씩 번갈아 든다.**
@@ -380,11 +406,19 @@ const Avatar = (() => {
     const lUp = lN * 4.5, rUp = rN * 4.5;               // 든 발은 위로
     const lOut = lN * 2.5, rOut = rN * 2.5;             // 그리고 살짝 바깥으로 내딛는다
     const N = v => v.toFixed(1);
+    // 다리는 길어졌다 (머리를 줄인 만큼 키가 늘어야 인형이 아니다)
+    const leg = (x, up, out, sign) => `
+      <rect x="${N(x + 1.2 * sign - out)}" y="112" width="9" height="${N(26 - up)}" rx="4.5" fill="${SHADE}"/>
+      <rect x="${N(x - out)}" y="112" width="9" height="${N(26 - up)}" rx="4.5" fill="${skin}"/>`;
+    const shoe = (x, up, out) => `
+      <rect x="${N(x - out + 1)}" y="${N(135 - up)}" width="14" height="9" rx="4.5" fill="#332e5c"/>
+      <rect x="${N(x - out)}" y="${N(134 - up)}" width="14" height="9" rx="4.5" fill="#4a4380"/>
+      <rect x="${N(x - out + 2)}" y="${N(135.5 - up)}" width="9" height="2.4" rx="1.2" fill="#fff" opacity=".22"/>`;
     const body = `
-      <rect x="${N(49 - lOut)}" y="116" width="9" height="${N(20 - lUp)}" rx="4" fill="${skin}"/><rect x="${N(62 + rOut)}" y="116" width="9" height="${N(20 - rUp)}" rx="4" fill="${skin}"/>
-      <rect x="${N(46 - lOut)}" y="${N(132 - lUp)}" width="14" height="9" rx="4.5" fill="#4a4380"/><rect x="${N(60 + rOut)}" y="${N(132 - rUp)}" width="14" height="9" rx="4.5" fill="#4a4380"/>
-      ${outfitSvg(o.outfit || outfit, skin)}`;
-    const weapon = o.weapon === false ? '' : weaponSvg(o.weaponId || state.player.weapon);
+      ${leg(49, lUp, lOut, 1)}${leg(62, rUp, -rOut, 1)}
+      ${shoe(46, lUp, lOut)}${shoe(60, rUp, -rOut)}
+      <g transform="translate(0,-7) translate(60,84) scale(1.16,1.07) translate(-60,-84)">${outfitSvg(o.outfit || outfit, skin)}</g>`;
+    const weapon = o.weapon === false ? '' : `<g transform="translate(3.5,-5)">${weaponSvg(o.weaponId || state.player.weapon)}</g>`;
     const auraId = o.aura !== undefined ? o.aura : (state.player.aura || 'none');
     const au = Aura.svgFor(auraId);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -10 120 155">${au.back}${body}${head}${weapon}${au.front}</svg>`;
