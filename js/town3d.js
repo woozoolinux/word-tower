@@ -18,7 +18,9 @@ const Town3D = (() => {
   const M = 1 / 26;              // 2D 월드 26px = 3D 1미터
   const SPEED = 132;             // 2D 마을과 같은 걷는 속도(px/초)
   const CAM = { x: 15, y: 15, z: 17 };   // 아이소메트릭 시점 (비스듬히 내려다본다)
-  const ZOOM = 12;                       // 한 화면에 보이는 넓이 — 클수록 멀리 보인다
+  // 한 화면에 보이는 세로 넓이(미터의 절반). 12 였을 때 한 화면에 24m 가 들어가서
+  // 키 1.6m 캐릭터가 화면의 7% 밖에 안 됐다 — 아이 눈에 다 작아 보인다.
+  const ZOOM = 7.2;
 
   let loading = false;
   let sc, cam, rd, root, hero, ghost, heroSh, raf, last, active;
@@ -114,7 +116,7 @@ const Town3D = (() => {
     for (const k in GEO) delete GEO[k];
     sc = new THREE.Scene();
     sc.background = null;                    // 하늘은 CSS 그라데이션이 깔린다 (공짜다)
-    sc.fog = new THREE.Fog('#cfe9fb', 36, 62);
+    sc.fog = new THREE.Fog('#cfe9fb', 36, 62);   // 카메라까지가 27m 라 그보다 멀리서 시작해야 한다
 
     const d = ZOOM;
     cam = new THREE.OrthographicCamera(-d * w / h, d * w / h, d, -d, 0.1, 160);
@@ -132,7 +134,7 @@ const Town3D = (() => {
     const sun = new THREE.DirectionalLight(0xfff0d0, 0.95);
     sun.position.set(-8, 14, 5); sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
-    Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18 });
+    Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12 });   // 좁힐수록 그림자가 또렷하다
     sun.shadow.bias = -0.0015;
     sun.target.position.set(0, 0, 0);
     sc.add(sun, sun.target, new THREE.HemisphereLight(0xbfe4ff, 0x4e7a3a, 0.42));
@@ -376,7 +378,10 @@ const Town3D = (() => {
     const tex = new THREE.CanvasTexture(cv);
     tex.minFilter = THREE.LinearFilter;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
-    sp.scale.set(w / 44 * 0.66, 0.66, 1);
+    // 스프라이트는 월드 크기라 카메라를 당기면 같이 커진다.
+    // ZOOM 에 비례해 줄여야 화면에서 보이는 글자 크기가 그대로다.
+    const ts = 0.66 * (ZOOM / 12);
+    sp.scale.set(w / 44 * ts, ts, 1);
     sp.position.set(p.cx * M, y, (p.y + p.h - 12) * M);
     sp.renderOrder = 10;
     sc.add(sp); tags.push(sp);
