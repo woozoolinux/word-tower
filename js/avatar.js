@@ -311,48 +311,133 @@ const Avatar = (() => {
       <circle cx="60" cy="22" r="3" fill="#ff6b7a"/><circle cx="49" cy="24" r="2.5" fill="#4a6cd4"/><circle cx="71" cy="24" r="2.5" fill="#4a6cd4"/>`;
     return '';
   }
+  // 무기 여섯 단계. 예전엔 전부 같은 사각형 날에 색만 달랐다 —
+  // 2000골드짜리 강철검과 200골드짜리 청동검이 구분이 안 됐다.
+  // 이제 **모양이 달라진다**: 날 폭, 코등이(guard), 손잡이 끝(pommel), 장식.
+  // 손은 (85,115) 쯤에 있고, 무기는 그 손에서 위로 뻗는다.
   function weaponSvg(weapon) {
     if (!weapon || weapon === 'none') return '';
-    if (weapon === 'stick') return `<line x1="84" y1="118" x2="98" y2="86" stroke="#8a5a2b" stroke-width="6" stroke-linecap="round"/>`;
-    const blade = weapon === 'bronze' ? '#c9803a' : weapon === 'dragon' ? '#ffd76b' : '#cdd6e0';
-    const flame = (weapon === 'flame' || weapon === 'dragon') ? `
-      <path d="M100,72 Q108,62 104,52 Q112,60 110,70 Q116,68 114,78 Q108,88 98,84 Q94,78 100,72 Z" fill="#ff8a3d"/>
-      <circle cx="104" cy="72" r="5" fill="#ffc83d"/>` : '';
-    return `${flame}
-      <path d="M87,106 L99,74 L105,78 L93,110 Z" fill="${blade}" stroke="#5d6570" stroke-width="1"/>
-      <line x1="84" y1="103" x2="97" y2="99" stroke="#8a5a2b" stroke-width="5" stroke-linecap="round"/>
-      <line x1="82" y1="114" x2="87" y2="106" stroke="#5d3a1a" stroke-width="5" stroke-linecap="round"/>`;
+    // 나무막대 — 옹이와 껍질까지 있어야 '주워 온 막대기'로 보인다
+    if (weapon === 'stick') return `
+      <path d="M83,120 L97,84" stroke="#6b4423" stroke-width="7.5" stroke-linecap="round"/>
+      <path d="M83,120 L97,84" stroke="#8a5a2b" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M92,96 l4,1.5" stroke="#6b4423" stroke-width="2" stroke-linecap="round"/>
+      <path d="M87,108 l3.5,1.2" stroke="#6b4423" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M96,86 q5,-4 3,-8" fill="none" stroke="#8a5a2b" stroke-width="4" stroke-linecap="round"/>`;
+
+    const K = {
+      bronze: { blade: '#d08a45', edge: '#f0bd82', dark: '#8a5624', guard: '#8a5624', grip: '#6b4423', gem: '', w: 5.5, len: 34 },
+      silver: { blade: '#d4dbe4', edge: '#ffffff', dark: '#8e99a6', guard: '#8e99a6', grip: '#5d3a1a', gem: '', w: 6, len: 38 },
+      steel:  { blade: '#aab6c4', edge: '#eef3f8', dark: '#6b7684', guard: '#4a5361', grip: '#3a2d1c', gem: '#3ee0c4', w: 7.5, len: 42 },
+      flame:  { blade: '#ffb066', edge: '#fff0c8', dark: '#c9601c', guard: '#8a3a12', grip: '#5d2a10', gem: '#ff6b3d', w: 7.5, len: 44 },
+      dragon: { blade: '#ffd76b', edge: '#fff8d8', dark: '#c9971c', guard: '#7b3fd6', grip: '#4a2a7a', gem: '#c04ad6', w: 9, len: 48 },
+    }[weapon] || { blade: '#cdd6e0', edge: '#fff', dark: '#8e99a6', guard: '#8e99a6', grip: '#5d3a1a', gem: '', w: 6, len: 36 };
+
+    // 손잡이 밑 → 코등이 → 날끝. 기울기는 예전과 같게 두어 손에서 안 벗어난다.
+    const hx = 82, hy = 121;                       // 손잡이 끝(아래)
+    const gx = 90, gy = 103;                       // 코등이
+    const tipX = gx + (gx - hx) * (K.len / 20), tipY = gy - K.len;   // 날끝
+    const nx = 2.1, ny = 0.95;                     // 날 폭 방향(기울기에 수직)
+    const w = K.w / 2;
+    const blade = `M${gx - nx * w},${gy - ny * w} L${gx + nx * w},${gy + ny * w} `
+      + `L${tipX + nx * w * 0.15},${tipY + ny * w * 0.15} L${tipX - nx * w * 0.6},${tipY - ny * w * 0.6} Z`;
+
+    // 불꽃검·용의검은 날에 불이 붙는다
+    const hot = weapon === 'dragon';
+    const fire = (weapon === 'flame' || hot) ? `
+      <path d="M${tipX},${tipY - 17} C${tipX + 10},${tipY - 6} ${tipX + 9},${tipY + 7} ${tipX},${tipY + 9}
+        C${tipX - 9},${tipY + 7} ${tipX - 10},${tipY - 6} ${tipX},${tipY - 17} Z"
+        fill="${hot ? '#7b3fd6' : '#ff6b2e'}" opacity=".92"/>
+      <path d="M${tipX},${tipY - 10} C${tipX + 6},${tipY - 3} ${tipX + 5},${tipY + 4} ${tipX},${tipY + 6}
+        C${tipX - 5},${tipY + 4} ${tipX - 6},${tipY - 3} ${tipX},${tipY - 10} Z"
+        fill="${hot ? '#ff6bd6' : '#ffb03d'}"/>
+      <ellipse cx="${tipX}" cy="${tipY + 1}" rx="2.4" ry="3.6" fill="${hot ? '#ffd8f6' : '#fff0c8'}"/>` : '';
+
+    return `${fire}
+      <path d="${blade}" fill="${K.dark}" transform="translate(1.6,1)"/>
+      <path d="${blade}" fill="${K.blade}"/>
+      <path d="M${gx - nx * w * 0.45},${gy - ny * w * 0.45} L${tipX - nx * w * 0.3},${tipY - ny * w * 0.3}"
+        stroke="${K.edge}" stroke-width="${(K.w * 0.28).toFixed(1)}" stroke-linecap="round" opacity=".85"/>
+      <path d="M${gx - 9},${gy - 4.5} L${gx + 9},${gy + 4.5}" stroke="${K.guard}" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M${gx - 9},${gy - 6} L${gx + 9},${gy + 3}" stroke="${K.edge}" stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
+      <path d="M${hx},${hy} L${gx - 1},${gy + 2}" stroke="${K.grip}" stroke-width="6" stroke-linecap="round"/>
+      <path d="M${hx + 1},${hy - 2} L${gx - 2},${gy + 1}" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round" opacity=".22"/>
+      <circle cx="${hx}" cy="${hy}" r="3.4" fill="${K.guard}"/>
+      ${K.gem ? `<circle cx="${gx}" cy="${gy}" r="3" fill="${K.gem}"/>
+      <circle cx="${gx - 0.8}" cy="${gy - 0.9}" r="1.1" fill="#fff" opacity=".7"/>` : ''}`;
   }
+  // 코스튬 다섯 벌. 예전엔 전부 같은 사다리꼴에 색만 달랐고, 기사 갑옷도 천처럼 보였다.
+  // 이제 옷마다 **실루엣이 다르다** — 어깨 보호대, 치마 주름, 로브 밑단, 망토.
+  // 음영은 캐릭터와 같은 규칙: 빛은 왼쪽 위, 그늘은 오른쪽 아래.
   function outfitSvg(outfit, skin) {
     // 팔은 몸통 **바깥**으로 나와야 보인다. 안쪽에 붙이면 옷에 묻혀 손만 남는다.
     const arms = (sleeve) => `
       <path d="M45,88 Q32,99 34,113" fill="none" stroke="${sleeve}" stroke-width="11.5" stroke-linecap="round"/>
       <path d="M75,88 Q88,99 86,113" fill="none" stroke="${sleeve}" stroke-width="11.5" stroke-linecap="round"/>
-      <path d="M75,90 Q88,100 86,113" fill="none" stroke="rgba(26,18,56,.10)" stroke-width="11.5" stroke-linecap="round"/>
+      <path d="M75,90 Q88,100 86,113" fill="none" stroke="${SHADE}" stroke-width="11.5" stroke-linecap="round"/>
       <circle cx="34.5" cy="115" r="6.2" fill="${skin}"/><circle cx="85.5" cy="115" r="6.2" fill="${skin}"/>
-      <circle cx="36" cy="116.5" r="6.2" fill="rgba(26,18,56,.08)"/>`;
+      <circle cx="36" cy="116.5" r="6.2" fill="${SHADE}"/>`;
+    // 몸통 한 벌: 뒤에 그림자를 깔고, 위쪽에 빛을 얹는다
+    const torso = (d, fill) => `
+      <path d="${d}" fill="${SHADE}" transform="translate(2.5,2)"/>
+      <path d="${d}" fill="${fill}"/>
+      <path d="M46,86 Q60,80 74,86 L72,96 Q60,91 48,96 Z" fill="${GLOSS}"/>`;
+    const BODY = 'M44,84 Q60,78 76,84 L82,122 Q60,130 38,122 Z';
+
     if (outfit === 'dress') return `
-      <path d="M44,84 Q60,78 76,84 L88,128 Q60,138 32,128 Z" fill="#ff8fab"/>
-      <path d="M50,86 Q60,92 70,86 L68,94 Q60,98 52,94 Z" fill="#fff"/>
+      ${torso('M44,84 Q60,78 76,84 L88,124 Q60,133 32,124 Z', '#ff8fab')}
+      <path d="M39,112 L43,127 M50,116 L51,130 M62,116 L61,130 M75,112 L71,127"
+        stroke="#e0708f" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+      <path d="M50,84 Q60,92 70,84 Q66,96 60,98 Q54,96 50,84 Z" fill="#fff"/>
+      <path d="M42,108 Q60,114 78,108 L78,113 Q60,119 42,113 Z" fill="#e0708f"/>
+      <circle cx="60" cy="111" r="4.2" fill="#fff"/><circle cx="60" cy="111" r="2" fill="#ff6b8a"/>
       ${arms('#ff8fab')}`;
+
     if (outfit === 'knight') return `
-      <path d="M44,84 Q60,78 76,84 L82,122 Q60,130 38,122 Z" fill="#9aa5b1"/>
-      <path d="M48,88 L72,88 L70,104 L50,104 Z" fill="#b8c2cc"/>
-      <rect x="40" y="106" width="40" height="7" rx="3" fill="#6b7684"/>
-      <circle cx="60" cy="109" r="4" fill="#f5c33b"/>
-      ${arms('#8f9aa8')}`;
+      ${torso('M44,84 Q60,78 76,84 L83,120 Q60,128 37,120 Z', '#9aa5b1')}
+      <path d="M48,90 L72,90 L70,110 Q60,114 50,110 Z" fill="#c3cdd8"/>
+      <path d="M60,90 L60,112" stroke="#7e8996" stroke-width="1.6"/>
+      <path d="M48,90 L72,90 L71,95 L49,95 Z" fill="#e4ebf1"/>
+      <circle cx="52" cy="99" r="1.7" fill="#7e8996"/><circle cx="68" cy="99" r="1.7" fill="#7e8996"/>
+      <rect x="38" y="112" width="44" height="8" rx="3" fill="#5f6a78"/>
+      <rect x="38" y="112" width="44" height="2.6" rx="1.3" fill="#8c97a5"/>
+      <circle cx="60" cy="116" r="4.4" fill="#f5c33b"/><circle cx="60" cy="116" r="2" fill="#c9971c"/>
+      ${arms('#8f9aa8')}
+      <path d="M36,90 Q46,78 56,86 L54,99 Q44,95 36,99 Z" fill="#b8c2cc"/>
+      <path d="M84,90 Q74,78 64,86 L66,99 Q76,95 84,99 Z" fill="#8794a3"/>
+      <path d="M36,90 Q46,78 56,86 L55,90 Q45,83 37,93 Z" fill="#eef3f8"/>
+      <path d="M36,97 Q45,93 54,97 L54,99 Q45,95 36,99 Z" fill="#6b7684"/>
+      <path d="M84,97 Q75,93 66,97 L66,99 Q75,95 84,99 Z" fill="#5f6a78"/>`;
+
     if (outfit === 'wizard') return `
-      <path d="M44,84 Q60,78 76,84 L86,128 Q60,136 34,128 Z" fill="#7b5cd6"/>
-      <circle cx="52" cy="102" r="2.5" fill="#ffc83d"/><circle cx="68" cy="112" r="2" fill="#ffc83d"/><circle cx="60" cy="94" r="1.8" fill="#ffc83d"/>
+      ${torso('M44,84 Q60,78 76,84 L87,126 Q60,135 33,126 Z', '#7b5cd6')}
+      <path d="M33,120 Q60,129 87,120 L88,127 Q60,136 32,127 Z" fill="#ffc83d"/>
+      <path d="M50,84 Q60,90 70,84 L67,100 Q60,104 53,100 Z" fill="#6a4ec4"/>
+      <path d="M40,110 L44,128 M60,112 L60,132 M80,110 L76,128"
+        stroke="#6a4ec4" stroke-width="2" stroke-linecap="round" opacity=".6"/>
+      <path d="M52,96 l1.6,4 4,1.6 -4,1.6 -1.6,4 -1.6,-4 -4,-1.6 4,-1.6 Z" fill="#ffe08a"/>
+      <path d="M70,110 l1.2,3 3,1.2 -3,1.2 -1.2,3 -1.2,-3 -3,-1.2 3,-1.2 Z" fill="#ffe08a"/>
+      <circle cx="60" cy="90" r="3" fill="#ffc83d"/>
       ${arms('#6a4ec4')}`;
+
     if (outfit === 'hero') return `
-      <path d="M46,84 L22,132 Q42,127 60,131 Q78,127 98,132 L74,84 Z" fill="#c0392b"/>
-      <path d="M44,84 Q60,78 76,84 L82,122 Q60,130 38,122 Z" fill="#e2574c"/>
-      <rect x="40" y="106" width="40" height="7" rx="3" fill="#8e2f24"/>
-      ${arms('#e2574c')}`;
+      <path d="M46,84 L18,134 Q42,127 60,132 Q78,127 102,134 L74,84 Z" fill="#8e2f24"/>
+      <path d="M46,84 L20,133 Q42,126 60,131 Q78,126 100,133 L74,84 Z" fill="#c0392b"/>
+      <path d="M46,84 L30,118 Q40,114 48,116 L52,86 Z" fill="#d4574a" opacity=".65"/>
+      ${torso(BODY, '#e2574c')}
+      <path d="M50,84 Q60,90 70,84 L68,96 Q60,100 52,96 Z" fill="#b8402f"/>
+      <rect x="38" y="110" width="44" height="8" rx="3" fill="#8e2f24"/>
+      <circle cx="60" cy="114" r="4.4" fill="#f5c33b"/><circle cx="60" cy="114" r="2" fill="#c9971c"/>
+      ${arms('#e2574c')}
+      <circle cx="45" cy="87" r="4.2" fill="#f5c33b"/><circle cx="45" cy="87" r="1.8" fill="#c9971c"/>
+      <circle cx="75" cy="87" r="4.2" fill="#e0a92c"/><circle cx="75" cy="87" r="1.8" fill="#a87c10"/>`;
+
     return `
-      <path d="M44,84 Q60,78 76,84 L82,122 Q60,130 38,122 Z" fill="#3fae6a"/>
-      <rect x="40" y="106" width="40" height="7" rx="3" fill="#2f8b53"/>
+      ${torso(BODY, '#3fae6a')}
+      <path d="M50,84 Q60,90 70,84 L68,94 Q60,98 52,94 Z" fill="#2f8b53"/>
+      <rect x="38" y="108" width="44" height="8" rx="3" fill="#2f8b53"/>
+      <rect x="38" y="108" width="44" height="2.4" rx="1.2" fill="#66c98d"/>
+      <circle cx="60" cy="112" r="3.6" fill="#c98a2f"/>
       ${arms('#3fae6a')}`;
   }
 
@@ -418,7 +503,11 @@ const Avatar = (() => {
       ${leg(49, lUp, lOut, 1)}${leg(62, rUp, -rOut, 1)}
       ${shoe(46, lUp, lOut)}${shoe(60, rUp, -rOut)}
       <g transform="translate(0,-7) translate(60,84) scale(1.16,1.07) translate(-60,-84)">${outfitSvg(o.outfit || outfit, skin)}</g>`;
-    const weapon = o.weapon === false ? '' : `<g transform="translate(3.5,-5)">${weaponSvg(o.weaponId || state.player.weapon)}</g>`;
+    const wid = o.weaponId || state.player.weapon;
+    const weapon = o.weapon === false || !wid || wid === 'none' ? ''
+      : `<g transform="translate(3.5,-5)">${weaponSvg(wid)}</g>`
+        // 무기를 그린 뒤 손을 다시 얹는다. 안 그러면 손이 칼자루에 덮여 '쥔' 것으로 안 보인다.
+        + `<circle cx="91" cy="112" r="6.6" fill="${SHADE}"/><circle cx="89.6" cy="110.5" r="6.6" fill="${skin}"/>`;
     const auraId = o.aura !== undefined ? o.aura : (state.player.aura || 'none');
     const au = Aura.svgFor(auraId);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -10 120 155">${au.back}${body}${head}${weapon}${au.front}</svg>`;
