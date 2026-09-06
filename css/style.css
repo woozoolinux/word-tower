@@ -1541,3 +1541,7 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   font-family: var(--font-en); font-size: 11px; line-height: 1.3; color: var(--ink-dim);
   margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
+
+/* 🏘️ 입체 마을 — three.js 캔버스가 조이스틱·버튼 아래 깔린다 */
+.t3-cv { display: block; width: 100%; height: 100%; }
+#screen-town3d .tw-wrap { flex: 0 0 auto; position: relative; }

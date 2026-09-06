@@ -898,6 +898,16 @@ section('발음 읽어주기 설정');
 Object.keys(store).forEach(k => delete store[k]);
 S.loadState();
 eq('새 게임은 발음 읽어주기가 켜져 있다', S.state.settings.say, true);
+// 🏘️ 입체 마을은 기본으로 꺼져 있다 — three.js(614KB)를 안 켠 사람에게 받게 하면 안 된다
+eq('새 게임은 입체 마을이 꺼져 있다', S.state.settings.town3d, false);
+eq('입체 마을 설정이 없던 옛 저장도 꺼진 채로 채워진다', (() => {
+  S.saveState();
+  const raw = JSON.parse(store['wordtower_save_v1']);
+  delete raw.settings.town3d;
+  store['wordtower_save_v1'] = JSON.stringify(raw);
+  S.loadState();
+  return S.state.settings.town3d;
+})(), false);
 eq('새 게임은 듣기 문제가 꺼져 있다', S.state.settings.listen, false);
 
 // 발음 설정이 없던 옛 저장을 읽으면 켜진 채로 채워져야 한다 (안 그러면 조용해진다)

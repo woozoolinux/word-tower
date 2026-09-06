@@ -352,6 +352,7 @@ const Lobby = (() => {
       <div class="toggle-row"><div><div>🎧 듣기 문제 <span class="tag off">어려움</span></div><div class="toggle-desc">배틀에서 글자 없이 소리만 듣고 뜻을 골라요</div></div><button class="toggle ${s.listen ? 'on' : ''}" data-t="listen" aria-label="듣기 문제"></button></div>
       <div class="toggle-row"><div><div>🎵 효과음</div></div><button class="toggle ${s.sound ? 'on' : ''}" data-t="sound" aria-label="효과음"></button></div>
       <div class="toggle-row"><div><div>🩺 진단</div><div class="toggle-desc">화면이 이상할 때 눌러서 캡처해 주세요</div></div><button class="btn small ghost" data-act="diag">보기</button></div>
+      <div class="toggle-row"><div><div>🏘️ 입체 마을 <span class="tag off">시험</span></div><div class="toggle-desc">마을을 3D로 봐요. 느리면 끄세요 — 진행은 그대로예요</div></div><button class="toggle ${s.town3d ? 'on' : ''}" data-t="town3d" aria-label="입체 마을"></button></div>
       <div class="toggle-row"><div><div>🔓 타워 잠금 끄기</div><div class="toggle-desc">학원에서 앞선 책을 내줬을 때만 켜세요</div></div><button class="toggle ${s.noLock ? 'on' : ''}" data-t="noLock" aria-label="타워 잠금 끄기"></button></div>
       <div class="toggle-row"><div><div>🔍 정찰 (예습)</div><div class="toggle-desc">층에 들어가기 전에 단어를 미리 봐요</div></div><button class="toggle ${s.preview ? 'on' : ''}" data-t="preview" aria-label="정찰"></button></div>
       <div class="toggle-row"><div style="flex:1"><div>✏️ 이름</div><input class="name-input" id="name-input" value="${esc(state.player.name)}" maxlength="10"></div></div>
@@ -364,6 +365,8 @@ const Lobby = (() => {
         t.classList.toggle('on', s[t.dataset.t]); saveState();
         if (t.dataset.t === 'sound') Sfx.ok();
         if (t.dataset.t === 'say' && s.say) speak('apple');   // 켜면 바로 들려준다
+        if (t.dataset.t === 'town3d') { m.close(); Game.town(false); }   // 바로 보여준다
+        
         return;
       }
       if (e.target.id === 'test-tts') { speak('apple'); return; }
@@ -559,7 +562,7 @@ const Lobby = (() => {
 
   function init() { root().addEventListener('click', onClick); }
   // 로비 목록에서 마을로 돌아가는 문
-  function toTown() { if (typeof Town !== 'undefined') Town.start(); }
+  function toTown() { if (typeof Town !== 'undefined') Game.town(false); }
 
   return { render, init, charCreator, diag, shop, skills, settings, saveCode, toTown, enterZone };
 })();

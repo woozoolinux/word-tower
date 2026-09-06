@@ -162,6 +162,7 @@ const Town = (() => {
   function start() {
     Game.home = 'town';
     if (!el('screen-town')) return;
+    useHost({ stop, resume });
     build();
     frames = Avatar.walkFrames(); pimg = frames[0];
     joy = null; keys = {}; nearP = null; hint = '';
@@ -170,6 +171,7 @@ const Town = (() => {
   function resume() {
     if (!places) { start(); return; }
     Game.home = 'town';
+    useHost({ stop, resume });
     shell(); UI.show('town'); resize(); run();
   }
   function run() {
@@ -319,10 +321,17 @@ const Town = (() => {
     }
     return `${p.emoji} ${p.name}`;
   }
+  // 2D·3D 두 마을이 같은 진입 로직을 쓴다. 지금 돌고 있는 쪽을 기억해 뒀다가
+  // 그쪽을 멈추고 그쪽으로 돌아온다.
+  let host = null;
+  function useHost(h) { host = h; }
+  function hstop() { (host || { stop }).stop(); }
+  function hresume() { (host || { resume }).resume(); }
+
   function enter(p) {
     if (p.kind === 'tower') { bookSelect(p); return; }
-    stop();
-    if (p.kind === 'king') { Game.startKing(p.level.id); resume(); return; }
+    hstop();
+    if (p.kind === 'king') { Game.startKing(p.level.id); hresume(); return; }
     const go = {
       dungeon: () => Dungeon.start(), arena: () => Game.startArena(),
       sky: () => Lobby.enterZone('sky'),
@@ -330,7 +339,7 @@ const Town = (() => {
       dress: () => Lobby.charCreator(false), skills: () => Lobby.skills(),
     }[p.act];
     if (go) go();
-    if (UI.current() === 'town') resume();
+    if (UI.current() === 'town' || UI.current() === 'town3d') hresume();
   }
 
   // 탑 안: 권 고르기. 마을에 6채를 늘어놓는 대신 여기서 고른다.
@@ -358,9 +367,9 @@ const Town = (() => {
       <div class="actions"><button class="btn ghost" data-close="x">나가기</button></div>`);
     m.body.querySelectorAll('[data-book]').forEach(b => b.onclick = () => {
       const t = towerById(b.dataset.book), prog = towerProg(t.id), total = floorList(t).length;
-      m.close(); stop();
+      m.close(); hstop();
       Game.startFloor(t.id, prog.cleared >= total ? 1 : Math.min(prog.floor, total));
-      if (UI.current() === 'town') resume();
+      if (UI.current() === 'town' || UI.current() === 'town3d') hresume();
     });
   }
 
@@ -670,5 +679,10 @@ const Town = (() => {
     if (nx !== undefined) { px = nx; py = ny; }
     return { px, py, W, H, near: nearP && placeLabel(nearP), places: places && places.length };
   }
-  return { start, resume, stop, debug };
+  // 3D 마을이 같은 지도와 같은 진입 로직을 쓰도록 빌려준다
+  function layout() {
+    build();
+    return { places, solids, W, H, start: { x: px, y: py } };
+  }
+  return { start, resume, stop, debug, layout, enter, placeLabel, useHost };
 })();
