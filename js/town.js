@@ -22,6 +22,35 @@ const Town = (() => {
     wood: '#8a6a44', trunk: '#7a5636', leaf: '#5faa4e', leaf2: '#7cc55f',
     gold: '#ffc83d', ink: '#3a2d1c',
   };
+  // 빛은 **왼쪽 위**에서 온다. 마을 안의 모든 그림자가 같은 쪽으로 져야 입체로 보인다.
+  const LIGHT = { x: -.55, y: -.5 };            // 빛이 오는 방향
+  const SH = { x: 4.5, y: 3 };                  // 그림자가 지는 쪽 (빛의 반대)
+  // 벽 한 면. 왼쪽은 빛을 받고 오른쪽은 그늘진다 — 같은 사각형이 상자로 보인다.
+  function wall(x, y, w, h, base) {
+    ctx.fillStyle = base; ctx.fillRect(x, y, w, h);
+    const g = ctx.createLinearGradient(x, y, x + w, y + h * .25);
+    g.addColorStop(0, 'rgba(255,255,255,.22)');
+    g.addColorStop(.42, 'rgba(255,255,255,.02)');
+    g.addColorStop(1, 'rgba(26,20,58,.28)');
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  }
+  // 지붕 밑에 드리우는 그늘 — 지붕이 벽에서 튀어나와 있다는 표시
+  function eaves(x, y, w, d) {
+    const g = ctx.createLinearGradient(0, y, 0, y + d);
+    g.addColorStop(0, 'rgba(26,20,58,.32)'); g.addColorStop(1, 'rgba(26,20,58,0)');
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, d);
+  }
+  // 딱딱한 검은 타원 대신 가장자리가 흐린 그림자. 이것 하나로 물체가 땅에 붙는다.
+  function softShadow(x, y, rx, ry, alpha) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rx);
+    g.addColorStop(0, `rgba(38,52,30,${alpha})`);
+    g.addColorStop(.62, `rgba(38,52,30,${(alpha * .72).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(38,52,30,0)');
+    ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx); ctx.translate(-x, -y);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rx, 0, 6.3); ctx.fill();
+    ctx.restore();
+  }
+
   const DECO = [];
   function scatter(W, H, blocked) {
     DECO.length = 0;
@@ -39,19 +68,26 @@ const Town = (() => {
     const sway = Math.sin(t * 1.4 + d.f) * 1.6;
     ctx.save(); ctx.translate(d.x, d.y); ctx.scale(d.s, d.s);
     if (d.kind === 'tree') {
-      ctx.fillStyle = 'rgba(60,80,40,.22)'; ctx.beginPath(); ctx.ellipse(0, 2, 13, 5, 0, 0, 6.3); ctx.fill();
+      softShadow(SH.x * 1.4, 2, 15, 5.5, .26);
       ctx.fillStyle = C.trunk; ctx.fillRect(-3, -16, 6, 17);
+      ctx.fillStyle = 'rgba(0,0,0,.16)'; ctx.fillRect(0, -16, 3, 17);      // 줄기 그늘진 쪽
       ctx.translate(sway, 0);
       ctx.fillStyle = C.leaf;
       [[0, -34, 15], [-11, -25, 11], [11, -25, 11]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); });
+      // 빛 받는 쪽만 밝게 — 같은 원이 공처럼 보인다
       ctx.fillStyle = C.leaf2;
       [[-4, -38, 9], [7, -32, 7]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); });
+      ctx.fillStyle = 'rgba(255,255,255,.28)';
+      ctx.beginPath(); ctx.arc(-6, -40, 5, 0, 6.3); ctx.fill();
+      ctx.fillStyle = 'rgba(20,50,20,.18)';
+      ctx.beginPath(); ctx.arc(9, -22, 8, 0, 6.3); ctx.fill();
     } else if (d.kind === 'bush') {
-      ctx.fillStyle = 'rgba(60,80,40,.2)'; ctx.beginPath(); ctx.ellipse(0, 2, 12, 4, 0, 0, 6.3); ctx.fill();
+      softShadow(SH.x, 2, 13, 4.5, .24);
       ctx.translate(sway * .5, 0);
       ctx.fillStyle = C.leaf;
       [[-7, -6, 8], [7, -6, 8], [0, -11, 10]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); });
       ctx.fillStyle = C.leaf2; ctx.beginPath(); ctx.arc(-3, -13, 6, 0, 6.3); ctx.fill();
+      ctx.fillStyle = 'rgba(20,50,20,.16)'; ctx.beginPath(); ctx.arc(8, -4, 7, 0, 6.3); ctx.fill();
     } else if (d.kind === 'flower') {
       ctx.strokeStyle = '#5faa4e'; ctx.lineWidth = 1.6;
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(sway * .6, -9); ctx.stroke();
@@ -60,9 +96,10 @@ const Town = (() => {
       for (let i = 0; i < 5; i++) { const a = i * 1.256; ctx.beginPath(); ctx.arc(sway * .6 + Math.cos(a) * 3, -9 + Math.sin(a) * 3, 2.4, 0, 6.3); ctx.fill(); }
       ctx.fillStyle = '#ffd24a'; ctx.beginPath(); ctx.arc(sway * .6, -9, 1.8, 0, 6.3); ctx.fill();
     } else if (d.kind === 'rock') {
-      ctx.fillStyle = 'rgba(60,80,40,.18)'; ctx.beginPath(); ctx.ellipse(0, 1, 9, 3, 0, 0, 6.3); ctx.fill();
-      ctx.fillStyle = '#b6b0c9'; ctx.beginPath(); ctx.ellipse(0, -4, 9, 6, 0, 0, 6.3); ctx.fill();
-      ctx.fillStyle = '#d3cee0'; ctx.beginPath(); ctx.ellipse(-2, -6, 5, 3, 0, 0, 6.3); ctx.fill();
+      softShadow(SH.x * .8, 1, 10, 3.4, .22);
+      ctx.fillStyle = '#a49dba'; ctx.beginPath(); ctx.ellipse(0, -4, 9, 6, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#c4bed6'; ctx.beginPath(); ctx.ellipse(-1.5, -5, 7.5, 4.6, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#e2dded'; ctx.beginPath(); ctx.ellipse(-2.5, -6.5, 4.5, 2.6, 0, 0, 6.3); ctx.fill();
     } else {
       ctx.fillStyle = C.wood;
       ctx.fillRect(-14, -14, 3.5, 15); ctx.fillRect(0, -16, 3.5, 17); ctx.fillRect(14, -14, 3.5, 15);
@@ -71,6 +108,7 @@ const Town = (() => {
     ctx.restore();
   }
   let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts;
+  let dirS, dust, stepAt;      // 부드럽게 도는 방향 · 발먼지 · 마지막 발소리
 
   const el = id => document.getElementById(id);
   let VIEW = { w: 380, h: 400, s: 1 };
@@ -111,7 +149,8 @@ const Town = (() => {
 
     solids.push({ x: -40, y: -40, w: W + 80, h: 40 }, { x: -40, y: H, w: W + 80, h: 40 },
       { x: -40, y: -40, w: 40, h: H + 80 }, { x: W, y: -40, w: 40, h: H + 80 });
-    px = W / 2; py = H - 34; dir = 0; walkT = 0; cam = { x: 0, y: 0 };
+    px = W / 2; py = H - 34; dir = 1; dirS = 1; walkT = 0; dust = []; stepAt = 0;
+    cam = { x: px, y: py };      // 처음엔 캐릭터 자리에서 시작 (안 그러면 첫 프레임에 확 밀린다)
   }
   function addPlace(p) {
     p.cx = p.x + p.w / 2; p.cy = p.y + p.h / 2;
@@ -221,8 +260,22 @@ const Town = (() => {
     const len = Math.hypot(vx, vy);
     if (len > 1) { vx /= len; vy /= len; }
     moving = Math.hypot(vx, vy) > .05;
-    if (moving) { walkT += dt * 9; if (Math.abs(vx) > .2) dir = vx > 0 ? 1 : -1; }
+    if (moving) { walkT += dt * 13; if (Math.abs(vx) > .2) dir = vx > 0 ? 1 : -1; }
+    else walkT = 0;                                    // 멈추면 두 발을 모은다
+    // 방향 전환을 한 프레임에 뒤집지 않는다 — 0.1초쯤 걸려 돈다
+    dirS += (dir - dirS) * Math.min(1, dt * 16);
     step(vx * SPEED * dt, vy * SPEED * dt);
+    // 발이 땅에 닿을 때마다 먼지 (걷는 게 땅에 닿아 있다는 느낌)
+    if (moving && walkT - stepAt > Math.PI) {
+      stepAt = walkT;
+      for (let i = 0; i < 3; i++) {
+        dust.push({ x: px + (Math.random() - .5) * 9, y: py + 2,
+          vx: (Math.random() - .5) * 16 - vx * 10, vy: -6 - Math.random() * 8,
+          r: 1.6 + Math.random() * 2, life: .42 });
+      }
+    }
+    dust = dust.filter(d => (d.life -= dt) > 0);
+    dust.forEach(d => { d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 22 * dt; });
 
     let best = null, bd = 1e9;
     places.forEach(p => {
@@ -314,8 +367,14 @@ const Town = (() => {
   // ---------- 그리기 ----------
   function draw() {
     const w = vw(), h = vh();
-    cam.x = Math.max(0, Math.min(W - w, px - w / 2));
-    cam.y = Math.max(0, Math.min(H - h, py - h / 2));
+    // 카메라가 캐릭터에 못 박혀 있으면 화면 전체가 캐릭터와 같이 덜컹인다.
+    // 살짝 늦게 따라오게 하면 그것만으로 훨씬 부드러워진다.
+    const tx = Math.max(0, Math.min(W - w, px - w / 2));
+    const ty = Math.max(0, Math.min(H - h, py - h / 2));
+    const k = Math.min(1, (last ? 1 / 60 : 1) * 7);     // 대략 0.15초 뒤따라온다
+    cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+    if (Math.abs(tx - cam.x) < .3) cam.x = tx;
+    if (Math.abs(ty - cam.y) < .3) cam.y = ty;
     ctx.save(); ctx.translate(-cam.x, -cam.y);
     ground();
     lamps.forEach(lampGlow);
@@ -340,15 +399,24 @@ const Town = (() => {
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, C.grass2); g.addColorStop(.5, C.grass); g.addColorStop(1, C.grass2);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    // 풀결
-    ctx.fillStyle = 'rgba(60,120,50,.18)';
-    tufts.forEach(t => ctx.fillRect(t.x, t.y, t.s, t.s * 2));
+    // 풀결 — 그림자 한 줄과 빛 한 줄을 같이 그리면 결이 살아난다
+    tufts.forEach(t => {
+      ctx.fillStyle = 'rgba(50,110,45,.20)'; ctx.fillRect(t.x, t.y, t.s, t.s * 2);
+      ctx.fillStyle = 'rgba(220,255,190,.22)'; ctx.fillRect(t.x - .8, t.y - .8, t.s * .8, t.s * 1.2);
+    });
     // 북쪽으로 난 돌길
     const x0 = W / 2 - 78;
     ctx.fillStyle = C.roadEdge; ctx.fillRect(x0 - 4, 0, 164, H);
     ctx.fillStyle = C.road; ctx.fillRect(x0, 0, 156, H);
     ctx.fillStyle = 'rgba(0,0,0,.05)';
     for (let y = 0; y < H; y += 34) for (let i = 0; i < 3; i++) ctx.fillRect(x0 + 8 + i * 50, y + 5, 44, 24);
+    // 길 가장자리에 빛과 그늘 — 길이 땅보다 살짝 파여 보인다
+    const eg = ctx.createLinearGradient(x0 - 4, 0, x0 + 26, 0);
+    eg.addColorStop(0, 'rgba(60,50,20,.16)'); eg.addColorStop(1, 'rgba(60,50,20,0)');
+    ctx.fillStyle = eg; ctx.fillRect(x0 - 4, 0, 30, H);
+    const eg2 = ctx.createLinearGradient(x0 + 126, 0, x0 + 156, 0);
+    eg2.addColorStop(0, 'rgba(255,240,190,0)'); eg2.addColorStop(1, 'rgba(255,240,190,.24)');
+    ctx.fillStyle = eg2; ctx.fillRect(x0 + 126, 0, 30, H);
     // 광장 바닥
     ctx.fillStyle = C.roadEdge; ctx.fillRect(0, H - 240, W, 108);
     ctx.fillStyle = C.road; ctx.fillRect(0, H - 236, W, 100);
@@ -363,8 +431,7 @@ const Town = (() => {
     ctx.fillStyle = C.gold; ctx.beginPath(); ctx.arc(l.x, l.y - 37, 4, 0, 6.3); ctx.fill();
   }
   function shadow(p, rx) {
-    ctx.fillStyle = 'rgba(0,0,0,.32)';
-    ctx.beginPath(); ctx.ellipse(p.cx, p.y + p.h - 2, rx || p.w * .5, 8, 0, 0, 6.3); ctx.fill();
+    softShadow(p.cx + SH.x, p.y + p.h - 2 + SH.y * .5, (rx || p.w * .5) * 1.15, 10, .3);
   }
   function ring(p) {
     ctx.strokeStyle = 'rgba(255,200,61,.8)'; ctx.lineWidth = 3;
@@ -395,10 +462,9 @@ const Town = (() => {
         const x = p.x + inset, w = p.w - inset * 2;
         const lock = towerLock(t), prog = towerProg(t.id), total = floorList(t).length;
         const done = prog.cleared >= total;
-        ctx.fillStyle = lock ? C.stoneDark : C.stone;
-        ctx.fillRect(x, y, w, segH + 1);
-        ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(x, y, w * .42, segH + 1);
-        ctx.fillStyle = 'rgba(0,0,0,.24)'; ctx.fillRect(x, y + segH - 3, w, 3);
+        wall(x, y, w, segH + 1, lock ? C.stoneDark : C.stone);
+        ctx.fillStyle = 'rgba(0,0,0,.26)'; ctx.fillRect(x, y + segH - 3, w, 3);
+        if (i === 0) eaves(x, y, w, 9);                 // 맨 위 층은 지붕 그늘을 받는다
         const lit = lock ? 0 : (done ? 3 : Math.round(prog.cleared / total * 3));
         for (let k = 0; k < 3; k++) {
           const wx = x + 13 + k * ((w - 32) / 2);
@@ -410,10 +476,13 @@ const Town = (() => {
         }
       }
       const rx = p.x + 6, rw = p.w - 12;
-      ctx.fillStyle = C.roof;
+      ctx.fillStyle = C.roof;                            // 빛 받는 왼쪽 면
       ctx.beginPath(); ctx.moveTo(rx - 9, p.y + 24); ctx.lineTo(p.cx, p.y - 8); ctx.lineTo(rx + rw + 9, p.y + 24); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = C.roofDark;
+      ctx.fillStyle = C.roofDark;                        // 그늘진 오른쪽 면
       ctx.beginPath(); ctx.moveTo(p.cx, p.y - 8); ctx.lineTo(rx + rw + 9, p.y + 24); ctx.lineTo(p.cx, p.y + 24); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,240,200,.5)';            // 마루에 앉는 빛
+      ctx.beginPath(); ctx.moveTo(p.cx - 2, p.y - 8); ctx.lineTo(p.cx + 2, p.y - 8);
+      ctx.lineTo(rx - 2, p.y + 24); ctx.lineTo(rx - 7, p.y + 24); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#6b5433'; ctx.fillRect(p.cx - 1.5, p.y - 36, 3, 30);
       ctx.font = '15px serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillText(p.level.emoji, p.cx + 3, p.y - 29);
@@ -427,10 +496,9 @@ const Town = (() => {
       const k = Game.kingInfo(p.level.id), beaten = k && k.beaten, ready = k && k.ok;
       shadow(p);
       const base = beaten ? '#1c6f62' : ready ? '#5d5698' : '#332e5c';
-      ctx.fillStyle = base; ctx.fillRect(p.x + 14, p.y + 26, p.w - 28, p.h - 26);
-      ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(p.x + 14, p.y + 26, (p.w - 28) * .4, p.h - 26);
+      wall(p.x + 14, p.y + 26, p.w - 28, p.h - 26, base);
       [p.x, p.x + p.w - 26].forEach(bx => {
-        ctx.fillStyle = base; ctx.fillRect(bx, p.y + 8, 26, p.h - 8);
+        wall(bx, p.y + 8, 26, p.h - 8, base);
         ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(bx, p.y + 8, 26, 5);
         for (let i = 0; i < 3; i++) { ctx.fillStyle = base; ctx.fillRect(bx + i * 9, p.y, 7, 10); }
       });
@@ -444,12 +512,15 @@ const Town = (() => {
     },
     hut(p) {
       shadow(p, p.w * .44);
-      ctx.fillStyle = C.wall; ctx.fillRect(p.x + 4, p.y + 22, p.w - 8, p.h - 22);
-      ctx.fillStyle = C.wallDark; ctx.fillRect(p.x + 4 + (p.w - 8) * .62, p.y + 22, (p.w - 8) * .38, p.h - 22);
+      wall(p.x + 4, p.y + 22, p.w - 8, p.h - 22, C.wall);
+      eaves(p.x + 4, p.y + 22, p.w - 8, 10);
       ctx.fillStyle = C.roof;
       ctx.beginPath(); ctx.moveTo(p.x - 5, p.y + 24); ctx.lineTo(p.cx, p.y - 2); ctx.lineTo(p.x + p.w + 5, p.y + 24); ctx.closePath(); ctx.fill();
       ctx.fillStyle = C.roofDark;
       ctx.beginPath(); ctx.moveTo(p.cx, p.y - 2); ctx.lineTo(p.x + p.w + 5, p.y + 24); ctx.lineTo(p.cx, p.y + 24); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,240,200,.5)';
+      ctx.beginPath(); ctx.moveTo(p.cx - 2, p.y - 2); ctx.lineTo(p.cx + 2, p.y - 2);
+      ctx.lineTo(p.x + 1, p.y + 24); ctx.lineTo(p.x - 4, p.y + 24); ctx.closePath(); ctx.fill();
       ctx.fillStyle = C.ink;
       ctx.beginPath(); ctx.roundRect(p.cx - 11, p.y + p.h - 26, 22, 26, [11, 11, 0, 0]); ctx.fill();
       ctx.font = '17px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -540,28 +611,43 @@ const Town = (() => {
     },
   };
   function me() {
-    const bob = Math.sin(walkT) * 3;
+    const bob = moving ? Math.abs(Math.sin(walkT)) * -2.5 : Math.sin(performance.now() / 700) * 1.2;
+    // 발먼지는 캐릭터 뒤에
+    dust.forEach(d => {
+      ctx.globalAlpha = Math.max(0, d.life * 1.7);
+      ctx.fillStyle = '#cbbf9a';
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.3); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
     if (state.player.pet && typeof PETS !== 'undefined' && PETS[state.player.pet]) {
       ctx.font = '17px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText(PETS[state.player.pet].emoji, px - dir * 21, py - 3 + Math.sin(walkT - 1) * 3);
+      ctx.fillText(PETS[state.player.pet].emoji, px - dirS * 21, py - 3 + Math.sin(walkT - 1) * 3);
     }
-    ctx.fillStyle = 'rgba(0,0,0,.3)';
-    ctx.beginPath(); ctx.ellipse(px, py + 3, 12, 5, 0, 0, 6.3); ctx.fill();
+    softShadow(px, py + 3, 13, 5.5, .34);
     // 오라는 캔버스에서 직접 그린다 — 래스터 이미지 안의 CSS 애니메이션은 안 돈다
     const at = performance.now() / 1000, au = state.player.aura;
     Aura.paint(ctx, px, py + bob, au, at, 'back');
     ctx.save(); ctx.translate(px, py + bob);
-    if (dir < 0) ctx.scale(-1, 1);
-    const fr = frames && frames[moving && Math.sin(walkT) > 0 ? 1 : 0];
+    // 방향은 즉시 뒤집지 않고 돌아간다. 0을 지날 때 사라지지 않게 최소 폭을 남긴다.
+    ctx.scale(dirS < 0 ? Math.min(-.18, dirS) : Math.max(.18, dirS), 1);
+    const fi = moving ? ((Math.floor(walkT / (Math.PI / 2)) % 4) + 4) % 4 : 0;
+    const fr = frames && frames[fi];
     const img = fr && fr.ready ? fr : pimg;
     if (img && img.ready) ctx.drawImage(img.img, -17, -44, 34, 46);
     else { ctx.font = '30px serif'; ctx.textAlign = 'center'; ctx.fillText(UI.charEmoji(), 0, 0); }
     ctx.restore();
     Aura.paint(ctx, px, py + bob, au, at, 'front');
   }
+  // 화면 전체에 빛을 한 겹 입힌다. 왼쪽 위는 따뜻하게, 오른쪽 아래는 서늘하게 —
+  // 같은 색이라도 한 방향에서 빛이 온다고 느껴지면 평평해 보이지 않는다.
   function vignette(w, h) {
-    const g = ctx.createRadialGradient(w / 2, h / 2, h * .34, w / 2, h / 2, w * .78);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(40,60,30,.18)');
+    const lg = ctx.createLinearGradient(0, 0, w, h);
+    lg.addColorStop(0, 'rgba(255,240,190,.20)');
+    lg.addColorStop(.45, 'rgba(255,240,190,0)');
+    lg.addColorStop(1, 'rgba(60,80,140,.14)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h);
+    const g = ctx.createRadialGradient(w / 2, h / 2, h * .34, w / 2, h / 2, w * .8);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(30,50,25,.22)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
   }
   function northHint(w) {

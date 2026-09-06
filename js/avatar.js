@@ -372,11 +372,17 @@ const Avatar = (() => {
       return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="12 -8 96 96">${head}</svg>`;
     }
     const outfit = (o.av && o.avOutfit) || state.player.outfit || 'tunic';
-    // walk: 0 모은 다리 · 1 벌린 다리. 두 장을 번갈아 그리면 걷는 것처럼 보인다.
-    const wk = o.walk ? 5 : 0, wl = o.walk ? 2 : 0;
+    // walk: 걷기 주기 0~1. **한 발씩 번갈아 든다.**
+    // 두 다리를 좌우로 벌렸다 모으면, 모으는 자세에서 다리가 겹쳐 이상해진다.
+    // 정면을 보는 캐릭터는 '한 발이 들리고 한 발은 딛는다'로 그려야 걷는 것처럼 보인다.
+    const ph = o.walk ? Math.sin(o.walk * Math.PI * 2) : 0;
+    const lN = Math.max(0, ph), rN = Math.max(0, -ph);  // 0~1 들린 정도
+    const lUp = lN * 4.5, rUp = rN * 4.5;               // 든 발은 위로
+    const lOut = lN * 2.5, rOut = rN * 2.5;             // 그리고 살짝 바깥으로 내딛는다
+    const N = v => v.toFixed(1);
     const body = `
-      <rect x="${49 - wk}" y="116" width="9" height="${20 - wl}" rx="4" fill="${skin}"/><rect x="${62 + wk}" y="116" width="9" height="${20 - wl}" rx="4" fill="${skin}"/>
-      <rect x="${46 - wk}" y="${132 - wl}" width="14" height="9" rx="4.5" fill="#4a4380"/><rect x="${60 + wk}" y="${132 - wl}" width="14" height="9" rx="4.5" fill="#4a4380"/>
+      <rect x="${N(49 - lOut)}" y="116" width="9" height="${N(20 - lUp)}" rx="4" fill="${skin}"/><rect x="${N(62 + rOut)}" y="116" width="9" height="${N(20 - rUp)}" rx="4" fill="${skin}"/>
+      <rect x="${N(46 - lOut)}" y="${N(132 - lUp)}" width="14" height="9" rx="4.5" fill="#4a4380"/><rect x="${N(60 + rOut)}" y="${N(132 - rUp)}" width="14" height="9" rx="4.5" fill="#4a4380"/>
       ${outfitSvg(o.outfit || outfit, skin)}`;
     const weapon = o.weapon === false ? '' : weaponSvg(o.weaponId || state.player.weapon);
     const auraId = o.aura !== undefined ? o.aura : (state.player.aura || 'none');
@@ -403,9 +409,10 @@ const Avatar = (() => {
     img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg(av, o || {}).replace('<svg ', '<svg width="120" height="165" '));
     return box;
   }
-  // 걷기용 두 장 (모은 다리 / 벌린 다리)
+  // 걷기 네 장. 두 장을 번갈아 켜면 걷는 게 아니라 깜빡인다.
+  const WALK_PHASES = [0, .25, .5, .75];
   function walkFrames(o) {
-    return [image(Object.assign({}, o)), image(Object.assign({ walk: 1 }, o))];
+    return WALK_PHASES.map(ph => image(Object.assign({ walk: ph }, o || {})));
   }
 
   return { SKINS, HAIRCOLORS, HAIRSTYLES, defaults, svg, html, image, walkFrames };
