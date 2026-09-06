@@ -1173,67 +1173,142 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 }
 
 /* ===================== ⛰️ 하늘섬 ===================== */
-/* 던전이 어둠이라면 하늘섬은 빛이다. 같은 게임의 반대쪽 끝이라야 "또 하네"가 안 된다. */
+/* 🦋 하늘섬으로 날아오르기.
+   하늘섬은 걸어서 갈 수 없다. 요정 날개가 펴지고 → 떠오르고 → 마을이 작아지고 →
+   구름을 뚫고 → 섬이 내려온다. 아래로 멀어지는 마을이 높이를 만든다. */
 .sk-scene {
   position: fixed; inset: 0; z-index: 60; overflow: hidden; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: linear-gradient(#5aa6e8 0%, #9fd2f6 46%, #dff0ff 78%, #a9d47f 78%, #7ab85f 100%);
+  background: linear-gradient(#3f7fd6 0%, #7fc0f2 34%, #bfe4ff 66%, #e8f6ff 100%);
   animation: fxIn .3s ease-out;
 }
 .sk-scene.out { animation: fxOut .3s ease-in forwards; }
+/* 멀리 흐르는 구름 */
 .sk-far { position: absolute; inset: 0; pointer-events: none; }
 .sk-far i {
-  position: absolute; border-radius: 999px; background: rgba(255,255,255,.75);
+  position: absolute; border-radius: 999px; background: rgba(255,255,255,.7);
   animation: skDrift 26s linear infinite;
 }
-.sk-far i:nth-child(1) { width: 120px; height: 30px; left: -140px; top: 14%; }
-.sk-far i:nth-child(2) { width: 86px;  height: 24px; left: -120px; top: 30%; animation-duration: 34s; animation-delay: -6s; }
-.sk-far i:nth-child(3) { width: 150px; height: 36px; left: -180px; top: 46%; animation-duration: 44s; animation-delay: -18s; }
-.sk-far i:nth-child(4) { width: 70px;  height: 20px; left: -100px; top: 58%; animation-duration: 30s; animation-delay: -11s; }
+.sk-far i:nth-child(1) { width: 120px; height: 30px; left: -140px; top: 16%; }
+.sk-far i:nth-child(2) { width: 86px;  height: 24px; left: -120px; top: 33%; animation-duration: 34s; animation-delay: -6s; }
+.sk-far i:nth-child(3) { width: 150px; height: 36px; left: -180px; top: 52%; animation-duration: 44s; animation-delay: -18s; }
+.sk-far i:nth-child(4) { width: 70px;  height: 20px; left: -100px; top: 68%; animation-duration: 30s; animation-delay: -11s; }
 @keyframes skDrift { to { transform: translateX(140vw); } }
-/* 하늘로 뻗은 구름 계단 */
-.sk-stair { position: absolute; left: 50%; bottom: 128px; width: 0; height: 0; }
-.sk-stair i {
-  position: absolute; width: 74px; height: 22px; border-radius: 999px; background: #fff;
-  box-shadow: 0 6px 14px rgba(60,110,170,.22); opacity: 0;
-  animation: skRise .5s cubic-bezier(.2,1.5,.4,1) both;
+/* 아래로 훅훅 지나가는 구름 — 올라가는 속도감 */
+.sk-rush { position: absolute; inset: 0; pointer-events: none; opacity: 0; animation: skFade .5s ease-out both; }
+.sk-rush i {
+  position: absolute; border-radius: 999px; background: rgba(255,255,255,.92);
+  animation: skPast 1.15s linear infinite;
 }
-.sk-stair i:nth-child(1) { left: -70px; bottom: 34px; }
-.sk-stair i:nth-child(2) { left: 6px;   bottom: 74px; }
-.sk-stair i:nth-child(3) { left: -60px; bottom: 114px; }
-.sk-stair i:nth-child(4) { left: 14px;  bottom: 154px; }
-.sk-stair i:nth-child(5) { left: -48px; bottom: 194px; }
-.sk-stair i:nth-child(2) { animation-duration: .55s; }
-.sk-stair i:nth-child(3) { animation-duration: .62s; }
-.sk-stair i:nth-child(4) { animation-duration: .7s; }
-.sk-stair i:nth-child(5) { animation-duration: .78s; }
-@keyframes skRise { from { opacity: 0; transform: translateY(26px) scale(.7); } to { opacity: 1; transform: none; } }
-/* 발 앞에 내려앉는 첫 구름 */
-.sk-first {
-  position: absolute; left: 50%; bottom: 96px; width: 92px; height: 26px; margin-left: -4px; z-index: 1;
-  border-radius: 999px; background: #fff; opacity: 0;
-  box-shadow: 0 8px 18px rgba(60,110,170,.26);
-  animation: skFirst .9s cubic-bezier(.3,1.4,.4,1) both;
+.sk-rush i:nth-child(1) { width: 160px; height: 40px; left: 4%;  animation-delay: 0s; }
+.sk-rush i:nth-child(2) { width: 110px; height: 28px; left: 62%; animation-delay: -.35s; }
+.sk-rush i:nth-child(3) { width: 190px; height: 46px; left: 26%; animation-delay: -.7s; }
+.sk-rush i:nth-child(4) { width: 90px;  height: 24px; left: 78%; animation-delay: -.95s; }
+.sk-rush i:nth-child(5) { width: 130px; height: 32px; left: -6%; animation-delay: -.5s; }
+.sk-rush i:nth-child(6) { width: 70px;  height: 20px; left: 46%; animation-delay: -.15s; }
+@keyframes skPast {
+  0%   { top: -18%; opacity: 0; transform: scale(.7); }
+  15%  { opacity: .95; }
+  100% { top: 118%; opacity: 0; transform: scale(1.5); }
 }
-@keyframes skFirst { from { opacity: 0; transform: translate(40px, -90px) scale(.5); } to { opacity: 1; transform: none; } }
+@keyframes skFade { to { opacity: 1; } }
+/* 발밑으로 멀어지는 마을 */
+.sk-town {
+  position: absolute; left: 50%; bottom: -14px; width: 300px; max-width: 84vw;
+  transform: translateX(-50%); animation: skTownAway 4.4s cubic-bezier(.3,.5,.4,1) both;
+}
+.town-svg { display: block; width: 100%; filter: drop-shadow(0 6px 12px rgba(30,70,120,.25)); }
+/* 마을은 화면 밖으로 나가지 않고 발밑에 **작게 남는다** — 그래야 높이가 보인다 */
+@keyframes skTownAway {
+  0%   { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(52px) scale(.17); opacity: .7; }
+}
+/* 위에서 내려오는 하늘섬 */
+.sk-isle {
+  position: absolute; left: 50%; top: 12%; width: 250px; max-width: 70vw;
+  transform: translateX(-50%); opacity: 0;
+  animation: skIsleDown 1.5s cubic-bezier(.2,.9,.3,1) both;
+}
+.isle-svg { display: block; width: 100%; filter: drop-shadow(0 12px 18px rgba(30,70,120,.28)); }
+@keyframes skIsleDown {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-190px) scale(.55); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+/* 날개를 펴고 떠 있는 아이 */
 .sk-hero {
-  position: absolute; left: 50%; bottom: 118px; transform: translateX(-50%); z-index: 2;
-  animation: skLook 2.4s ease-in-out both;
+  position: absolute; left: 50%; bottom: 34%; z-index: 3;
+  transform: translateX(-50%); transform-origin: 50% 80%;
+  animation: skWingOut .7s cubic-bezier(.2,1.7,.4,1) both, skFloat 2.8s 1s ease-in-out infinite;
 }
-@keyframes skLook { 0%,100% { transform: translateX(-50%) rotate(0); } 40%,70% { transform: translateX(-50%) rotate(-7deg); } }
-.sk-caps { position: absolute; left: 0; right: 0; bottom: 92px; text-align: center; pointer-events: none; }
+@keyframes skWingOut {
+  0%   { transform: translateX(-50%) scale(.7); opacity: .2; }
+  60%  { transform: translateX(-50%) scale(1.12); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+@keyframes skFloat {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(-14px); }
+}
+/* 날개가 펴지는 순간의 빛 */
+.sk-pop {
+  position: absolute; left: 50%; bottom: 34%; width: 10px; height: 10px; margin-left: -5px;
+  border-radius: 50%; opacity: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,255,255,.95) 0 22%, rgba(160,230,255,.55) 46%, transparent 70%);
+  animation: skPop .8s ease-out both;
+}
+@keyframes skPop {
+  0%   { opacity: 0; transform: scale(.4); }
+  30%  { opacity: 1; transform: scale(26); }
+  100% { opacity: 0; transform: scale(44); }
+}
+.sk-caps { position: absolute; left: 0; right: 0; bottom: 15%; text-align: center; pointer-events: none; }
 .sk-cap {
-  position: absolute; left: 0; right: 0; opacity: 0; font-size: 19px; color: #123a5e;
-  text-shadow: 0 2px 0 rgba(255,255,255,.85); animation: dgCap 2.4s ease-out both;
+  position: absolute; left: 0; right: 0; opacity: 0; font-size: 19px; color: #0f3f6e;
+  text-shadow: 0 2px 0 rgba(255,255,255,.9); animation: dgCap 1.8s ease-out both;
 }
-.sk-cap.big { font-size: 32px; color: #0f4f8f; }
+.sk-cap.big { font-size: 32px; color: #0d4f96; }
 .sk-go {
   position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
   opacity: 0; animation: dgGo .4s ease-out both;
 }
-.sk-scene.rush .sk-hero, .sk-scene.rush .sk-stair i, .sk-scene.rush .sk-first { animation-delay: 0s !important; opacity: 1; }
-.sk-scene.rush .sk-cap { display: none; }
+.sk-scene.rush .sk-hero { animation: skFloat 2.8s ease-in-out infinite !important; opacity: 1; }
+.sk-scene.rush .sk-isle, .sk-scene.rush .sk-rush { animation-delay: 0s !important; opacity: 1; }
+.sk-scene.rush .sk-town, .sk-scene.rush .sk-pop, .sk-scene.rush .sk-cap { display: none; }
 .sk-scene.rush .sk-go { animation-delay: 0s !important; opacity: 1; }
+
+/* ---------- 🦋 날개가 없다 ---------- */
+/* 못 가는 이유를 말로 하면 안내문이고, 저 위에 떠 있는 걸 보여주면 목표가 된다 */
+.wing-scene {
+  position: relative; height: 168px; margin: -4px -4px 6px; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(#6fb4ea, #bfe4ff 62%, #a9d47f 62%, #7ab85f);
+}
+.wing-isle {
+  position: absolute; left: 50%; top: 2px; width: 150px; transform: translateX(-50%);
+  animation: wingBob 3.4s ease-in-out infinite;
+}
+@keyframes wingBob { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-7px); } }
+.wing-me { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); }
+.wing-x {
+  position: absolute; right: -20px; top: 6px; font-size: 22px; opacity: .85;
+  filter: grayscale(1); animation: wingNo 2.4s ease-in-out infinite;
+}
+@keyframes wingNo { 0%, 100% { transform: rotate(-12deg) scale(1); } 50% { transform: rotate(10deg) scale(.9); } }
+.wing-goal {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  margin: 8px 0 4px; padding: 10px 12px; border-radius: 16px;
+  background: rgba(143,123,255,.12); border: 2px solid rgba(143,123,255,.32);
+}
+.wing-pv { flex: 0 0 auto; }
+.wing-info { flex: 1; min-width: 0; }
+.wing-name { font-size: 17px; color: var(--ink); margin-bottom: 6px; }
+/* .bar 는 span 이라 그냥 두면 인라인이 되어 높이가 안 먹는다 */
+.wing-info .bar { display: block; margin-bottom: 6px; }
+.wing-info .toggle-desc { line-height: 1.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-far i, .sk-rush i, .sk-town, .sk-isle, .sk-hero, .sk-pop,
+  .wing-isle, .wing-x { animation: none !important; opacity: 1; }
+}
 
 .sk-hud { padding: 12px 14px; margin-bottom: 10px; }
 .sk-ask { text-align: center; }

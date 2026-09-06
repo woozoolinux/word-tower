@@ -16,10 +16,79 @@
 const SkyIsland = (() => {
   const D = () => BAL.sky;
 
-  // ---------- 인트로 ----------
-  // 던전 프롤로그와 같은 방식: 지연은 CSS가 아니라 이 표에서 준다.
-  const FULL = { look: 0, c1: .5, step: 1.6, c2: 2.0, foot: 3.0, c3: 3.3, go: 3.8 };
-  const SHORT = { look: -9, c1: -9, step: 0, c2: -9, foot: .5, c3: .7, go: 1.1 };
+  // ---------- 그림 조각 ----------
+  // 떠 있는 섬. 인트로와 "날개가 없다" 안내창에서 같이 쓴다 —
+  // 못 가는 이유를 말로 하면 안내문이지만, 저 위에 떠 있는 걸 보여주면 목표가 된다.
+  function isleArt() {
+    return `<svg viewBox="0 0 200 150" class="isle-svg">
+      <ellipse cx="100" cy="126" rx="46" ry="9" fill="rgba(120,160,220,.22)"/>
+      <path d="M40 74 L160 74 L112 128 Z" fill="#8a6a44"/>
+      <path d="M54 80 L146 80 L110 118 Z" fill="#6d5030"/>
+      <ellipse cx="100" cy="74" rx="62" ry="16" fill="#7ab85f"/>
+      <ellipse cx="100" cy="69" rx="62" ry="15" fill="#a9d47f"/>
+      <rect x="86" y="34" width="6" height="32" rx="3" fill="#7a5636"/>
+      <circle cx="89" cy="30" r="15" fill="#5faa4e"/><circle cx="81" cy="24" r="10" fill="#7cc55f"/>
+      <circle cx="128" cy="58" r="8" fill="#5faa4e"/><circle cx="63" cy="60" r="6" fill="#5faa4e"/>
+      <ellipse cx="42" cy="98" rx="22" ry="7" fill="rgba(255,255,255,.8)"/>
+      <ellipse cx="160" cy="106" rx="18" ry="6" fill="rgba(255,255,255,.65)"/>
+    </svg>`;
+  }
+  function townArt() {
+    return `<svg viewBox="0 0 240 96" class="town-svg">
+      <ellipse cx="120" cy="84" rx="134" ry="24" fill="#74ad57"/>
+      <ellipse cx="120" cy="78" rx="134" ry="22" fill="#a9d47f"/>
+      <rect x="44" y="50" width="26" height="22" fill="#fff4dc"/>
+      <path d="M36 50 L57 32 L78 50 Z" fill="#e8735e"/>
+      <rect x="152" y="52" width="24" height="20" fill="#fff4dc"/>
+      <path d="M144 52 L164 36 L184 52 Z" fill="#8f7bff"/>
+      <rect x="104" y="26" width="30" height="46" fill="#8f86c9"/>
+      <path d="M96 26 L119 6 L142 26 Z" fill="#e8735e"/>
+      <circle cx="88" cy="58" r="10" fill="#5faa4e"/><circle cx="196" cy="60" r="9" fill="#5faa4e"/>
+      <circle cx="22" cy="62" r="8" fill="#5faa4e"/>
+    </svg>`;
+  }
+
+  // ---------- 날개가 없으면 못 간다 ----------
+  // "Lv.20 필요" 같은 안내문으로 끝내면 아무도 갖고 싶어하지 않는다.
+  // 저 위에 섬이 떠 있고, 내 등에는 날개가 없다는 걸 **그림으로** 보여준다.
+  function needWings() {
+    const g = (Cards.auraGoals() || []).find(x => x.id === 'fairy');
+    const need = (AURAS.fairy.need || {}).cards || 90;
+    const have = g ? g.cards : Cards.count();
+    const left = Math.max(0, need - have);
+    const pct = Math.min(100, Math.round(have / need * 100));
+    UI.modal(`
+      <div class="wing-scene">
+        <div class="wing-isle">${isleArt()}</div>
+        <div class="wing-me">${UI.charHtml(64)}<span class="wing-x">🦋</span></div>
+      </div>
+      <div class="modal-title">날개가 없다</div>
+      <div class="king-taunt">"하늘섬은 걸어서 갈 수 있는 곳이 아니야.<br>날개를 얻어 오렴."</div>
+      <div class="wing-goal">
+        <div class="wing-pv">${Avatar.html(96, { aura: 'fairy', pet: '', weapon: false })}</div>
+        <div class="wing-info">
+          <div class="wing-name">🦋 요정 날개</div>
+          <span class="bar exp"><span class="bar-fill" style="width:${pct}%"></span>
+            <span class="bar-text">🃏 ${have} / ${need}장</span></span>
+          <div class="toggle-desc">${left ? `카드 <b>${left}장</b>만 더 모으면 날 수 있어요`
+            : '조건을 채웠어요! 📖 도감에서 받아가세요'}</div>
+        </div>
+      </div>
+      <div class="modal-sub">카드는 타워에서 <b>★★★</b>을 만들면 받는 각인 시험으로 모아요.</div>
+      <div class="actions">
+        <button class="btn" data-close="book">📖 카드 모으러 가기</button>
+        <button class="btn ghost" data-close="x">닫기</button>
+      </div>`,
+      { onClose: v => { if (v === 'book') Cards.book(); } });
+    Sfx.bad();
+  }
+
+  // ---------- 인트로: 날아오른다 ----------
+  // 컷: 날개가 펴진다 → 떠오른다 → 마을이 작아진다 → 구름을 뚫고 → 하늘섬.
+  // 지연은 CSS가 아니라 이 표에서 준다. 두 번째부터는 떠오르는 데서 짧게.
+  // 자막 지속시간(1.8초)보다 간격이 좁으면 두 줄이 겹쳐 읽히지 않는다
+  const FULL = { wing: .25, c1: .7, rise: 1.7, c2: 2.7, rush: 3.4, c3: 4.6, isle: 5.0, c4: 6.5, go: 7.0 };
+  const SHORT = { wing: 0, c1: -9, rise: .1, c2: -9, rush: .5, c3: -9, isle: .9, c4: 1.3, go: 1.9 };
 
   function intro(done) {
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -31,33 +100,34 @@ const SkyIsland = (() => {
     root.className = 'sk-scene' + (reduce ? ' rush' : '');
     root.innerHTML = `
       <div class="sk-far"><i></i><i></i><i></i><i></i></div>
-      <div class="sk-stair"><i></i><i></i><i></i><i></i><i></i></div>
-      <div class="sk-first"></div>
-      <div class="sk-hero">${UI.charHtml(84)}</div>
+      <div class="sk-rush"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="sk-isle">${isleArt()}</div>
+      <div class="sk-town">${townArt()}</div>
+      <div class="sk-hero">${Avatar.html(92, { aura: 'fairy', pet: '' })}</div>
+      <div class="sk-pop"></div>
       <div class="sk-caps">
-        <div class="sk-cap c1">저 위엔… 뭐가 있을까?</div>
-        <div class="sk-cap c2">바람이 구름 하나를 발 앞에 내려놓았다</div>
-        <div class="sk-cap c3 big">올라가자!</div>
+        <div class="sk-cap c1">🦋 요정 날개가 펴진다</div>
+        <div class="sk-cap c2">마을이 발밑으로 작아진다</div>
+        <div class="sk-cap c3">구름을 뚫고 더 위로</div>
+        <div class="sk-cap c4 big">하늘섬이다!</div>
       </div>
-      <button class="btn coral sk-go">☁️ 첫 구름을 밟는다</button>`;
+      <button class="btn coral sk-go">⛰️ 섬에 내려선다</button>`;
     document.getElementById('modal-root').appendChild(root);
 
     const put = (sel, tt) => root.querySelectorAll(sel).forEach(el => {
       if (tt < 0) { el.style.display = 'none'; return; }
       el.style.animationDelay = tt + 's';
     });
-    put('.sk-hero', T.look); put('.sk-cap.c1', T.c1); put('.sk-first', T.step);
-    put('.sk-cap.c2', T.c2); put('.sk-cap.c3', T.c3); put('.sk-go', T.go);
-    // 계단은 한 칸씩 차례로 — 지연을 자식마다 따로 준다 (부모에 주면 안 먹는다)
-    root.querySelectorAll('.sk-stair i').forEach((el, i) => {
-      if (T.foot < 0) { el.style.display = 'none'; return; }
-      el.style.animationDelay = (T.foot + i * .13).toFixed(2) + 's';
-    });
+    put('.sk-hero', T.wing); put('.sk-pop', T.wing); put('.sk-cap.c1', T.c1);
+    put('.sk-town', T.rise); put('.sk-cap.c2', T.c2);
+    put('.sk-rush', T.rush); put('.sk-cap.c3', T.c3);
+    put('.sk-isle', T.isle); put('.sk-cap.c4', T.c4); put('.sk-go', T.go);
 
     const timers = [];
     const at = (tt, fn) => { if (!reduce && tt >= 0) timers.push(setTimeout(fn, tt * 1000)); };
-    at(T.step, () => Sfx.door());
-    at(T.foot, () => Sfx.ok());
+    at(T.wing, () => Sfx.coin());
+    at(T.rise, () => Sfx.door());
+    at(T.isle, () => Sfx.win());
 
     const finish = () => {
       timers.splice(0).forEach(clearTimeout);
@@ -108,6 +178,7 @@ const SkyIsland = (() => {
   function isIsland(a) { return a > 0 && a % D().safeEvery === 0 && a < D().height; }
 
   function start() {
+    if (!Cards.hasAura('fairy')) { needWings(); return; }   // 날개 없이는 못 간다
     pool = candidates();
     if (pool.length < 4) { UI.toast('타워에서 단어를 조금 더 만난 뒤에 올 수 있어요', 'bad'); return; }
     intro(() => reset(() => brief(() => go())));
@@ -552,5 +623,5 @@ const SkyIsland = (() => {
 
   window.addEventListener('resize', () => { if (UI.current() === 'sky') resize(); });
 
-  return { start, intro, stop };
+  return { start, intro, stop, needWings, isleArt };
 })();

@@ -223,13 +223,12 @@ const Lobby = (() => {
   }
 
   function zoneCard(z) {
-    const needCards = z.cards || 0, haveCards = Cards.count();
-    const locked = state.player.lv < z.lv || haveCards < needCards;
+    const lock = zoneLock(z), locked = !!lock;
     const best = z.id === 'arena' && state.player.arenaBest ? `<div class="best">최고 ${state.player.arenaBest}마리</div>`
       : z.id === 'dungeon' && state.player.dungeonClears ? `<div class="best">탈출 ${state.player.dungeonClears}번${state.player.dungeonBest === 0 ? ' · 무실수!' : ''}</div>`
       : z.id === 'sky' && state.player.skyClears ? `<div class="best">정복 ${state.player.skyClears}번${state.player.skyBest === 0 ? ' · 무실수!' : ''}</div>` : '';
     return `<div class="zone ${locked ? 'locked' : 'panel'}" data-zone="${z.id}">
-      ${locked ? `<span class="lock-badge">🔒 Lv.${z.lv}${needCards ? ` · 🃏${needCards}` : ''}</span>` : ''}
+      ${locked ? `<span class="lock-badge">${lock.tag}</span>` : ''}
       <div class="zone-emoji">${z.emoji}</div><div class="zone-name">${z.name}</div><div class="zone-desc">${z.desc}</div>${locked ? '' : best}
     </div>`;
   }
@@ -271,10 +270,12 @@ const Lobby = (() => {
   }
 
   function enterZone(id) {
-    const z = ZONES.find(x => x.id === id);
-    if (state.player.lv < z.lv) { UI.toast(`🔒 ${z.name}은(는) Lv.${z.lv}부터 들어갈 수 있어요`); Sfx.bad(); return; }
-    if (z.cards && Cards.count() < z.cards) { UI.toast(`🃏 카드가 ${z.cards}장 필요해요 (지금 ${Cards.count()}장)`); Sfx.bad(); return; }
-    if (!z.ready) { UI.toast(`${z.emoji} ${z.name}은(는) 준비 중이에요!`); return; }
+    const z = ZONES.find(x => x.id === id), lock = zoneLock(z);
+    if (lock) {
+      // 날개가 없어 못 가는 건 **안내가 아니라 목표**다. 그림으로 보여준다.
+      if (lock.kind === 'aura' && id === 'sky') { SkyIsland.needWings(); return; }
+      UI.toast(`🔒 ${z.name} — ${lock.text}`); Sfx.bad(); return;
+    }
     if (id === 'arena') Game.startArena();
     else if (id === 'dungeon') Dungeon.start();
     else if (id === 'sky') SkyIsland.start();

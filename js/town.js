@@ -81,7 +81,7 @@ const Town = (() => {
   function build() {
     places = []; solids = []; lamps = []; tufts = [];
     const zones = LEVELS.filter(L => levelTowers(L.id).length);
-    const ZH = 224, SKYY = 130;          // 북쪽 끝에 하늘섬 관문이 설 자리
+    const ZH = 224, SKYY = 196;          // 북쪽 끝, 하늘섬이 떠 있을 자리 (높아야 못 간다는 게 보인다)
     H = 250 + zones.length * ZH + 30 + SKYY;
     W = WW;
 
@@ -94,8 +94,8 @@ const Town = (() => {
       { act: 'arena',  emoji: '🏟️', name: '투기장', x: 66,  y: plazaY + 4 },
     ].forEach(f => addPlace(Object.assign({ kind: 'hut', w: 78, h: 64 }, f)));
     addPlace({ kind: 'hole', act: 'dungeon', emoji: '🕳️', name: '지하 던전', x: 400, y: plazaY + 14, w: 84, h: 46 });
-    // 북쪽 길 끝 — 마을에서 제일 먼 곳이 제일 나중에 열리는 곳이다
-    addPlace({ kind: 'gate', act: 'sky', x: W / 2 - 54, y: 40, w: 108, h: 78 });
+    // 북쪽 길 끝의 **이륙 자리**. 하늘섬 자체는 저 위에 떠 있어서 걸어서는 못 간다.
+    addPlace({ kind: 'gate', act: 'sky', x: W / 2 - 52, y: 30, w: 104, h: 138 });
 
     // 등급 구역: 큰 탑 하나 + 왕의 성
     zones.forEach((L, i) => {
@@ -260,10 +260,9 @@ const Town = (() => {
     }
     if (p.kind === 'hole') return '🕳️ 지하 던전 · 들어가기';
     if (p.kind === 'gate') {
-      const z = ZONES.find(x => x.id === 'sky');
-      if (state.player.lv < z.lv) return `🔒 하늘섬 · Lv.${z.lv}부터`;
-      if (Cards.count() < z.cards) return `🔒 하늘섬 · 🃏 ${Cards.count()}/${z.cards}`;
-      return '⛰️ 하늘섬 · 오르기';
+      const lock = zoneLock(ZONES.find(x => x.id === 'sky'));
+      if (!lock) return '🦋 하늘섬으로 날아오르기';
+      return lock.kind === 'aura' ? '🦋 날개가 없어 날 수 없다' : `🔒 하늘섬 · ${lock.text}`;
     }
     return `${p.emoji} ${p.name}`;
   }
@@ -457,26 +456,78 @@ const Town = (() => {
       ctx.fillText(p.emoji, p.cx, p.y + 41);
       want(p, p.name);
     },
-    // 하늘섬 관문 — 구름 계단이 하늘로 뻗어 있다
+    // 하늘섬 — 땅에 없다. **저 위에 떠 있다.**
+    // 여기 있는 건 이륙 자리뿐이고, 날개가 있어야 저기까지 간다.
     gate(p) {
-      const z = ZONES.find(x => x.id === 'sky');
-      const open = state.player.lv >= z.lv && Cards.count() >= z.cards;
-      shadow(p, p.w * .4);
-      ctx.fillStyle = '#8f86c9';
-      ctx.beginPath(); ctx.moveTo(p.x + 8, p.y + p.h); ctx.lineTo(p.x + 20, p.y + 26); ctx.lineTo(p.x + 30, p.y + 26); ctx.lineTo(p.x + 26, p.y + p.h); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(p.x + p.w - 8, p.y + p.h); ctx.lineTo(p.x + p.w - 20, p.y + 26); ctx.lineTo(p.x + p.w - 30, p.y + 26); ctx.lineTo(p.x + p.w - 26, p.y + p.h); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#a9a1de'; ctx.fillRect(p.x + 14, p.y + 18, p.w - 28, 10);
-      // 구름 계단
+      const lock = zoneLock(ZONES.find(x => x.id === 'sky'));
+      const open = !lock;
       const t = performance.now() / 1000;
-      for (let i = 0; i < 4; i++) {
-        const yy = p.y + 6 - i * 15 + Math.sin(t * 1.2 + i) * 2;
-        const xx = p.cx + (i % 2 ? 17 : -17);
-        ctx.fillStyle = open ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.42)';
-        ctx.beginPath(); ctx.ellipse(xx, yy, 20 - i * 2, 7, 0, 0, 6.3); ctx.fill();
+      const bob = Math.sin(t * .8) * 6;
+      const iy = p.y + 20 + bob;                      // 섬이 떠 있는 높이 — 이륙 자리에서 한참 위
+
+      // 이륙 자리 — 바람이 도는 돌판
+      ctx.fillStyle = 'rgba(60,80,40,.2)';
+      ctx.beginPath(); ctx.ellipse(p.cx, p.y + p.h - 4, 38, 12, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = open ? '#d9cff5' : '#9d97bd';
+      ctx.beginPath(); ctx.ellipse(p.cx, p.y + p.h - 7, 36, 11, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = open ? '#f2ecff' : '#b3aecd';
+      ctx.beginPath(); ctx.ellipse(p.cx, p.y + p.h - 9, 26, 8, 0, 0, 6.3); ctx.fill();
+      // 도는 바람
+      ctx.strokeStyle = open ? 'rgba(190,230,255,.85)' : 'rgba(190,200,230,.35)';
+      ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const a = t * (open ? 1.8 : .5) + i * 2.1;
+        ctx.beginPath();
+        ctx.ellipse(p.cx, p.y + p.h - 9, 20 + i * 6, 6 + i * 2, 0, a, a + 1.7);
+        ctx.stroke();
       }
-      ctx.font = '17px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(open ? '⛰️' : '🔒', p.cx, p.y + 46);
-      want(p, open ? '하늘섬' : '하늘섬 · 잠김', open ? '#bfe6ff' : '#9a94c0');
+      // 열려 있으면 빛기둥이 섬까지 이어진다 — 갈 수 있다는 표시
+      if (open) {
+        const g = ctx.createLinearGradient(0, iy + 30, 0, p.y + p.h - 8);
+        g.addColorStop(0, 'rgba(190,230,255,.32)'); g.addColorStop(1, 'rgba(190,230,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(p.cx - 16, iy + 30); ctx.lineTo(p.cx + 16, iy + 30);
+        ctx.lineTo(p.cx + 30, p.y + p.h - 8); ctx.lineTo(p.cx - 30, p.y + p.h - 8);
+        ctx.closePath(); ctx.fill();
+      }
+
+      // 떠 있는 섬
+      ctx.globalAlpha = open ? 1 : .55;
+      ctx.fillStyle = '#8a6a44';
+      ctx.beginPath(); ctx.moveTo(p.cx - 42, iy); ctx.lineTo(p.cx + 42, iy); ctx.lineTo(p.cx + 7, iy + 40); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#6d5030';
+      ctx.beginPath(); ctx.moveTo(p.cx - 24, iy + 5); ctx.lineTo(p.cx + 32, iy + 5); ctx.lineTo(p.cx + 6, iy + 35); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#7ab85f';
+      ctx.beginPath(); ctx.ellipse(p.cx, iy, 44, 11, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#a9d47f';
+      ctx.beginPath(); ctx.ellipse(p.cx, iy - 4, 44, 10, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#7a5636'; ctx.fillRect(p.cx - 12, iy - 21, 3.5, 19);
+      ctx.fillStyle = '#5faa4e';
+      ctx.beginPath(); ctx.arc(p.cx - 10, iy - 25, 10, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#7cc55f';
+      ctx.beginPath(); ctx.arc(p.cx - 15, iy - 30, 6, 0, 6.3); ctx.fill();
+      ctx.fillStyle = '#5faa4e';
+      ctx.beginPath(); ctx.arc(p.cx + 20, iy - 8, 6, 0, 6.3); ctx.fill();
+      // 섬을 두른 구름 + 사이를 흘러가는 구름 (사이가 비면 높이가 안 느껴진다)
+      ctx.fillStyle = 'rgba(255,255,255,.85)';
+      ctx.beginPath(); ctx.ellipse(p.cx - 42, iy + 16, 18, 6, 0, 0, 6.3); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(p.cx + 40, iy + 24, 15, 5, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.6)';
+      for (let i = 0; i < 3; i++) {
+        const cx = p.cx - 46 + ((t * 12 + i * 46) % 96);
+        ctx.beginPath(); ctx.ellipse(cx, iy + 54 + i * 22, 13 - i * 2, 4, 0, 0, 6.3); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // 잠겼으면 날개가 없다는 표시
+      if (!open) {
+        ctx.font = '16px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.globalAlpha = .5 + Math.sin(t * 2) * .2;
+        ctx.fillText('🦋', p.cx, p.y + p.h - 26);
+        ctx.globalAlpha = 1;
+      }
+      want(p, open ? '하늘섬 · 날아오르기' : '하늘섬 · 날개가 없다', open ? '#bfe6ff' : '#c3bce6');
     },
     hole(p) {
       ctx.fillStyle = '#0a0718';

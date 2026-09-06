@@ -146,6 +146,21 @@ function prevKingLevel(levelId) {
 // 👑 왕에게 진 뒤의 재도전 대기.
 // 남은 "초"를 벽시계로 재기 때문에 창을 닫아도, 게임을 꺼도 시간은 흐른다.
 // (게임을 켜 둔 채 버티게 만들면 기다림이 그냥 지루한 벌이 된다)
+// 구역에 못 들어가는 이유. 로비·마을이 같은 답을 써야 해서 여기 둔다.
+function zoneLock(z) {
+  if (!z) return null;
+  if (state.player.lv < z.lv) return { kind: 'lv', tag: `🔒 Lv.${z.lv}`, text: `Lv.${z.lv}부터 갈 수 있어요` };
+  if (z.aura && typeof Cards !== 'undefined' && !Cards.hasAura(z.aura)) {
+    const a = AURAS[z.aura];
+    return { kind: 'aura', aura: z.aura, tag: `🔒 ${a.emoji} ${a.name}`, text: `${a.name}이 있어야 갈 수 있어요` };
+  }
+  if (z.cards && typeof Cards !== 'undefined' && Cards.count() < z.cards) {
+    return { kind: 'cards', tag: `🔒 🃏${z.cards}`, text: `카드가 ${z.cards}장 필요해요` };
+  }
+  if (!z.ready) return { kind: 'soon', tag: '준비 중', text: '아직 준비 중이에요' };
+  return null;
+}
+
 function kingCooldown(levelId) {
   const until = (state.player.kingCd || {})[levelId];
   if (!until) return 0;
@@ -187,7 +202,9 @@ function towerLock(tower) {
 const ZONES = [
   { lv: 5,  id: 'arena',   name: '투기장',    emoji: '🏟️', desc: '몬스터를 몇 마리나 잡을까?', ready: true },
   { lv: 10, id: 'dungeon', name: '지하 던전', emoji: '🕳️', desc: '자주 틀리는 단어만 나온다', ready: true, cards: 25 },
-  { lv: 20, id: 'sky',     name: '하늘섬',    emoji: '⛰️', desc: '연속으로 맞히면 두 칸씩 오른다', ready: true, cards: 60 },
+  // 하늘섬은 걸어서 갈 수 없다 — 🦋 요정 날개(카드 90장)가 있어야 한다.
+  // 오라가 꾸미기용 장식이 아니라 **열쇠**가 되는 유일한 자리다.
+  { lv: 20, id: 'sky',     name: '하늘섬',    emoji: '⛰️', desc: '요정 날개로만 갈 수 있다', ready: true, aura: 'fairy' },
 ];
 const MONSTERS = [
   { id: 'slime', name: '슬라임', emoji: '👾' }, { id: 'bat', name: '박쥐', emoji: '🦇' }, { id: 'ghost', name: '유령', emoji: '👻' },

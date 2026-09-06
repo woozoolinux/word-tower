@@ -50,7 +50,7 @@ load('js/state.js', `\n;globalThis.S = {
   expToNext, baseAtk, atkAt, hpAt, playerAtk, playerMaxHp, monsterHp, monsterAtk, hazardDmg,
   refLv, towerTier, towerRange, towerProg, wordStat, addExp, WEAPONS, SAVE_VERSION, tierFire, clearPct, BAL, normFloor,
   kingCooldown, startKingCooldown, mmss, kingBeaten, raiseToLv, levelTowers, LEVELS, towerLock, prevKingLevel,
-  forceOpen, isForced, levelCode, levelTag, touchTower, lastTower, ZONES,
+  forceOpen, isForced, levelCode, levelTag, touchTower, lastTower, ZONES, zoneLock,
   get state() { return state; }, set state(v) { state = v; },
 };`);
 load('js/words.js', `\n;globalThis.W = { floorList, floorWords, allWords, towerById, distractors, makeQuestion, pickWord, shuffle, recordResult, withReview, speak, canSpeak, wkey, statFor };`);
@@ -780,8 +780,26 @@ S.loadState();
 const skz = S.ZONES.find(z => z.id === 'sky');
 ok('하늘섬이 열려 있다', skz.ready === true);
 eq('하늘섬은 Lv.20부터', skz.lv, 20);
-eq('하늘섬은 카드 60장부터', skz.cards, 60);
+eq('하늘섬은 🦋 요정 날개가 있어야 간다', skz.aura, 'fairy');
 ok('하늘섬이 던전보다 뒤에 온다', skz.lv > S.ZONES.find(z => z.id === 'dungeon').lv);
+
+// 🦋 날개 = 열쇠. 오라가 꾸미기용 장식이 아니라 무언가를 여는 유일한 자리다.
+S.state.player.lv = 25;
+S.state.player.owned.auras = ['none'];
+const wingLock = S.zoneLock(skz);
+ok('날개가 없으면 못 간다', !!wingLock && wingLock.kind === 'aura', JSON.stringify(wingLock));
+ok('레벨만 높다고 열리지 않는다', !!S.zoneLock(skz));
+S.state.player.owned.auras = ['none', 'fairy'];
+ok('날개를 얻으면 열린다', S.zoneLock(skz) === null);
+ok('날개를 달지 않아도(보유만 해도) 갈 수 있다', S.state.player.aura !== 'fairy' && S.zoneLock(skz) === null);
+S.state.player.lv = 5;
+ok('날개가 있어도 레벨이 안 되면 못 간다', !!S.zoneLock(skz) && S.zoneLock(skz).kind === 'lv');
+// 요정 날개는 던전 조건보다 뒤에 있어야 순서가 말이 된다
+ok('요정 날개가 던전 입장 카드 수보다 뒤에 있다',
+  AV.AURAS.fairy.need.cards > S.ZONES.find(z => z.id === 'dungeon').cards,
+  '날개 ' + AV.AURAS.fairy.need.cards + '장 vs 던전 ' + S.ZONES.find(z => z.id === 'dungeon').cards + '장');
+ok('요정 날개에는 타워 난이도 조건이 없다 (권수 진도만으로 닿는다)', !AV.AURAS.fairy.need.tier);
+S.state.player.lv = 22;
 eq('새 저장의 하늘섬 기록은 비어 있다', S.state.player.skyClears, 0);
 eq('하늘섬 기록이 없던 옛 저장도 채워진다', (() => {
   S.saveState();

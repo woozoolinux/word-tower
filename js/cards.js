@@ -355,5 +355,5 @@ const Cards = (() => {
     })();
   }
 
-  return { RARITY, rarityOf, key, has, isPending, buildTest, spellTest, grantDirect, auraGoals, clearedTier, tierList, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
+  return { RARITY, rarityOf, key, has, hasAura, isPending, buildTest, spellTest, grantDirect, auraGoals, clearedTier, tierList, pendingRewards, claimRewards, previewAura, onMastered, grant, count, points, findWord, pendingFor, unitStat, gateInfo, runTests, cardHtml, book };
 })();
