@@ -1545,3 +1545,7 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 /* 🏘️ 입체 마을 — three.js 캔버스가 조이스틱·버튼 아래 깔린다 */
 .t3-cv { display: block; width: 100%; height: 100%; }
 #screen-town3d .tw-wrap { flex: 0 0 auto; position: relative; }
+/* 입체 마을의 하늘 — 그라데이션은 CSS 로 깔면 공짜다 (three 는 그 위에 얹는다) */
+#screen-town3d .tw-wrap {
+  background: linear-gradient(#4f9fe0 0%, #8fcdf2 42%, #cfe9fb 78%, #dff2ff 100%);
+}

@@ -21,7 +21,7 @@ const Town3D = (() => {
   const ZOOM = 12;                       // 한 화면에 보이는 넓이 — 클수록 멀리 보인다
 
   let loading = false;
-  let sc, cam, rd, root, hero, heroSh, raf, last, active;
+  let sc, cam, rd, root, hero, ghost, heroSh, raf, last, active;
   let map, px, py, dir, dirS, walkT, stepAt, moving, joy, keys, nearP, hint, camAt;
   let frames, texes, texIdx;
 
@@ -106,16 +106,16 @@ const Town3D = (() => {
     const h = Math.max(280, Math.min(700, window.innerHeight - wrap.getBoundingClientRect().top - 60));
     wrap.style.height = h + 'px';
 
-    tags.length = 0;
+    tags.length = 0; clouds = null;
     for (const k in GEO) delete GEO[k];
     sc = new THREE.Scene();
-    sc.background = new THREE.Color('#9fd8f7');
-    sc.fog = new THREE.Fog('#c8e8fb', 34, 58);
+    sc.background = null;                    // 하늘은 CSS 그라데이션이 깔린다 (공짜다)
+    sc.fog = new THREE.Fog('#cfe9fb', 36, 62);
 
     const d = ZOOM;
     cam = new THREE.OrthographicCamera(-d * w / h, d * w / h, d, -d, 0.1, 160);
 
-    rd = new THREE.WebGLRenderer({ antialias: true });
+    rd = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     rd.setSize(w, h);
     rd.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     rd.shadowMap.enabled = true; rd.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -133,6 +133,7 @@ const Town3D = (() => {
     sc.add(sun, sun.target, new THREE.HemisphereLight(0xbfe4ff, 0x4e7a3a, 0.42));
     root = { sun };
 
+    skyStuff();
     ground();
     map.places.forEach(place);
     deco();
@@ -260,6 +261,59 @@ const Town3D = (() => {
     tag(p, open ? '하늘섬 · 날아오르기' : '하늘섬 · 날개가 없다', 6.2, open ? '⛰️' : '🦋');
   }
 
+  // ---------- 하늘 · 구름 · 먼 산 ----------
+  // 하늘이 단색이면 마을이 종이 위에 놓인 것처럼 보인다.
+  // 그라데이션은 CSS 로 깔고(공짜다) 그 위에 구름과 먼 산만 3D 로 얹는다.
+  let clouds = null;
+  function skyStuff() {
+    const W = map.W * M, H = map.H * M;
+    // 먼 산 — 마을 둘레에 눌러 놓은 구. 여기가 세상의 끝이라는 표시
+    const hills = [];
+    for (let i = 0; i < 22; i++) {
+      const a = i / 22 * Math.PI * 2 + 0.3;
+      const rr = Math.max(W, H) * 0.62 + (i % 3) * 3;
+      hills.push({
+        x: W / 2 + Math.cos(a) * rr, y: -1.5, z: H / 2 + Math.sin(a) * rr,
+        sx: 7 + (i % 4) * 2.5, sy: 2.6 + (i % 3) * 1.1, sz: 7 + (i % 5) * 2,
+      });
+    }
+    const hm = instance(geo('hill', () => new THREE.SphereGeometry(1, 10, 7)), 0x86ac9a, hills, false);
+    if (hm) { hm.receiveShadow = false; hm.material.fog = true; }
+
+    // 구름 — 천천히 흘러간다
+    const cl = [];
+    for (let i = 0; i < 16; i++) {
+      cl.push({
+        x: Math.random() * (W + 30) - 15, y: 15 + Math.random() * 7, z: Math.random() * (H + 30) - 15,
+        sx: 1.5 + Math.random() * 1.6, sy: 0.4 + Math.random() * 0.3, sz: 1.0 + Math.random() * 1.0,
+      });
+    }
+    clouds = { list: cl, mesh: null, W };
+    const cm = new THREE.InstancedMesh(
+      geo('cloud', () => new THREE.SphereGeometry(1, 9, 7)),
+      new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.82, fog: false }),
+      cl.length);
+    cm.castShadow = false; cm.receiveShadow = false; cm.renderOrder = -1;
+    sc.add(cm); clouds.mesh = cm;
+    moveClouds(0);
+  }
+  // ⚠️ 이 파일은 three.js 보다 먼저 로드된다. 불러오는 시점에 THREE 를 만지면
+  // 모듈이 통째로 죽는다 — 그래서 재사용 객체도 **쓸 때** 만든다.
+  let _m4, _v, _q, _s;
+  function moveClouds(dt) {
+    if (!clouds) return;
+    if (!_m4) { _m4 = new THREE.Matrix4(); _v = new THREE.Vector3(); _q = new THREE.Quaternion(); _s = new THREE.Vector3(); }
+    const span = clouds.W + 40;
+    clouds.list.forEach((c, i) => {
+      c.x += dt * 0.35;
+      if (c.x > clouds.W + 20) c.x -= span;
+      _v.set(c.x, c.y, c.z); _s.set(c.sx, c.sy, c.sz);
+      _m4.compose(_v, _q, _s);
+      clouds.mesh.setMatrixAt(i, _m4);
+    });
+    clouds.mesh.instanceMatrix.needsUpdate = true;
+  }
+
   // ---------- 나무·풀·소품 ----------
   // 2D 마을이 뿌려 둔 자리(DECO)를 그대로 쓴다. 96개나 되니 InstancedMesh 로
   // 종류마다 한 번에 그린다 — 하나씩 Mesh 로 만들면 폰에서 드로우콜이 300개가 넘는다.
@@ -379,9 +433,16 @@ const Town3D = (() => {
 
   // 캐릭터 — 지금 쓰는 SVG 아바타를 판때기에 붙여 세운다
   function heroMake() {
+    const face = Math.atan2(CAM.x, CAM.z);        // 아이소메트릭 카메라를 정면으로
+    // 건물 뒤로 걸어가면 아이가 통째로 사라진다. 그래서 **가려져도 비치는 그림자 하나**를
+    // 건물 위에 겹쳐 그린다. 안 가려졌을 땐 진짜 아이가 그 위를 덮으니 티가 안 난다.
+    ghost = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 1.85),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, color: 0x9ec4ff,
+        depthTest: false, depthWrite: false }));
+    ghost.rotation.y = face; ghost.renderOrder = 5; sc.add(ghost);
     const m = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.4, depthWrite: false });
     hero = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 1.85), m);
-    hero.rotation.y = Math.atan2(CAM.x, CAM.z);   // 아이소메트릭 카메라를 정면으로
+    hero.rotation.y = face; hero.renderOrder = 6;
     sc.add(hero);
     heroSh = new THREE.Mesh(new THREE.CircleGeometry(0.32, 20),
       new THREE.MeshBasicMaterial({ color: 0x2a3a1e, transparent: true, opacity: 0.3, depthWrite: false }));
@@ -483,9 +544,15 @@ const Town3D = (() => {
     hero.position.set(hx, 0.94 + bob, hz);
     // 방향은 판때기를 좌우로 뒤집어서 (0을 지날 때 사라지지 않게 최소 폭을 남긴다)
     hero.scale.x = dirS < 0 ? Math.min(-0.18, dirS) : Math.max(0.18, dirS);
+    ghost.position.copy(hero.position); ghost.scale.x = hero.scale.x;
     heroSh.position.set(hx, 0.13, hz);
     const t = heroTex(moving ? ((Math.floor(walkT / (Math.PI / 2)) % 4) + 4) % 4 : 0);
-    if (t && hero.material.map !== t) { hero.material.map = t; hero.material.needsUpdate = true; }
+    if (t && hero.material.map !== t) {
+      hero.material.map = t; hero.material.needsUpdate = true;
+      ghost.material.map = t; ghost.material.needsUpdate = true;
+    }
+
+    moveClouds(1 / 60);
 
     // 하늘섬은 둥둥 떠 있다
     const now = performance.now() / 1000;

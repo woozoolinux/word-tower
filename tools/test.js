@@ -78,6 +78,9 @@ sandbox.document.querySelector = () => null;
 sandbox.document.querySelectorAll = () => [];
 sandbox.document.getElementById = () => null;
 sandbox.document.body = { insertBefore() {}, firstChild: null };
+// 입체 마을은 three.js 보다 먼저 로드된다 — 여기엔 THREE 가 없다.
+// 이 줄이 통과하는 것 자체가 '불러올 때 THREE 를 안 건드린다'는 증명이다.
+load('js/town3d.js', '\n;globalThis.T3 = typeof Town3D;');
 load('js/main.js', '\n;globalThis.G = Game;');
 
 const { BALX: BAL, byFloorX: byFloor, S, W, C, AV } = sandbox;
@@ -838,6 +841,16 @@ ok('정답이 보기에 있다', dq.choices.indexOf(defWords[0].w) >= 0);
 // 설명이 없는 타워에서는 이 모드가 나오면 안 된다
 ok('설명이 없는 단어도 있다 (그런 타워에서는 이 문제가 안 나와야 한다)',
   W.allWords(W.towerById('main')).some(w => !w.def));
+
+// ===================================================================
+section('입체 마을');
+// three.js(614KB)는 설정을 켤 때만 받아온다. 그래서 town3d.js 는 **THREE 가 없는 상태로**
+// 먼저 로드된다 — 불러오는 시점에 THREE 를 만지면 모듈이 통째로 죽고,
+// 그러면 스위치를 켜도 아무 일이 안 일어난다. 실제로 한 번 그렇게 깨졌다
+// (구름용 Matrix4 를 파일 맨 위에서 만들었다).
+// 이 sandbox 에는 THREE 가 없으니, 아래가 통과한다는 것 자체가 증명이다.
+// ===================================================================
+eq('THREE 없이도 입체 마을 모듈이 살아 있다', sandbox.T3, 'object');
 
 // ===================================================================
 section('저장 파일');
