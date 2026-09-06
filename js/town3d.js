@@ -107,6 +107,7 @@ const Town3D = (() => {
     wrap.style.height = h + 'px';
 
     tags.length = 0;
+    for (const k in GEO) delete GEO[k];
     sc = new THREE.Scene();
     sc.background = new THREE.Color('#9fd8f7');
     sc.fog = new THREE.Fog('#c8e8fb', 34, 58);
@@ -134,6 +135,7 @@ const Town3D = (() => {
 
     ground();
     map.places.forEach(place);
+    deco();
     heroMake();
   }
 
@@ -258,6 +260,80 @@ const Town3D = (() => {
     tag(p, open ? '하늘섬 · 날아오르기' : '하늘섬 · 날개가 없다', 6.2, open ? '⛰️' : '🦋');
   }
 
+  // ---------- 나무·풀·소품 ----------
+  // 2D 마을이 뿌려 둔 자리(DECO)를 그대로 쓴다. 96개나 되니 InstancedMesh 로
+  // 종류마다 한 번에 그린다 — 하나씩 Mesh 로 만들면 폰에서 드로우콜이 300개가 넘는다.
+  const GEO = {};
+  function geo(key, make) { return GEO[key] || (GEO[key] = make()); }
+  function instance(g, color, items, shadow) {
+    if (!items.length) return null;
+    const im = new THREE.InstancedMesh(g, mat(color), items.length);
+    im.castShadow = !!shadow; im.receiveShadow = true;
+    const m4 = new THREE.Matrix4(), pos = new THREE.Vector3(),
+      q = new THREE.Quaternion(), sca = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    items.forEach((t, i) => {
+      pos.set(t.x, t.y, t.z);
+      sca.set(t.sx || t.s || 1, t.sy || t.s || 1, t.sz || t.s || 1);
+      q.setFromAxisAngle(up, t.r || 0);
+      m4.compose(pos, q, sca);
+      im.setMatrixAt(i, m4);
+    });
+    im.instanceMatrix.needsUpdate = true;
+    sc.add(im);
+    return im;
+  }
+  function deco() {
+    const list = map.deco || [];
+    const by = {};
+    list.forEach(d => (by[d.kind] = by[d.kind] || []).push(d));
+    const at = d => ({ x: d.x * M, z: d.y * M, s: d.s, r: d.f });
+
+    // 나무 — 기둥 + 잎 두 덩이
+    const trees = (by.tree || []).map(at);
+    instance(geo('trunk', () => new THREE.CylinderGeometry(0.11, 0.15, 1.1, 6)), C3.wood,
+      trees.map(t => ({ x: t.x, y: 0.55 * t.s, z: t.z, s: t.s, r: t.r })), true);
+    instance(geo('leaf1', () => new THREE.SphereGeometry(0.62, 10, 8)), C3.leaf,
+      trees.map(t => ({ x: t.x, y: 1.5 * t.s, z: t.z, s: t.s, r: t.r })), true);
+    instance(geo('leaf2', () => new THREE.SphereGeometry(0.38, 8, 6)), C3.leaf2,
+      trees.map(t => ({ x: t.x - 0.26 * t.s, y: 1.86 * t.s, z: t.z + 0.12 * t.s, s: t.s })), false);
+
+    // 덤불
+    const bush = (by.bush || []).map(at);
+    instance(geo('bush1', () => new THREE.SphereGeometry(0.36, 8, 6)), C3.leaf,
+      bush.map(t => ({ x: t.x, y: 0.26 * t.s, z: t.z, s: t.s })), true);
+    instance(geo('bush2', () => new THREE.SphereGeometry(0.24, 8, 6)), C3.leaf2,
+      bush.map(t => ({ x: t.x - 0.16 * t.s, y: 0.44 * t.s, z: t.z, s: t.s })), false);
+
+    // 바위 — 구를 눌러 놓는다
+    const rock = (by.rock || []).map(at);
+    instance(geo('rock', () => new THREE.SphereGeometry(0.3, 8, 6)), 0xb6b0c9,
+      rock.map(t => ({ x: t.x, y: 0.14 * t.s, z: t.z, sx: t.s, sy: 0.62 * t.s, sz: t.s * 0.85, r: t.r })), true);
+
+    // 꽃 — 줄기 하나에 머리 하나. 머리는 색을 섞는다
+    const fl = (by.flower || []).map(at);
+    instance(geo('stem', () => new THREE.CylinderGeometry(0.03, 0.035, 0.44, 4)), 0x5faa4e,
+      fl.map(t => ({ x: t.x, y: 0.22, z: t.z, s: 1 })), false);
+    const heads = instance(geo('head', () => new THREE.SphereGeometry(0.15, 7, 6)), 0xffffff,
+      fl.map(t => ({ x: t.x, y: 0.5, z: t.z, s: 1 })), false);
+    if (heads) {
+      const cols = [0xff8fa8, 0xffe066, 0xc9a3ff, 0xffffff];
+      const c = new THREE.Color();
+      fl.forEach((t, i) => heads.setColorAt(i, c.setHex(cols[Math.floor(t.r * 3) % cols.length])));
+      if (heads.instanceColor) heads.instanceColor.needsUpdate = true;
+    }
+
+    // 울타리 — 기둥 셋과 가로대 둘
+    const fen = (by.fence || []).map(at);
+    const posts = [], rails = [];
+    fen.forEach(t => {
+      [-0.5, 0, 0.5].forEach(dx => posts.push({ x: t.x + dx * t.s, y: 0.26 * t.s, z: t.z, s: t.s }));
+      [0.18, 0.36].forEach(dy => rails.push({ x: t.x, y: dy * t.s, z: t.z, sx: t.s, sy: t.s, sz: t.s }));
+    });
+    instance(geo('post', () => new THREE.BoxGeometry(0.08, 0.52, 0.08)), C3.wood, posts, true);
+    instance(geo('rail', () => new THREE.BoxGeometry(1.2, 0.07, 0.07)), C3.wood, rails, true);
+  }
+
   // 이름표 — 3D 안에 세우면 건물에 가린다. 늘 앞에 보이게 띄운다.
   const tags = [];
   function tag(p, text, y, emoji) {
@@ -365,7 +441,7 @@ const Town3D = (() => {
     raf = requestAnimationFrame(loop);
   }
   function hits(x, y, r) {
-    return map.solids.some(s => x + r > s.x && x - r < s.x + s.w && y + r * .6 > s.y && y - r * .2 < s.y + s.h);
+    return (map.solids3 || map.solids).some(s => x + r > s.x && x - r < s.x + s.w && y + r * .6 > s.y && y - r * .2 < s.y + s.h);
   }
   function update(dt) {
     let vx = 0, vy = 0;

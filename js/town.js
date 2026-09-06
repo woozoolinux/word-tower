@@ -156,6 +156,17 @@ const Town = (() => {
     p.cx = p.x + p.w / 2; p.cy = p.y + p.h / 2;
     places.push(p);
     solids.push({ x: p.x + 5, y: p.y, w: p.w - 10, h: p.h - 16 });
+    p.foot = footOf(p);
+  }
+  // 건물이 **땅에 닿는 자리**. 2D 는 그림이 위로 길어서 그림만큼 막아도 어색하지 않았지만,
+  // 3D 에서는 건물 뒤 빈 땅까지 막혀 버린다. 그래서 3D 는 이 발자국만 막는다.
+  function footOf(p) {
+    const cz = p.y + p.h - 12;                    // 3D 에서 건물이 서는 자리
+    const dim = {
+      tower: [Math.min(54, p.w * .84), 54], king: [78, 46],
+      hut: [46, 42], hole: [42, 42], gate: [50, 50],
+    }[p.kind] || [p.w, 30];
+    return { x: p.cx - dim[0] / 2, y: cz - dim[1] / 2, w: dim[0], h: dim[1] };
   }
 
   // ---------- 시작 ----------
@@ -682,7 +693,9 @@ const Town = (() => {
   // 3D 마을이 같은 지도와 같은 진입 로직을 쓰도록 빌려준다
   function layout() {
     build();
-    return { places, solids, W, H, start: { x: px, y: py } };
+    // 3D 용 충돌: 건물 발자국 + 마을 바깥 벽 네 개
+    const solids3 = places.map(p => p.foot).concat(solids.slice(-4));
+    return { places, solids, solids3, deco: DECO, W, H, start: { x: px, y: py } };
   }
   return { start, resume, stop, debug, layout, enter, placeLabel, useHost };
 })();
