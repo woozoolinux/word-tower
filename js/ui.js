@@ -118,6 +118,18 @@ const UI = (() => {
   }
 
   // 레벨업 모달: 전/후 능력치 + 새 스킬/구역
+  // 레벨업 = 뭔가 쌓여서 아까워지는 순간. 저장 파일을 챙기라고 말하기 딱 좋은 자리다.
+  // 막지 않는 버튼이라 무시해도 그대로 진행된다.
+  function saveRow() {
+    if (typeof Backup === 'undefined') return '';
+    const stale = Backup.isStale(), never = Backup.daysSince() === null;
+    return `<div class="save-nudge ${stale || never ? 'warn' : ''}">
+      <div><div>💾 저장 파일 받아두기</div>
+        <div class="toggle-desc">마지막 저장: ${esc(Backup.lastText())}</div></div>
+      <button class="btn small ${stale || never ? '' : 'ghost'}" data-close="save">받기</button>
+    </div>`;
+  }
+
   function levelUpModal(ups, cb) {
     const lv0 = ups[0] - 1, lv1 = ups[ups.length - 1];
     const newSkills = SKILLS.filter(s => s.lv > lv0 && s.lv <= lv1);
@@ -134,8 +146,9 @@ const UI = (() => {
       </div>
       ${newSkills.map(s => `<div class="unlock"><span class="big">${s.emoji}</span><div><div>새 스킬: <b>${s.name}</b></div><div class="toggle-desc">${s.desc}</div></div></div>`).join('')}
       ${newZones.map(z => `<div class="unlock"><span class="big">${z.emoji}</span><div><div>새 구역: <b>${z.name}</b></div><div class="toggle-desc">${z.ready ? '로비에서 들어갈 수 있어요!' : '곧 열려요'}</div></div></div>`).join('')}
+      ${saveRow()}
       <div class="actions"><button class="btn" data-close="ok">멋지다!</button></div>
-    `, { cls: 'celebrate', onClose: () => cb && cb() });
+    `, { cls: 'celebrate', onClose: v => { if (v === 'save' && typeof Backup !== 'undefined') Backup.save(); cb && cb(); } });
     Sfx.fanfare();
     confetti({ count: 110, colors: ['#8f7bff', '#ffc83d', '#cbbfff', '#ffffff'] });
   }

@@ -16,6 +16,7 @@ const Lobby = (() => {
           ${auraTease()}
         </div>
       </header>
+      ${staleNote()}
       ${resumeCard()}
       <h2 class="sec-title">🏰 타워</h2>
       <div class="lv-groups">${LEVELS.map(levelGroup).join('')}</div>
@@ -32,6 +33,12 @@ const Lobby = (() => {
         <button class="btn small mint" data-act="town">🏘️ 마을로</button>
       </div>
       <p class="footer-note">진행 상황은 이 브라우저에 자동 저장돼요.</p>`;
+  }
+
+  // 저장한 지 오래됐으면 한 줄. 백업은 만드는 것보다 **하고 있는지 아는 것**이 문제다.
+  function staleNote() {
+    if (typeof Backup === 'undefined' || !Backup.isStale()) return '';
+    return `<button class="stale-note" data-act="save">💾 저장한 지 ${Backup.daysSince()}일 됐어요 · 파일로 받아두기</button>`;
   }
 
   // 로비에 다음 오라까지 얼마 남았는지 한 줄 — 목표가 늘 보이게
@@ -374,16 +381,27 @@ const Lobby = (() => {
         <b>${esc(b.name)} Lv.${b.lv} · 🃏 ${b.cards}장</b>
         <span class="dim">(${new Date(b.at).toLocaleString('ko-KR')})</span></div>
       <div class="actions"><button class="btn small coral" id="restore-btn">이 상태로 되돌리기</button></div>` : '';
-    const m = UI.modal(`<div class="modal-title">💾 저장 코드</div>
-      <div class="modal-sub">이 코드를 복사해 두면 다른 기기에서 이어할 수 있어요</div>
-      <textarea class="code" id="export-code" readonly>${exportCode()}</textarea>
-      <div class="actions"><button class="btn small" id="copy-btn">복사</button></div>
-      <h4>불러오기</h4>
-      <textarea class="code" id="import-code" placeholder="여기에 코드를 붙여넣어요"></textarea>
-      <div class="actions"><button class="btn small mint" id="import-btn">불러오기</button></div>
+    const m = UI.modal(`<div class="modal-title">💾 저장</div>
+      <div class="modal-sub">진행은 이 폰 안에만 있어요. 가끔 <b>파일로 받아 두세요</b>.<br>
+        브라우저 데이터를 지워도 <b>다운로드 폴더는 안 지워져요.</b></div>
+      <div class="save-last">마지막 저장: <b>${esc(Backup.lastText())}</b></div>
+      <div class="actions"><button class="btn" id="file-save">💾 저장 파일 받기</button></div>
+      <h4>📂 되돌리기</h4>
+      <div class="modal-sub" style="text-align:left">받아 둔 파일을 골라 그때로 되돌려요.<br>
+        <span class="dim">되돌리기 직전 상태는 아래 백업에 남습니다.</span></div>
+      <div class="actions"><button class="btn small ghost" id="file-load">파일에서 불러오기</button></div>
       ${backupBlock}
+      <details class="save-code"><summary>저장 코드로 주고받기 (글자)</summary>
+        <div class="modal-sub" style="text-align:left">진행이 쌓이면 코드가 아주 길어져요. 파일 쪽이 편합니다.</div>
+        <textarea class="code" id="export-code" readonly>${exportCode()}</textarea>
+        <div class="actions"><button class="btn small" id="copy-btn">복사</button></div>
+        <textarea class="code" id="import-code" placeholder="여기에 코드를 붙여넣어요"></textarea>
+        <div class="actions"><button class="btn small mint" id="import-btn">불러오기</button></div>
+      </details>
       <div class="actions"><button class="btn small ghost" data-close="x">닫기</button></div>`);
     m.body.addEventListener('click', e => {
+      if (e.target.id === 'file-save') { Backup.save(); m.close(); saveCode(); return; }
+      if (e.target.id === 'file-load') { m.close(); Backup.pick(() => { render(); Game.toLobby(); }); return; }
       if (e.target.id === 'copy-btn') {
         const ta = m.body.querySelector('#export-code'); ta.select();
         (navigator.clipboard ? navigator.clipboard.writeText(ta.value) : Promise.reject()).then(() => UI.toast('복사했어요!', 'good')).catch(() => { document.execCommand('copy'); UI.toast('복사했어요!', 'good'); });

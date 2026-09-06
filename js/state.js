@@ -209,7 +209,7 @@ function defaultState() {
       owned: { weapons: ['stick'], hats: ['none'], pets: [], outfits: ['tunic', 'dress'], auras: ['none'] },
       towerClear: {}, titles: [],
       items: { hint: 1, erase: 0, potion: 1 },
-      shieldDate: '', arenaBest: 0, dungeonBest: null, dungeonClears: 0, dungeonSeen: false,
+      shieldDate: '', savedAt: 0, arenaBest: 0, dungeonBest: null, dungeonClears: 0, dungeonSeen: false,
       skyBest: null, skyClears: 0, skySeen: false,
       cards: {}, pendingCards: [], setBonus: {}, kings: {}, kingCd: {}, forced: {},
     },

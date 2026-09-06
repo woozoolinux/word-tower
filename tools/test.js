@@ -60,6 +60,7 @@ sandbox.UI = { toast() {}, modal(h, o) { sandbox.lastModal = { h, o }; return { 
   confetti() {}, show() {}, levelUpModal(u, cb) { cb && cb(); }, current: () => '' };
 sandbox.Sfx = new Proxy({}, { get: () => () => {} });
 load('js/cards.js', '\n;globalThis.C = Cards;');
+load('js/backup.js', '\n;globalThis.BK = Backup;');
 // 화면 모듈은 DOM을 쓰지만, 정의만으로는 안전하다 (start를 안 부르면 됨)
 sandbox.Maze = { start() {}, init() {} };
 sandbox.Vault = { start() {}, init() {} };
@@ -790,6 +791,57 @@ eq('하늘섬 기록이 없던 옛 저장도 채워진다', (() => {
   S.loadState();
   return S.state.player.skyClears;
 })(), 0);
+
+// ===================================================================
+section('저장 파일');
+// 진행이 localStorage 한 곳에만 있다. 백업(keepBackup)조차 같은 곳이라
+// "사이트 데이터 삭제" 한 번에 몇 달치가 통째로 사라진다.
+// 다운로드 폴더는 브라우저가 관리하는 곳이 아니라서, 파일만이 그걸 견딘다.
+// ===================================================================
+const BK = sandbox.BK;
+Object.keys(store).forEach(k => delete store[k]);
+S.loadState();
+eq('새 저장은 파일을 받은 적이 없다', S.state.player.savedAt, 0);
+eq('아직 저장한 적 없다고 말한다', BK.lastText(), '아직 저장한 적이 없어요');
+ok('받은 적이 없으면 며칠 지났는지도 없다', BK.daysSince() === null);
+ok('받은 적이 없는데 잔소리부터 하지 않는다', BK.isStale() === false);
+eq('savedAt 이 없던 옛 저장도 채워진다', (() => {
+  S.saveState();
+  const raw = JSON.parse(store['wordtower_save_v1']);
+  delete raw.player.savedAt;
+  store['wordtower_save_v1'] = JSON.stringify(raw);
+  S.loadState();
+  return S.state.player.savedAt;
+})(), 0);
+ok('알림 간격이 사람이 챙길 만하다',
+  S.BAL.backup.remindDays >= 7 && S.BAL.backup.remindDays <= 30, S.BAL.backup.remindDays + '일');
+S.state.player.savedAt = Date.now() - (S.BAL.backup.remindDays - 1) * 86400000;
+ok('기한 전에는 안 알린다', BK.isStale() === false);
+S.state.player.savedAt = Date.now() - (S.BAL.backup.remindDays + 1) * 86400000;
+ok('기한이 지나면 알린다', BK.isStale() === true);
+
+// 파일 → 되돌리기가 실제로 되는가. 이게 안 되면 저장은 아무 쓸모가 없다.
+S.state.player.lv = 17; S.state.player.name = '테스트'; S.state.player.gold = 555;
+S.saveState();
+const fileText = JSON.stringify({ app: 'word-tower', v: 1, at: Date.now(),
+  name: S.state.player.name, lv: S.state.player.lv, cards: 3, code: S.exportCode() });
+S.state.player.lv = 2; S.state.player.gold = 0; S.saveState();
+const finfo = BK.read(fileText);
+eq('파일 겉면에 레벨이 적혀 있다 (열어보지 않고 고를 수 있게)', finfo.lv, 17);
+S.importCode(finfo.code);
+eq('파일에서 되돌리면 레벨이 돌아온다', S.state.player.lv, 17);
+eq('골드도 돌아온다', S.state.player.gold, 555);
+ok('되돌리기 직전 상태가 백업에 남는다', !!S.backupInfo() && S.backupInfo().lv === 2);
+
+// 날것 저장(JSON)도 받아 준다 — 손으로 옮겼거나 옛 형식일 때
+const rawFile = JSON.stringify({ version: S.SAVE_VERSION,
+  player: { name: '날것', lv: 9, cards: { a: 1 } }, towers: {}, settings: {} });
+eq('저장 그 자체가 든 파일도 읽는다', BK.read(rawFile).lv, 9);
+ok('아무 파일이나 받아들이지 않는다', (() => {
+  try { BK.read('{"hello":1}'); return false; } catch (e) { return true; }
+})());
+ok('파일 이름에 이름과 레벨이 들어간다',
+  /^word-tower-.+-Lv\d+-\d{4}\.json$/.test(BK.fileName()), BK.fileName());
 
 // ===================================================================
 section('발음 읽어주기 설정');
