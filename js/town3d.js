@@ -1,5 +1,5 @@
 'use strict';
-// 🏘️ 입체 마을 — 1단계: 땅 · 길 · 걷기
+// 🏘️ 입체 마을 — 땅 · 건물 · 걷기
 //
 // 왜 3D 인가: 2D 마을은 빛과 그림자까지 넣어도 결국 평평하다. 아이가 보는
 // 다른 게임들은 비스듬히 내려다보는 3D라 깊이가 있다.
@@ -106,6 +106,7 @@ const Town3D = (() => {
     const h = Math.max(280, Math.min(700, window.innerHeight - wrap.getBoundingClientRect().top - 60));
     wrap.style.height = h + 'px';
 
+    tags.length = 0;
     sc = new THREE.Scene();
     sc.background = new THREE.Color('#9fd8f7');
     sc.fog = new THREE.Fog('#c8e8fb', 34, 58);
@@ -132,14 +133,159 @@ const Town3D = (() => {
     root = { sun };
 
     ground();
+    map.places.forEach(place);
     heroMake();
+  }
+
+  // ---------- 건물 ----------
+  // 2D 마을과 **같은 자리, 같은 규칙**으로 세운다. 모델 파일은 없다 —
+  // 상자·원뿔·구만 쓴다. 우리 그림체가 원래 단순해서 이게 오히려 잘 맞는다.
+  const C3 = {
+    stone: 0x8f86c9, stoneDark: 0x5c5590,
+    wall: 0xfff4dc, roof: 0xe8735e, roof2: 0x8f7bff,
+    wood: 0x7a5636, leaf: 0x5faa4e, leaf2: 0x7cc55f,
+    gold: 0xffc83d, ink: 0x3a2d1c, grass: 0xa9d47f, dirt: 0x8a6a44,
+  };
+  function mesh(geo, color, x, y, z, parent) {
+    const m = new THREE.Mesh(geo, mat(color));
+    m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+    (parent || sc).add(m); return m;
+  }
+  // 2D 자리(p)를 3D 좌표로. 건물의 **문이 있는 앞면**이 기준이다.
+  function spot(p) { return { x: p.cx * M, z: (p.y + p.h - 12) * M, w: p.w * M }; }
+  function roofCone(g, r, h, y, color) {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 4), mat(color));
+    m.position.y = y; m.rotation.y = Math.PI / 4; m.castShadow = true; g.add(m); return m;
+  }
+  function door(g, w, h, y, z) {
+    const d = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.08), mat(C3.ink));
+    d.position.set(0, y, z); g.add(d);
+    const k = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), mat(C3.gold));
+    k.position.set(w * 0.28, y, z + 0.06); g.add(k);
+  }
+
+  function place(p) {
+    const s = spot(p), g = new THREE.Group();
+    g.position.set(s.x, 0, s.z);
+    p._g = g; sc.add(g);
+    if (p.kind === 'tower') tower3(p, g, s);
+    else if (p.kind === 'king') king3(p, g, s);
+    else if (p.kind === 'hut') hut3(p, g, s);
+    else if (p.kind === 'hole') hole3(p, g, s);
+    else if (p.kind === 'gate') gate3(p, g, s);
+  }
+
+  // 등급의 탑 — 권이 층층이 (2D 마을과 같은 규칙)
+  function tower3(p, g, s) {
+    const ts = p.towers, n = ts.length;
+    const TALL = 3.6;                       // 탑의 전체 높이는 권수와 상관없이 같다
+    const segH = TALL / n, w0 = Math.min(1.95, s.w * 0.8);
+    for (let i = 0; i < n; i++) {
+      const t = ts[n - 1 - i];
+      const lock = towerLock(t), prog = towerProg(t.id), total = floorList(t).length;
+      const done = prog.cleared >= total;
+      const sz = w0 - i * (0.5 / n), y = segH / 2 + i * segH;
+      mesh(new THREE.BoxGeometry(sz, segH, sz), lock ? C3.stoneDark : C3.stone, 0, y, 0, g);
+      // 창문 — 깬 만큼 불이 켜진다
+      const lit = lock ? 0 : (done ? 3 : Math.round(prog.cleared / total * 3));
+      for (let k = 0; k < 3; k++) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.34, 0.05),
+          new THREE.MeshBasicMaterial({ color: k < lit ? C3.gold : 0x241d3c }));
+        m.position.set((k - 1) * (sz * 0.3), y + 0.05, sz / 2 + 0.02); g.add(m);
+      }
+    }
+    const top = TALL;
+    roofCone(g, w0 * 0.74, 1.05, top + 0.5, C3.roof);
+    mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.0), C3.wood, 0, top + 1.5, 0, g);
+    door(g, 0.52, 0.8, 0.4, w0 / 2 + 0.02);
+    const open = ts.filter(t => !towerLock(t)).length;
+    tag(p, p.level.name + '의 탑 · ' + open + '/' + n + '권', top + 1.9);
+  }
+
+  // 왕의 성 — 가운데 몸통 + 양쪽 망루
+  function king3(p, g) {
+    const k = Game.kingInfo(p.level.id), beaten = k && k.beaten, ready = k && k.ok;
+    const base = beaten ? 0x1c6f62 : ready ? 0x5d5698 : 0x332e5c;
+    mesh(new THREE.BoxGeometry(1.9, 1.25, 1.5), base, 0, 0.62, 0, g);
+    [-1.05, 1.05].forEach(x => {
+      mesh(new THREE.BoxGeometry(0.62, 1.9, 0.62), base, x, 0.95, 0, g);
+      for (let i = -1; i <= 1; i++) mesh(new THREE.BoxGeometry(0.16, 0.18, 0.16), base, x + i * 0.2, 1.99, 0, g);
+      const f = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.04),
+        new THREE.MeshBasicMaterial({ color: ready ? C3.gold : 0x6a5a2a }));
+      f.position.set(x, 1.15, 0.33); g.add(f);
+    });
+    door(g, 0.46, 0.68, 0.34, 0.77);
+    tag(p, p.level.name + ' 왕' + (beaten ? ' ✓' : ''), 2.5, '👑');
+  }
+
+  // 오두막 — 상점·도감·옷가게·스킬·투기장
+  function hut3(p, g) {
+    mesh(new THREE.BoxGeometry(1.6, 1.05, 1.4), C3.wall, 0, 0.52, 0, g);
+    roofCone(g, 1.3, 0.85, 1.45, p.act === 'skills' ? C3.roof2 : C3.roof);
+    door(g, 0.44, 0.68, 0.34, 0.72);
+    tag(p, p.name, 2.15, p.emoji);
+  }
+
+  // 지하 던전 — 땅에 뚫린 구멍
+  function hole3(p, g) {
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.13, 8, 20), mat(0x3b3468));
+    rim.rotation.x = -Math.PI / 2; rim.position.y = 0.08; rim.castShadow = true; g.add(rim);
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.72, 24),
+      new THREE.MeshBasicMaterial({ color: 0x0a0718 }));
+    hole.rotation.x = -Math.PI / 2; hole.position.y = 0.14; g.add(hole);
+    tag(p, '지하 던전', 1.0, '🕳️');
+  }
+
+  // 하늘섬 관문 — 이륙 자리, 그리고 저 위에 떠 있는 섬
+  function gate3(p, g) {
+    const lock = zoneLock(ZONES.find(x => x.id === 'sky')), open = !lock;
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.9, 0.14, 24),
+      mat(open ? 0xd9cff5 : 0x9d97bd));
+    pad.position.y = 0.07; pad.receiveShadow = true; g.add(pad);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.05, 8, 24),
+      new THREE.MeshBasicMaterial({ color: open ? 0xbfe6ff : 0x8079a8 }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.16; g.add(ring);
+    // 걸어서는 못 간다 — 섬은 저 위에 있다
+    const isle = new THREE.Group(); isle.position.y = 4.3; g.add(isle);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.15, 1.3, 7), mat(C3.dirt));
+    cone.rotation.x = Math.PI; cone.position.y = -0.62; cone.castShadow = true; isle.add(cone);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.15, 0.22, 7), mat(C3.grass));
+    top.position.y = 0.05; top.castShadow = true; isle.add(top);
+    mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.5), C3.wood, -0.35, 0.4, 0.1, isle);
+    mesh(new THREE.SphereGeometry(0.34, 12, 10), C3.leaf, -0.35, 0.85, 0.1, isle);
+    if (!open) isle.children.forEach(c => { if (c.material) { c.material = c.material.clone(); c.material.transparent = true; c.material.opacity = 0.55; } });
+    p._isle = isle;
+    tag(p, open ? '하늘섬 · 날아오르기' : '하늘섬 · 날개가 없다', 6.2, open ? '⛰️' : '🦋');
+  }
+
+  // 이름표 — 3D 안에 세우면 건물에 가린다. 늘 앞에 보이게 띄운다.
+  const tags = [];
+  function tag(p, text, y, emoji) {
+    const label = (emoji ? emoji + ' ' : '') + text;
+    const cv = document.createElement('canvas');
+    const c = cv.getContext('2d');
+    c.font = 'bold 26px "Jua", sans-serif';
+    const w = Math.ceil(c.measureText(label).width) + 34;
+    cv.width = w; cv.height = 44;
+    c.fillStyle = 'rgba(10,8,28,.78)';
+    c.beginPath(); c.roundRect(0, 0, w, 44, 22); c.fill();
+    c.font = 'bold 26px "Jua", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#fff6e0'; c.fillText(label, w / 2, 24);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.minFilter = THREE.LinearFilter;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    sp.scale.set(w / 44 * 0.66, 0.66, 1);
+    sp.position.set(p.cx * M, y, (p.y + p.h - 12) * M);
+    sp.renderOrder = 10;
+    sc.add(sp); tags.push(sp);
   }
 
   // 땅과 길. 2D 마을의 좌표를 그대로 옮긴다.
   function ground() {
     const W = map.W * M, H = map.H * M;
-    const g = new THREE.Mesh(new THREE.BoxGeometry(W + 4, 1, H + 4), mat(0xa9d47f));
+    const g = new THREE.Mesh(new THREE.BoxGeometry(W + 24, 1, H + 24), mat(0xa9d47f));
     g.position.set(W / 2, -0.5, H / 2); g.receiveShadow = true; sc.add(g);
+    // 마을 밖은 조금 어둡게 — 여기가 끝이라는 표시
     // 북쪽으로 난 길 (2D 마을: x0 = W/2 - 78, 폭 156)
     const road = new THREE.Mesh(new THREE.BoxGeometry(156 * M, 0.12, H + 4), mat(0xe6d6ad));
     road.position.set(W / 2, 0.05, H / 2); road.receiveShadow = true; sc.add(road);
@@ -161,7 +307,7 @@ const Town3D = (() => {
     hero = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 1.85), m);
     hero.rotation.y = Math.atan2(CAM.x, CAM.z);   // 아이소메트릭 카메라를 정면으로
     sc.add(hero);
-    heroSh = new THREE.Mesh(new THREE.CircleGeometry(0.4, 20),
+    heroSh = new THREE.Mesh(new THREE.CircleGeometry(0.32, 20),
       new THREE.MeshBasicMaterial({ color: 0x2a3a1e, transparent: true, opacity: 0.3, depthWrite: false }));
     heroSh.rotation.x = -Math.PI / 2; sc.add(heroSh);
   }
@@ -264,6 +410,10 @@ const Town3D = (() => {
     heroSh.position.set(hx, 0.13, hz);
     const t = heroTex(moving ? ((Math.floor(walkT / (Math.PI / 2)) % 4) + 4) % 4 : 0);
     if (t && hero.material.map !== t) { hero.material.map = t; hero.material.needsUpdate = true; }
+
+    // 하늘섬은 둥둥 떠 있다
+    const now = performance.now() / 1000;
+    map.places.forEach(p => { if (p._isle) p._isle.position.y = 4.3 + Math.sin(now * 0.8) * 0.16; });
 
     // 카메라가 살짝 늦게 따라온다 (2D 마을과 같은 규칙)
     if (!camAt) camAt = { x: hx, z: hz };
