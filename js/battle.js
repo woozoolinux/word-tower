@@ -77,17 +77,26 @@ const Battle = (() => {
     if (UI.current() !== 'battle') return;
     helped = false; lock = false;
     const word = pickWord(o.towerId, o.words, q && q.word.w);
-    const modes = ['m2w', 'w2m']; if (state.settings.listen) modes.push('listen');
+    const modes = ['m2w', 'w2m'];
+    // 학원 시험은 **영영 설명을 보고 단어를 쓴다.** 설명이 있는 단어면 그 방식도 낸다.
+    if (word.def) modes.push('d2w');
+    if (state.settings.listen) modes.push('listen');
     const mode = pick(modes);
     q = makeQuestion(word, o.pool, mode);
     if (mode === 'listen') {
       $('battle-prompt').innerHTML = `<button class="speak-btn" id="speak-btn">🔊 들어보기</button><div class="prompt-sub">듣고 뜻을 골라요</div>`;
     } else {
-      $('battle-prompt').innerHTML = `<div class="prompt-main ${mode === 'm2w' ? 'ko' : 'en'}">${esc(q.prompt)}</div><div class="prompt-sub">${mode === 'm2w' ? '영어로는?' : '뜻은?'}</div>` +
+      const label = { m2w: '영어로는?', w2m: '뜻은?', d2w: '이 설명에 맞는 단어는?' }[mode];
+      // 설명은 문장이라 단어보다 작게 (prompt-def), 품사도 같이 보여준다
+      const main = mode === 'd2w'
+        ? `<div class="prompt-def">${word.pos ? `<span class="pos">${esc(word.pos)}.</span> ` : ''}${esc(q.prompt)}</div>`
+        : `<div class="prompt-main ${mode === 'm2w' ? 'ko' : 'en'}">${esc(q.prompt)}</div>`;
+      $('battle-prompt').innerHTML = main + `<div class="prompt-sub">${label}</div>` +
         // 영어가 이미 화면에 있는 문제(w2m)에서는 들려줘도 답이 새지 않는다 → 항상 제공
         (mode === 'w2m' && canSpeak() ? '<button class="speak-mini" id="speak-btn">🔊</button>' : '');
     }
-    $('battle-choices').innerHTML = q.choices.map(c => `<button class="choice ${mode === 'm2w' ? 'en' : 'ko'}">${esc(c)}</button>`).join('');
+    const ansEn = mode === 'm2w' || mode === 'd2w';
+    $('battle-choices').innerHTML = q.choices.map(c => `<button class="choice ${ansEn ? 'en' : 'ko'}">${esc(c)}</button>`).join('');
     $('battle-hint').textContent = '';
     const sb = $('speak-btn'); if (sb) sb.onclick = () => speak(word.w);
     if (mode === 'listen') setTimeout(() => speak(word.w), 300);

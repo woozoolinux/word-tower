@@ -32,6 +32,7 @@ const Preview = (() => {
           <div class="pv-rarity" style="color:${R.color}">${R.name}</div>
           <div class="pv-en">${esc(w.w)}</div>
           <div class="pv-ko">${esc(w.m)}</div>
+          ${w.def ? `<div class="pv-def">${esc(w.def)}</div>` : ''}
           <div class="pv-meta">${w.pos ? esc(w.pos) + '.' : ''} <span class="stars">${starsText(st.stars)}</span>${owned ? ' 🃏' : ''}</div>
           ${canSpeak() ? '<button class="speak-mini" data-act="say">🔊 다시 듣기</button>' : ''}
         </div>

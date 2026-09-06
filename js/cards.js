@@ -210,6 +210,7 @@ const Cards = (() => {
     return `<div class="wcard r-${r} ${owned ? 'owned' : 'locked'} ${pending ? 'pending' : ''}" ${pending ? `data-test="${esc(towerId)}:${esc(word.w)}"` : owned ? `data-say="${esc(word.w)}"` : ''}>
       <div class="wc-en">${owned ? esc(word.w) : (pending ? '시험!' : '?')}</div>
       <div class="wc-ko">${esc(word.m)}</div>
+      ${owned && word.def ? `<div class="wc-def">${esc(word.def)}</div>` : ''}
       <div class="wc-foot"><span class="wc-r" style="color:${R.color}">${R.name}</span><span class="stars">${starsText(st.stars)}</span></div>
     </div>`;
   }

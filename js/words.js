@@ -78,8 +78,15 @@ function distractors(word, pool, n, field) {
   }
   return out;
 }
-// mode: 'm2w' 뜻→영어 | 'w2m' 영어→뜻 | 'listen' 듣기→뜻
+// mode: 'm2w' 뜻→영어 | 'w2m' 영어→뜻 | 'listen' 듣기→뜻 | 'd2w' 영영 설명→영어
+//
+// d2w 는 학원 시험이 실제로 내는 방식이다 — 가운데 영영 설명을 보고 단어를 쓴다.
+// 설명(def)이 있는 단어에서만 나온다.
 function makeQuestion(word, pool, mode) {
+  if (mode === 'd2w') {
+    const ds = distractors(word, pool, BAL.quiz.choices - 1, 'w');
+    return { mode, word, prompt: word.def, answer: word.w, choices: shuffle([word.w, ...ds.map(d => d.w)]), hint: word.w[0] };
+  }
   if (mode === 'm2w') {
     const ds = distractors(word, pool, BAL.quiz.choices - 1, 'w');
     return { mode, word, prompt: word.m, answer: word.w, choices: shuffle([word.w, ...ds.map(d => d.w)]), hint: word.w[0] };

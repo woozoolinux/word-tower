@@ -813,6 +813,33 @@ eq('하늘섬 기록이 없던 옛 저장도 채워진다', (() => {
 })(), 0);
 
 // ===================================================================
+section('영영 설명 문제 (d2w)');
+// 학원 시험은 가운데 영영 설명을 보고 단어를 쓰는 방식이다.
+// 게임에서도 같은 방식으로 물어봐야 연습이 시험으로 이어진다.
+// ===================================================================
+const defTower = W.towerById('jeongsang1');
+const defWords = W.allWords(defTower);
+eq('곰 탑 1 은 96단어', defWords.length, 96);
+eq('곰 탑 1 은 8단원', defTower.units.length, 8);
+ok('곰 탑 1 의 모든 단어에 영영 설명이 있다',
+  defWords.every(w => w.def && w.def.length > 3),
+  defWords.filter(w => !w.def).map(w => w.w).join(', ') || 'ok');
+ok('설명이 한글이 아니라 영어다', defWords.every(w => !/[가-힣]/.test(w.def)));
+ok('설명이 단어 자체를 그대로 알려주지 않는다',
+  defWords.every(w => w.def.toLowerCase().indexOf(w.w.toLowerCase()) < 0),
+  defWords.filter(w => w.def.toLowerCase().indexOf(w.w.toLowerCase()) >= 0).map(w => w.w).join(', ') || 'ok');
+// 문제를 실제로 만들어 본다
+const dq = W.makeQuestion(defWords[0], defWords, 'd2w');
+eq('설명이 문제로 나온다', dq.prompt, defWords[0].def);
+eq('답은 영어 단어다', dq.answer, defWords[0].w);
+eq('보기 수', dq.choices.length, S.BAL.quiz.choices);
+ok('보기가 전부 영어 단어다', dq.choices.every(c => defWords.some(w => w.w === c)));
+ok('정답이 보기에 있다', dq.choices.indexOf(defWords[0].w) >= 0);
+// 설명이 없는 타워에서는 이 모드가 나오면 안 된다
+ok('설명이 없는 단어도 있다 (그런 타워에서는 이 문제가 안 나와야 한다)',
+  W.allWords(W.towerById('main')).some(w => !w.def));
+
+// ===================================================================
 section('저장 파일');
 // 진행이 localStorage 한 곳에만 있다. 백업(keepBackup)조차 같은 곳이라
 // "사이트 데이터 삭제" 한 번에 몇 달치가 통째로 사라진다.
