@@ -471,6 +471,24 @@ const Town3D = (() => {
     sc.add(sp); tags.push(sp);
   }
 
+  // 돌 포장 무늬. 바닥을 단색으로 두면 아무리 넓어도 **아무것도 없는 면**으로 읽힌다.
+  // 줄마다 반 칸씩 어긋나게 깐다 — 나란히 깔면 격자가 돼서 바닥이 아니라 표로 보인다
+  function paveTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d');
+    x.fillStyle = '#e6d6ad'; x.fillRect(0, 0, 128, 128);
+    for (let r = 0; r < 4; r++) {
+      for (let i = -1; i < 3; i++) {
+        const px = i * 64 + (r % 2) * 32, py = r * 32;
+        x.fillStyle = 'rgba(120,100,60,.20)'; x.fillRect(px, py, 62, 30);
+        x.fillStyle = ['#efe0ba', '#e3d2a6', '#eadcb3', '#e7d8ad'][(r + i + 8) % 4];
+        x.fillRect(px + 2, py + 2, 58, 26);
+      }
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  }
   // 땅과 길. 2D 마을의 좌표를 그대로 옮긴다.
   function ground() {
     const W = map.W * M, H = map.H * M;
@@ -478,11 +496,20 @@ const Town3D = (() => {
     g.position.set(W / 2, -0.5, H / 2); g.receiveShadow = true; sc.add(g);
     // 마을 밖은 조금 어둡게 — 여기가 끝이라는 표시
     // 북쪽으로 난 길 (2D 마을: x0 = W/2 - 78, 폭 156)
-    const road = new THREE.Mesh(new THREE.BoxGeometry(156 * M, 0.12, H + 4), mat(0xe6d6ad));
+    const road = new THREE.Mesh(new THREE.BoxGeometry(156 * M, 0.12, H + 4), mat(0xc9b183));
     road.position.set(W / 2, 0.05, H / 2); road.receiveShadow = true; sc.add(road);
     // 광장 (2D: y = H-236 부터 100px)
-    const plaza = new THREE.Mesh(new THREE.BoxGeometry(W + 4, 0.12, 100 * M), mat(0xe6d6ad));
+    const plaza = new THREE.Mesh(new THREE.BoxGeometry(W + 4, 0.12, 100 * M), mat(0xc9b183));
     plaza.position.set(W / 2, 0.05, (map.H - 186) * M); plaza.receiveShadow = true; sc.add(plaza);
+    // 포장 — 상자 윗면에 텍스처를 직접 입히면 옆면까지 늘어난다. 얇은 판을 한 장 덮는다
+    const TILE = 1.9;                                  // 돌판 한 칸이 대략 1.9m
+    pave(W / 2, H / 2, 150 * M, H + 2, TILE);
+    pave(W / 2, (map.H - 186) * M, W - 2, 96 * M, TILE);
+    // 길 가장자리 돌 — 길이 땅보다 살짝 파여 보인다
+    [W / 2 - 79 * M, W / 2 + 79 * M].forEach(x => {
+      const k = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, H + 4), mat(0xb49a71));
+      k.position.set(x, 0.09, H / 2); k.receiveShadow = true; k.castShadow = true; sc.add(k);
+    });
     // 마을 밖 울타리 대신 낮은 둔덕 — 끝이 어디인지 보이게
     const edge = mat(0x74ad57);
     [[W / 2, -1, W + 4, 2], [W / 2, H + 1, W + 4, 2], [-1, H / 2, 2, H + 4], [W + 1, H / 2, 2, H + 4]]
@@ -490,6 +517,72 @@ const Town3D = (() => {
         const m = new THREE.Mesh(new THREE.BoxGeometry(sx, 1.1, sz), edge);
         m.position.set(x, 0.2, z); m.receiveShadow = true; m.castShadow = true; sc.add(m);
       });
+    (map.lamps || []).forEach(lamp3);
+    (map.props || []).forEach(prop3);
+  }
+  function pave(x, z, w, d, tile) {
+    const t = paveTex(); t.repeat.set(w / tile, d / tile);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d),
+      new THREE.MeshLambertMaterial({ map: t }));
+    m.rotation.x = -Math.PI / 2; m.position.set(x, 0.115, z);
+    m.receiveShadow = true; sc.add(m);
+  }
+
+  // ---------- 가로등·광장 소품 ----------
+  // 2D 마을이 이미 세워 둔 자리를 그대로 쓴다. 두 마을이 다르게 생기면 그때부터 관리가 안 된다
+  function lamp3(l) {
+    const g = new THREE.Group(); g.position.set(l.x * M, 0, l.y * M); sc.add(g);
+    mesh(new THREE.CylinderGeometry(0.06, 0.09, 1.5, 6), 0x7a6a4a, 0, 0.75, 0, g);
+    mesh(new THREE.BoxGeometry(0.24, 0.1, 0.24), 0x5c4f38, 0, 1.72, 0, g);
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.2),
+      new THREE.MeshBasicMaterial({ color: 0xffd964 }));
+    lamp.position.y = 1.56; g.add(lamp);
+    // 발밑에 빛 웅덩이 — 등이 정말 켜져 있는 것처럼 보이는 건 거의 이것 때문이다
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(0.85, 18),
+      new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.2, depthWrite: false }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = 0.13; g.add(pool);
+  }
+  function prop3(q) {
+    const g = new THREE.Group(); g.position.set(q.x * M, 0, q.y * M); sc.add(g);
+    if (q.kind === 'well') well3(g);
+    else if (q.kind === 'stall') stall3(g, (q.w || 74) * M);
+  }
+  function well3(g) {
+    // 돌 테두리 → 갓돌 → 물 → 기둥 둘 → 맞배 지붕 → 도르래에 매달린 두레박
+    mesh(new THREE.CylinderGeometry(0.56, 0.6, 0.42, 14), 0xb0a184, 0, 0.21, 0, g);
+    mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.1, 14), 0xd6c8a6, 0, 0.45, 0, g);
+    const w = new THREE.Mesh(new THREE.CircleGeometry(0.46, 16),
+      new THREE.MeshBasicMaterial({ color: 0x2b5f92 }));
+    w.rotation.x = -Math.PI / 2; w.position.y = 0.47; g.add(w);
+    [-0.5, 0.5].forEach(x => mesh(new THREE.BoxGeometry(0.14, 1.15, 0.14), C3.wood, x, 1.05, 0, g));
+    const rf = new THREE.Mesh(new THREE.ConeGeometry(0.72, 0.46, 4), mat(C3.roof));
+    rf.position.y = 1.82; rf.rotation.y = Math.PI / 4; rf.castShadow = true; g.add(rf);
+    const eave = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.07, 1.24), mat(C3.wood));
+    eave.position.y = 1.6; eave.castShadow = true; g.add(eave);
+    const bar = mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.0), 0x5c4f38, 0, 1.5, 0, g);
+    bar.rotation.z = Math.PI / 2;
+    mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.44), 0x4a3f2c, 0, 1.28, 0, g);
+    mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.2, 8), 0x8a6a44, 0, 0.96, 0, g);
+    mesh(new THREE.TorusGeometry(0.13, 0.017, 6, 12), 0x5c4f38, 0, 1.02, 0, g).rotation.x = Math.PI / 2;
+  }
+  function stall3(g, w) {
+    // 좌판 → 기둥 → 줄무늬 차양 → 올려 둔 것들. 노점은 차양 줄무늬로 알아본다
+    mesh(new THREE.BoxGeometry(w, 0.1, 0.7), 0xa4814f, 0, 0.72, 0, g);
+    mesh(new THREE.BoxGeometry(w - 0.14, 0.62, 0.6), 0x8a6a44, 0, 0.4, 0, g);
+    [-w / 2 + 0.08, w / 2 - 0.08].forEach(x => {
+      mesh(new THREE.BoxGeometry(0.08, 1.5, 0.08), C3.wood, x, 0.75, -0.28, g);
+      mesh(new THREE.BoxGeometry(0.08, 1.3, 0.08), C3.wood, x, 0.65, 0.3, g);
+    });
+    const n = 6, sw = (w + 0.24) / n;
+    for (let i = 0; i < n; i++) {
+      const st = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.06, 0.86), mat(i % 2 ? 0xfff4dc : C3.roof));
+      st.position.set(-(w + 0.24) / 2 + sw * (i + 0.5), 1.42, 0.03);
+      st.rotation.x = -0.16; st.castShadow = true; g.add(st);
+    }
+    // 사과 바구니와 항아리
+    mesh(new THREE.BoxGeometry(0.34, 0.14, 0.28), 0xc98b4b, -w / 2 + 0.3, 0.84, 0.02, g);
+    [-0.08, 0.06].forEach(dx => mesh(new THREE.SphereGeometry(0.07, 8, 6), 0xe05b4a, -w / 2 + 0.3 + dx, 0.94, 0.02, g));
+    mesh(new THREE.SphereGeometry(0.16, 10, 8), 0x6d8fb0, w / 2 - 0.3, 0.9, 0, g);
   }
 
   // 캐릭터 — 상자로 조립한 **진짜 3D**. 걸어가는 쪽으로 몸이 돌고 팔다리가 흔들린다.

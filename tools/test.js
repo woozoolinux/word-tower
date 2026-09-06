@@ -80,6 +80,7 @@ sandbox.document.getElementById = () => null;
 sandbox.document.body = { insertBefore() {}, firstChild: null };
 // 입체 마을은 three.js 보다 먼저 로드된다 — 여기엔 THREE 가 없다.
 // 이 줄이 통과하는 것 자체가 '불러올 때 THREE 를 안 건드린다'는 증명이다.
+load('js/town.js', '\n;globalThis.TW = Town;');
 load('js/town3d.js', '\n;globalThis.T3 = typeof Town3D;');
 load('js/main.js', '\n;globalThis.G = Game;');
 
@@ -851,6 +852,31 @@ section('입체 마을');
 // 이 sandbox 에는 THREE 가 없으니, 아래가 통과한다는 것 자체가 증명이다.
 // ===================================================================
 eq('THREE 없이도 입체 마을 모듈이 살아 있다', sandbox.T3, 'object');
+
+// ===================================================================
+section('마을 광장');
+// 광장 바닥이 넓게 비어 있으면 건물을 아무리 꾸며도 그 사이가 허전하다.
+// 그래서 우물과 노점을 놨는데 — 아이가 **북쪽으로 걸어 나가는 길**을 막으면 안 된다.
+// 길은 x = W/2 ± 78 이고, 캐릭터는 x = W/2 에서 출발한다.
+// ===================================================================
+const TW = sandbox.TW, LAY = TW.layout();
+ok('광장에 소품이 있다', LAY.props.length >= 2, LAY.props.length + '개');
+ok('가로등 자리를 3D 마을도 받는다', LAY.lamps.length >= 4, LAY.lamps.length + '개');
+LAY.props.forEach(q => {
+  const r = q.r || q.w / 2;
+  ok(q.kind + ' 이 광장 바닥 위에 있다', q.y > LAY.H - 236 && q.y < LAY.H - 136, 'y=' + q.y);
+  ok(q.kind + ' 이 출발 자리를 안 막는다', Math.abs(q.x - LAY.W / 2) > r + 26, 'x=' + q.x);
+});
+ok('길 한가운데로 걸어 나갈 틈이 남는다', (() => {
+  const road = [LAY.W / 2 - 78, LAY.W / 2 + 78];
+  let free = road[1] - road[0];
+  LAY.props.forEach(q => {
+    const r = q.r || q.w / 2;
+    free -= Math.max(0, Math.min(road[1], q.x + r) - Math.max(road[0], q.x - r));
+  });
+  return free;
+})() >= 60, '길 폭 156 중');
+ok('소품마다 3D 충돌이 생긴다', LAY.solids3.length >= LAY.places.length + LAY.props.length);
 
 // ===================================================================
 section('저장 파일');

@@ -107,7 +107,7 @@ const Town = (() => {
     }
     ctx.restore();
   }
-  let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts;
+  let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts, props;
   let dirS, dust, stepAt;      // 부드럽게 도는 방향 · 발먼지 · 마지막 발소리
 
   const el = id => document.getElementById(id);
@@ -117,7 +117,7 @@ const Town = (() => {
 
   // ---------- 세계 만들기 ----------
   function build() {
-    places = []; solids = []; lamps = []; tufts = [];
+    places = []; solids = []; lamps = []; tufts = []; props = [];
     const zones = LEVELS.filter(L => levelTowers(L.id).length);
     const ZH = 224, SKYY = 196;          // 북쪽 끝, 하늘섬이 떠 있을 자리 (높아야 못 간다는 게 보인다)
     H = 250 + zones.length * ZH + 30 + SKYY;
@@ -143,6 +143,11 @@ const Town = (() => {
       lamps.push({ x: W / 2 - 96, y: zy + 150 }, { x: W / 2 + 96, y: zy + 150 });
     });
     lamps.push({ x: W / 2 - 108, y: H - 44 }, { x: W / 2 + 108, y: H - 44 });
+    // 광장 소품 — 우물 하나, 노점 하나. 바닥이 넓게 비어 있으면 마을이 안 산다.
+    // 길 한가운데(x 256~358)는 비워 둔다 — 북쪽으로 걸어 나가는 길이다
+    props.push({ kind: 'well', x: 228, y: plazaY + 46, r: 25 });
+    props.push({ kind: 'stall', x: 508, y: plazaY + 44, w: 74 });
+    props.forEach(q => solids.push({ x: q.x - (q.r || q.w / 2) + 4, y: q.y - 12, w: (q.r || q.w / 2) * 2 - 8, h: 22 }));
     for (let i = 0; i < 130; i++) tufts.push({ x: 10 + Math.random() * (W - 20), y: 20 + Math.random() * (H - 40), s: 2 + Math.random() * 3 });
     // 빈 땅이 넓으면 휑하다 — 건물과 길을 피해 나무·꽃·울타리를 촘촘히 뿌린다
     scatter(W, H, (x, y) => places.some(p => x > p.x - 22 && x < p.x + p.w + 22 && y > p.y - 20 && y < p.y + p.h + 26));
@@ -399,12 +404,15 @@ const Town = (() => {
     ground();
     lamps.forEach(lampGlow);
     const t = performance.now() / 1000;
-    const items = places.map(p => ({ y: p.y + p.h, p })).concat(DECO.map(d => ({ y: d.y, d })));
+    const items = places.map(p => ({ y: p.y + p.h, p }))
+      .concat(DECO.map(d => ({ y: d.y, d })))
+      .concat(props.map(q => ({ y: q.y, q })));
     items.sort((a, b) => a.y - b.y);
     let drewMe = false;
     items.forEach(it => {
       if (!drewMe && it.y > py) { me(); drewMe = true; }
       if (it.d) { drawDeco(it.d, t); return; }
+      if (it.q) { drawProp(it.q, t); return; }
       if (it.p === nearP) ring(it.p);
       draws[it.p.kind](it.p);
     });
@@ -437,11 +445,64 @@ const Town = (() => {
     const eg2 = ctx.createLinearGradient(x0 + 126, 0, x0 + 156, 0);
     eg2.addColorStop(0, 'rgba(255,240,190,0)'); eg2.addColorStop(1, 'rgba(255,240,190,.24)');
     ctx.fillStyle = eg2; ctx.fillRect(x0 + 126, 0, 30, H);
-    // 광장 바닥
+    // 광장 바닥 — 여기는 마을의 한가운데다. 돌판을 제대로 깐다
     ctx.fillStyle = C.roadEdge; ctx.fillRect(0, H - 240, W, 108);
     ctx.fillStyle = C.road; ctx.fillRect(0, H - 236, W, 100);
-    ctx.fillStyle = 'rgba(0,0,0,.05)';
-    for (let y = H - 232; y < H - 140; y += 30) for (let x = 6; x < W; x += 44) ctx.fillRect(x, y, 38, 22);
+    // 줄마다 반 칸씩 어긋나게 — 나란히 깔면 격자무늬가 돼서 바닥이 아니라 표로 보인다
+    for (let r = 0, y = H - 234; y < H - 140; y += 24, r++) {
+      for (let x = -20 + (r % 2) * 26; x < W; x += 52) {
+        ctx.fillStyle = 'rgba(0,0,0,.055)'; ctx.fillRect(x + 1, y + 1, 48, 20);
+        ctx.fillStyle = 'rgba(255,246,220,.30)'; ctx.fillRect(x, y, 48, 19);
+      }
+    }
+    // 광장 테두리 돌
+    ctx.fillStyle = 'rgba(120,100,60,.28)';
+    ctx.fillRect(0, H - 240, W, 5); ctx.fillRect(0, H - 137, W, 5);
+  }
+  // ---------- 광장 소품 ----------
+  function drawProp(q, t) {
+    if (q.kind === 'well') return drawWell(q, t);
+    if (q.kind === 'stall') return drawStall(q);
+  }
+  function drawWell(q, t) {
+    softShadow(q.x + 5, q.y + 5, 27, 11, .3);
+    // 돌 테두리 → 물 → 테두리 윗면. 물이 조금 흔들린다
+    ctx.fillStyle = '#b0a184'; ctx.beginPath(); ctx.ellipse(q.x, q.y, 25, 12, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#d6c8a6'; ctx.beginPath(); ctx.ellipse(q.x, q.y - 3, 25, 12, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#1d2a4d'; ctx.beginPath(); ctx.ellipse(q.x, q.y - 4, 18, 8, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#3f7fb8';
+    ctx.beginPath(); ctx.ellipse(q.x, q.y - 2 + Math.sin(t * 1.6) * .8, 14, 6, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.30)';
+    ctx.beginPath(); ctx.ellipse(q.x - 4, q.y - 4 + Math.sin(t * 1.6) * .8, 5, 2, 0, 0, 6.3); ctx.fill();
+    // 기둥 둘 + 맞배 지붕 + 두레박
+    ctx.fillStyle = '#7a5636';
+    ctx.fillRect(q.x - 22, q.y - 44, 5, 42); ctx.fillRect(q.x + 17, q.y - 44, 5, 42);
+    ctx.fillStyle = '#e8735e';
+    ctx.beginPath(); ctx.moveTo(q.x - 30, q.y - 42); ctx.lineTo(q.x, q.y - 60);
+    ctx.lineTo(q.x + 30, q.y - 42); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.16)';
+    ctx.beginPath(); ctx.moveTo(q.x - 30, q.y - 42); ctx.lineTo(q.x, q.y - 60); ctx.lineTo(q.x, q.y - 42); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#5c4f38'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(q.x, q.y - 44); ctx.lineTo(q.x, q.y - 26); ctx.stroke();
+    ctx.fillStyle = '#8a6a44'; ctx.fillRect(q.x - 6, q.y - 26, 12, 9);
+  }
+  function drawStall(q) {
+    const w = q.w;
+    softShadow(q.x + 6, q.y + 6, w * .55, 11, .3);
+    // 좌판 → 줄무늬 차양 → 기둥. 노점은 차양 줄무늬로 알아본다
+    ctx.fillStyle = '#8a6a44'; ctx.fillRect(q.x - w / 2, q.y - 22, w, 20);
+    ctx.fillStyle = '#a4814f'; ctx.fillRect(q.x - w / 2, q.y - 26, w, 6);
+    ctx.fillStyle = '#7a5636';
+    ctx.fillRect(q.x - w / 2 + 2, q.y - 56, 4, 32); ctx.fillRect(q.x + w / 2 - 6, q.y - 56, 4, 32);
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = i % 2 ? '#fff4dc' : '#e8735e';
+      ctx.fillRect(q.x - w / 2 - 4 + i * ((w + 8) / 6), q.y - 62, (w + 8) / 6 + 1, 12);
+    }
+    // 좌판에 올린 것들 — 사과 바구니와 항아리
+    ctx.fillStyle = '#c98b4b'; ctx.fillRect(q.x - w / 2 + 8, q.y - 34, 18, 9);
+    ctx.fillStyle = '#e05b4a';
+    [0, 7, 14].forEach(dx => { ctx.beginPath(); ctx.arc(q.x - w / 2 + 12 + dx, q.y - 36, 4, 0, 6.3); ctx.fill(); });
+    ctx.fillStyle = '#6d8fb0'; ctx.beginPath(); ctx.ellipse(q.x + w / 2 - 16, q.y - 33, 8, 10, 0, 0, 6.3); ctx.fill();
   }
   function lampGlow() {}
   function lampPost(l) {
@@ -694,8 +755,10 @@ const Town = (() => {
   function layout() {
     build();
     // 3D 용 충돌: 건물 발자국 + 마을 바깥 벽 네 개
-    const solids3 = places.map(p => p.foot).concat(solids.slice(-4));
-    return { places, solids, solids3, deco: DECO, W, H, start: { x: px, y: py } };
+    const solids3 = places.map(p => p.foot)
+      .concat(props.map(q => { const r = q.r || q.w / 2; return { x: q.x - r + 4, y: q.y - 12, w: r * 2 - 8, h: 22 }; }))
+      .concat(solids.slice(-4));
+    return { places, solids, solids3, deco: DECO, lamps, props, W, H, start: { x: px, y: py } };
   }
   return { start, resume, stop, debug, layout, enter, placeLabel, useHost };
 })();
