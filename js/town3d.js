@@ -131,14 +131,17 @@ const Town3D = (() => {
     wrap.insertBefore(rd.domElement, sky ? sky.nextSibling : wrap.firstChild);
 
     // 빛 — 2D 마을과 같은 방향(왼쪽 위)
-    const sun = new THREE.DirectionalLight(0xfff0d0, 0.95);
+    const sun = new THREE.DirectionalLight(0xfff0d0, 0.8);
     sun.position.set(-8, 14, 5); sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12 });   // 좁힐수록 그림자가 또렷하다
     sun.shadow.bias = -0.0015;
     sun.target.position.set(0, 0, 0);
-    sc.add(sun, sun.target, new THREE.HemisphereLight(0xbfe4ff, 0x4e7a3a, 0.42));
-    root = { sun };
+    // 채움광 — 그림자를 만들지 않는다. 보이는 면이 검게 죽는 걸 막는 역할만 한다
+    const fill = new THREE.DirectionalLight(0xcfe4ff, 0.5);
+    fill.position.set(14, 7, 10); fill.target.position.set(0, 0, 0);
+    sc.add(sun, sun.target, fill, fill.target, new THREE.HemisphereLight(0xbfe4ff, 0x4e7a3a, 0.46));
+    root = { sun, fill };
 
     skyStuff();
     ground();
@@ -168,10 +171,32 @@ const Town3D = (() => {
     m.position.y = y; m.rotation.y = Math.PI / 4; m.castShadow = true; g.add(m); return m;
   }
   function door(g, w, h, y, z) {
+    // 문틀 → 문짝 → 인방(문 위 가로대) → 손잡이 → 디딤돌.
+    // 문 하나가 다섯 부재로 되어 있으면 멀리서도 "여기가 입구다" 가 읽힌다.
+    const fr = new THREE.Mesh(new THREE.BoxGeometry(w + 0.14, h + 0.12, 0.06), mat(C3.wood));
+    fr.position.set(0, y, z - 0.01); g.add(fr);
     const d = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.08), mat(C3.ink));
-    d.position.set(0, y, z); g.add(d);
+    d.position.set(0, y, z + 0.02); g.add(d);
+    const li = new THREE.Mesh(new THREE.BoxGeometry(w + 0.26, 0.09, 0.11), mat(C3.wood));
+    li.position.set(0, y + h / 2 + 0.11, z + 0.02); li.castShadow = true; g.add(li);
     const k = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), mat(C3.gold));
-    k.position.set(w * 0.28, y, z + 0.06); g.add(k);
+    k.position.set(w * 0.28, y, z + 0.08); g.add(k);
+    const st = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.07, 0.24), mat(0xcfc6ea));
+    st.position.set(0, 0.035, z + 0.14); st.receiveShadow = true; g.add(st);
+  }
+  // 창 — 틀 한 겹에 유리 한 겹. 불이 켜지면 유리만 금색이 된다
+  function win(g, w, h, x, y, z, lit, frame) {
+    const f = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.05), mat(frame || C3.wood));
+    f.position.set(x, y, z); g.add(f);
+    const p = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.05),
+      new THREE.MeshBasicMaterial({ color: lit ? C3.gold : 0x241d3c }));
+    p.position.set(x, y, z + 0.02); g.add(p);
+    return f;
+  }
+  // 깃발 — 깃대에 매달린 천. 바람에 흔들리진 않지만 실루엣이 확 산다
+  function flag(g, x, y, z, color, w) {
+    const f = new THREE.Mesh(new THREE.BoxGeometry(w || 0.38, 0.24, 0.03), mat(color));
+    f.position.set(x + (w || 0.38) / 2 + 0.03, y, z); f.castShadow = true; g.add(f);
   }
 
   function place(p) {
@@ -196,20 +221,33 @@ const Town3D = (() => {
       const done = prog.cleared >= total;
       const sz = w0 - i * (0.5 / n), y = segH / 2 + i * segH;
       mesh(new THREE.BoxGeometry(sz, segH, sz), lock ? C3.stoneDark : C3.stone, 0, y, 0, g);
-      // 창문 — 깬 만큼 불이 켜진다
+      // 층과 층 사이 돌출 띠. 이게 있어야 "여러 권이 쌓인 탑" 으로 읽힌다
+      const band = new THREE.Mesh(new THREE.BoxGeometry(sz + 0.13, 0.12, sz + 0.13),
+        mat(lock ? 0x494272 : 0x6d64ab));
+      band.position.y = y + segH / 2 - 0.06; band.castShadow = true; g.add(band);
+      // 창이 걸리는 어두운 벽감 — 창 셋을 한 메시로 받쳐 준다
+      const rec = new THREE.Mesh(new THREE.BoxGeometry(sz * 0.82, 0.44, 0.04), mat(0x4b447a));
+      rec.position.set(0, y + 0.05, sz / 2 + 0.015); g.add(rec);
       const lit = lock ? 0 : (done ? 3 : Math.round(prog.cleared / total * 3));
       for (let k = 0; k < 3; k++) {
         const m = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.34, 0.05),
           new THREE.MeshBasicMaterial({ color: k < lit ? C3.gold : 0x241d3c }));
-        m.position.set((k - 1) * (sz * 0.3), y + 0.05, sz / 2 + 0.02); g.add(m);
+        m.position.set((k - 1) * (sz * 0.3), y + 0.05, sz / 2 + 0.03); g.add(m);
       }
     }
     const top = TALL;
-    roofCone(g, w0 * 0.74, 1.05, top + 0.5, C3.roof);
-    mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.0), C3.wood, 0, top + 1.5, 0, g);
+    // 처마 — 지붕이 벽 위에 그냥 얹힌 게 아니라 걸쳐 있게
+    const eave = new THREE.Mesh(new THREE.BoxGeometry(w0 + 0.22, 0.1, w0 + 0.22), mat(C3.wood));
+    eave.position.y = top + 0.05; eave.castShadow = true; g.add(eave);
+    roofCone(g, w0 * 0.74, 1.05, top + 0.6, C3.roof);
+    // 지붕 꼭대기 구슬 → 깃대 → 깃발. 깬 탑은 금색 깃발이 걸린다
+    mesh(new THREE.SphereGeometry(0.11, 10, 8), C3.gold, 0, top + 1.16, 0, g);
+    mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.0), C3.wood, 0, top + 1.66, 0, g);
+    const allOpen = ts.every(t => !towerLock(t));
+    flag(g, 0.02, top + 2.0, 0, allOpen ? C3.gold : C3.roof);
     door(g, 0.52, 0.8, 0.4, w0 / 2 + 0.02);
     const open = ts.filter(t => !towerLock(t)).length;
-    tag(p, p.level.name + '의 탑 · ' + open + '/' + n + '권', top + 1.9);
+    tag(p, p.level.name + "의 탑 · " + open + "/" + n + "권", top + 2.7);   // 깃발보다 위로 (안 그러면 이름표가 깃발을 가린다)
   }
 
   // 왕의 성 — 가운데 몸통 + 양쪽 망루
@@ -217,12 +255,21 @@ const Town3D = (() => {
     const k = Game.kingInfo(p.level.id), beaten = k && k.beaten, ready = k && k.ok;
     const base = beaten ? 0x1c6f62 : ready ? 0x5d5698 : 0x332e5c;
     mesh(new THREE.BoxGeometry(1.9, 1.25, 1.5), base, 0, 0.62, 0, g);
+    // 가운데 몸통 위 총안 — 성이 성처럼 보이는 건 거의 이 톱니 때문이다
+    for (let i = -2; i <= 2; i++)
+      mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), base, i * 0.36, 1.35, 0.62, g);
+    // 몸통을 두르는 돌 띠
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.11, 1.58), mat(0x8f86c9));
+    belt.position.y = 0.86; belt.castShadow = true; g.add(belt);
     [-1.05, 1.05].forEach(x => {
       mesh(new THREE.BoxGeometry(0.62, 1.9, 0.62), base, x, 0.95, 0, g);
       for (let i = -1; i <= 1; i++) mesh(new THREE.BoxGeometry(0.16, 0.18, 0.16), base, x + i * 0.2, 1.99, 0, g);
       const f = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.04),
         new THREE.MeshBasicMaterial({ color: ready ? C3.gold : 0x6a5a2a }));
       f.position.set(x, 1.15, 0.33); g.add(f);
+      // 망루마다 깃대와 깃발. 왕을 잡으면 초록, 도전할 수 있으면 금색
+      mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.62), C3.wood, x, 2.4, 0, g);
+      flag(g, x, 2.58, 0, beaten ? 0x2fd6a8 : ready ? C3.gold : 0x6a628f, 0.3);
     });
     door(g, 0.46, 0.68, 0.34, 0.77);
     tag(p, p.level.name + ' 왕' + (beaten ? ' ✓' : ''), 2.5, '👑');
@@ -230,8 +277,41 @@ const Town3D = (() => {
 
   // 오두막 — 상점·도감·옷가게·스킬·투기장
   function hut3(p, g) {
+    const rc = p.act === 'skills' ? C3.roof2 : C3.roof;
     mesh(new THREE.BoxGeometry(1.6, 1.05, 1.4), C3.wall, 0, 0.52, 0, g);
-    roofCone(g, 1.3, 0.85, 1.45, p.act === 'skills' ? C3.roof2 : C3.roof);
+    // 초석 — 집이 잔디에 파묻힌 것처럼 보이지 않게 밑을 받친다
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.14, 1.52), mat(0xd8cfbb));
+    base.position.y = 0.07; base.receiveShadow = true; base.castShadow = true; g.add(base);
+    // 반쪽 나무 기둥(하프팀버) — 벽이 민무늬 상자로 남지 않게
+    [-0.66, 0.66].forEach(x => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.95, 0.06), mat(C3.wood));
+      b.position.set(x, 0.56, 0.71); g.add(b);
+    });
+    const gird = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.09, 0.06), mat(C3.wood));
+    gird.position.set(0, 0.98, 0.71); g.add(gird);
+    // 창 둘 — 밤이 아니어도 켜 두면 "열려 있는 가게" 로 보인다
+    win(g, 0.26, 0.28, -0.52, 0.66, 0.71, true);
+    win(g, 0.26, 0.28, 0.52, 0.66, 0.71, true);
+    // 창가 화분
+    [-0.52, 0.52].forEach(x => {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.12), mat(C3.wood));
+      box.position.set(x, 0.48, 0.75); box.castShadow = true; g.add(box);
+      mesh(new THREE.SphereGeometry(0.09, 8, 6), C3.leaf2, x, 0.56, 0.75, g);
+    });
+    roofCone(g, 1.3, 0.85, 1.45, rc);
+    // 지붕 밑 처마 널
+    const eave = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.09, 1.56), mat(0xe9dfc8));
+    eave.position.y = 1.06; eave.castShadow = true; g.add(eave);
+    // 굴뚝
+    mesh(new THREE.BoxGeometry(0.2, 0.6, 0.2), 0xb7a58e, -0.42, 1.5, -0.34, g);
+    mesh(new THREE.BoxGeometry(0.26, 0.08, 0.26), 0x8f7f6b, -0.42, 1.82, -0.34, g);
+    // 문 위 차양 — 가게 앞이라는 표시
+    const aw = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.07, 0.34), mat(rc));
+    aw.position.set(0, 0.85, 0.86); aw.rotation.x = -0.22; aw.castShadow = true; g.add(aw);
+    [-0.38, 0.38].forEach(x => {
+      const pl = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, 0.04), mat(C3.wood));
+      pl.position.set(x, 0.6, 1.0); g.add(pl);
+    });
     door(g, 0.44, 0.68, 0.34, 0.72);
     tag(p, p.name, 2.15, p.emoji);
   }
@@ -273,14 +353,18 @@ const Town3D = (() => {
   // 그라데이션은 CSS 로 깔고(공짜다) 그 위에 구름과 먼 산만 3D 로 얹는다.
   function skyStuff() {
     const W = map.W * M, H = map.H * M;
-    // 먼 산 — 마을 둘레에 눌러 놓은 구. 여기가 세상의 끝이라는 표시
+    // 먼 산 — 마을 둘레에 눌러 놓은 구. 여기가 세상의 끝이라는 표시.
+    // 마을은 세로로 긴 직사각형이라 **타원**으로 둘러야 한다.
+    // (원으로 두르면 가로 쪽 산이 마을 안까지 들어와 광장을 덮는다)
     const hills = [];
-    for (let i = 0; i < 22; i++) {
-      const a = i / 22 * Math.PI * 2 + 0.3;
-      const rr = Math.max(W, H) * 0.62 + (i % 3) * 3;
+    const HR = 9;                                  // 산 하나의 최대 반지름
+    const rx = W / 2 + HR + 7, rz = H / 2 + HR + 7;
+    for (let i = 0; i < 26; i++) {
+      const a = i / 26 * Math.PI * 2 + 0.25;
+      const jitter = 1 + (i % 3) * 0.06;
       hills.push({
-        x: W / 2 + Math.cos(a) * rr, y: -1.5, z: H / 2 + Math.sin(a) * rr,
-        sx: 7 + (i % 4) * 2.5, sy: 2.6 + (i % 3) * 1.1, sz: 7 + (i % 5) * 2,
+        x: W / 2 + Math.cos(a) * rx * jitter, y: -1.6, z: H / 2 + Math.sin(a) * rz * jitter,
+        sx: 5 + (i % 4) * 1.3, sy: 2.4 + (i % 3) * 1.0, sz: 5 + (i % 5) * 0.9,
       });
     }
     const hm = instance(geo('hill', () => new THREE.SphereGeometry(1, 10, 7)), 0x86ac9a, hills, false);
@@ -521,6 +605,11 @@ const Town3D = (() => {
     root.sun.position.set(camAt.x - 9, 16, camAt.z + 6);
     root.sun.target.position.set(camAt.x, 0, camAt.z);
     root.sun.target.updateMatrixWorld();
+    // 채움광도 따라다녀야 한다. 방향광은 위치가 아니라 **위치−목표** 가 방향이라,
+    // 목표를 원점에 두고 오면 마을 끝으로 갈수록 빛이 옆에서 든다
+    root.fill.position.set(camAt.x + 14, 7, camAt.z + 10);
+    root.fill.target.position.set(camAt.x, 0, camAt.z);
+    root.fill.target.updateMatrixWorld();
 
     rd.render(sc, cam);
   }
