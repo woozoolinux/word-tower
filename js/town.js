@@ -107,7 +107,7 @@ const Town = (() => {
     }
     ctx.restore();
   }
-  let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts, props;
+  let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts, props, npcs;
   let dirS, dust, stepAt;      // 부드럽게 도는 방향 · 발먼지 · 마지막 발소리
 
   const el = id => document.getElementById(id);
@@ -117,7 +117,7 @@ const Town = (() => {
 
   // ---------- 세계 만들기 ----------
   function build() {
-    places = []; solids = []; lamps = []; tufts = []; props = [];
+    places = []; solids = []; lamps = []; tufts = []; props = []; npcs = [];
     const zones = LEVELS.filter(L => levelTowers(L.id).length);
     const ZH = 224, SKYY = 196;          // 북쪽 끝, 하늘섬이 떠 있을 자리 (높아야 못 간다는 게 보인다)
     H = 250 + zones.length * ZH + 30 + SKYY;
@@ -148,6 +148,17 @@ const Town = (() => {
     props.push({ kind: 'well', x: 228, y: plazaY + 46, r: 25 });
     props.push({ kind: 'stall', x: 508, y: plazaY + 44, w: 74 });
     props.forEach(q => solids.push({ x: q.x - (q.r || q.w / 2) + 4, y: q.y - 12, w: (q.r || q.w / 2) * 2 - 8, h: 22 }));
+    // 광장에 사람 셋. **부딪히지 않는다** — 아이 게임에서 마을 사람한테 끼는 것만큼
+    // 답답한 게 없다. 그래서 solids 에 넣지 않는다.
+    // 가까이 가면 이쪽을 보고 한마디 한다. 말을 걸 필요는 없다 — 마을이 살아 있으면 된다
+    npcs.push(
+      { x: 508, y: 930, av: { skin: 2, hairStyle: 'short', hairColor: 0 }, outfit: 'wizard',
+        lines: ['사과 하나 줄까? 단어 하나 맞히면!', '오늘은 장사가 잘 되네.', '탑에서 내려오면 또 들러.'] },
+      { x: 186, y: 976, av: { skin: 0, hairStyle: 'twin', hairColor: 3 }, outfit: 'dress',
+        lines: ['우물에 동전 던지면 소원이 이뤄진대!', '저 탑 꼭대기 가봤어?', '나도 크면 용사 될 거야.'] },
+      { x: 332, y: 926, av: { skin: 2, hairStyle: 'long', hairColor: 4 }, outfit: 'knight',
+        lines: ['북쪽 끝에 섬이 떠 있어. 날개가 있어야 간대.', '곰 등급은 진짜 어렵더라.', '조심해서 다녀와.'] });
+    npcs.forEach(n => { n.said = 0; n.near = false; n.face = -1; n.faceS = -1; });
     for (let i = 0; i < 130; i++) tufts.push({ x: 10 + Math.random() * (W - 20), y: 20 + Math.random() * (H - 40), s: 2 + Math.random() * 3 });
     // 빈 땅이 넓으면 휑하다 — 건물과 길을 피해 나무·꽃·울타리를 촘촘히 뿌린다
     scatter(W, H, (x, y) => places.some(p => x > p.x - 22 && x < p.x + p.w + 22 && y > p.y - 20 && y < p.y + p.h + 26));
@@ -302,6 +313,13 @@ const Town = (() => {
       const d = dx + Math.abs(dy);
       if (d < bd) { bd = d; best = p; }
     });
+    npcs.forEach(n => {
+      const near = Math.hypot(px - n.x, py - n.y) < 96;
+      if (near && !n.near) n.said = (n.said + 1) % n.lines.length;   // 다시 오면 다음 말
+      n.near = near;
+      n.face = near ? (px < n.x ? -1 : 1) : (n.x > W / 2 ? -1 : 1);  // 가까우면 이쪽을 본다
+      n.faceS += (n.face - n.faceS) * Math.min(1, dt * 10);
+    });
     nearP = best;
     const label = best ? placeLabel(best) : '';
     if (label !== hint) {
@@ -406,18 +424,21 @@ const Town = (() => {
     const t = performance.now() / 1000;
     const items = places.map(p => ({ y: p.y + p.h, p }))
       .concat(DECO.map(d => ({ y: d.y, d })))
-      .concat(props.map(q => ({ y: q.y, q })));
+      .concat(props.map(q => ({ y: q.y, q })))
+      .concat(npcs.map(n => ({ y: n.y, n })));
     items.sort((a, b) => a.y - b.y);
     let drewMe = false;
     items.forEach(it => {
       if (!drewMe && it.y > py) { me(); drewMe = true; }
       if (it.d) { drawDeco(it.d, t); return; }
       if (it.q) { drawProp(it.q, t); return; }
+      if (it.n) { drawNpc(it.n); return; }
       if (it.p === nearP) ring(it.p);
       draws[it.p.kind](it.p);
     });
     if (!drewMe) me();
     lamps.forEach(lampPost);
+    npcs.forEach(bubble);
     places.forEach(p => tag(p, p.tagText, p.tagColor));      // 이름표는 항상 맨 위에
     ctx.restore();
     vignette(w, h);
@@ -459,6 +480,27 @@ const Town = (() => {
     ctx.fillStyle = 'rgba(120,100,60,.28)';
     ctx.fillRect(0, H - 240, W, 5); ctx.fillRect(0, H - 137, W, 5);
   }
+  // ---------- 마을 사람 ----------
+  function drawNpc(n) {
+    if (!n.img) n.img = Avatar.image({ av: n.av, outfit: n.outfit, weapon: false, hat: 'none', aura: 'none', pet: null });
+    const bob = Math.sin(performance.now() / 760 + n.x) * 1.4;
+    softShadow(n.x, n.y + 3, 12, 5, .3);
+    ctx.save(); ctx.translate(n.x, n.y + bob);
+    ctx.scale(n.faceS < 0 ? Math.min(-.18, n.faceS) : Math.max(.18, n.faceS), 1);
+    if (n.img.ready) ctx.drawImage(n.img.img, -16, -41, 32, 43);
+    ctx.restore();
+  }
+  function bubble(n) {
+    if (!n.near) return;
+    const text = n.lines[n.said];
+    ctx.font = 'bold 12px "Jua", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width + 18, x = n.x, y = n.y - 56;
+    ctx.fillStyle = 'rgba(255,250,238,.96)';
+    ctx.beginPath(); ctx.roundRect(x - w / 2, y - 11, w, 22, 11); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - 5, y + 9); ctx.lineTo(x + 2, y + 17); ctx.lineTo(x + 5, y + 9); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#4a3f6b'; ctx.fillText(text, x, y + 1);
+  }
+
   // ---------- 광장 소품 ----------
   function drawProp(q, t) {
     if (q.kind === 'well') return drawWell(q, t);
@@ -758,7 +800,7 @@ const Town = (() => {
     const solids3 = places.map(p => p.foot)
       .concat(props.map(q => { const r = q.r || q.w / 2; return { x: q.x - r + 4, y: q.y - 12, w: r * 2 - 8, h: 22 }; }))
       .concat(solids.slice(-4));
-    return { places, solids, solids3, deco: DECO, lamps, props, W, H, start: { x: px, y: py } };
+    return { places, solids, solids3, deco: DECO, lamps, props, npcs, W, H, start: { x: px, y: py } };
   }
   return { start, resume, stop, debug, layout, enter, placeLabel, useHost };
 })();

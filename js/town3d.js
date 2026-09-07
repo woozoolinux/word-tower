@@ -112,7 +112,7 @@ const Town3D = (() => {
     const h = Math.max(280, Math.min(700, window.innerHeight - wrap.getBoundingClientRect().top - 60));
     wrap.style.height = h + 'px';
 
-    tags.length = 0;
+    tags.length = 0; npcs.length = 0;
     for (const k in GEO) delete GEO[k];
     sc = new THREE.Scene();
     sc.background = null;                    // 하늘은 CSS 그라데이션이 깔린다 (공짜다)
@@ -519,6 +519,7 @@ const Town3D = (() => {
       });
     (map.lamps || []).forEach(lamp3);
     (map.props || []).forEach(prop3);
+    (map.npcs || []).forEach(npc3);
   }
   function pave(x, z, w, d, tile) {
     const t = paveTex(); t.repeat.set(w / tile, d / tile);
@@ -541,6 +542,38 @@ const Town3D = (() => {
     const pool = new THREE.Mesh(new THREE.CircleGeometry(0.85, 18),
       new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.2, depthWrite: false }));
     pool.rotation.x = -Math.PI / 2; pool.position.y = 0.13; g.add(pool);
+  }
+  const npcs = [];
+  function npc3(n) {
+    const c = Char3D.build({ av: n.av, outfit: n.outfit, hat: 'none', weapon: 'none', aura: 'none' });
+    c.group.scale.setScalar(0.92);
+    c.group.position.set(n.x * M, 0, n.y * M);
+    sc.add(c.group);
+    const sh = new THREE.Mesh(new THREE.CircleGeometry(0.3, 16),
+      new THREE.MeshBasicMaterial({ color: 0x2a3a1e, transparent: true, opacity: 0.3, depthWrite: false }));
+    sh.rotation.x = -Math.PI / 2; sh.position.set(n.x * M, 0.14, n.y * M); sc.add(sh);
+    // 말풍선 — 가까이 갔을 때만 켠다. 세 마디가 미리 만들어져 있고 번갈아 나온다
+    const said = n.lines.map(t => bubble3(t, n));
+    npcs.push({ n, c, said, near: false, idx: -1 });
+  }
+  function bubble3(text, n) {
+    const cv = document.createElement('canvas');
+    const c = cv.getContext('2d');
+    c.font = 'bold 24px "Jua", sans-serif';
+    const w = Math.ceil(c.measureText(text).width) + 30;
+    cv.width = w; cv.height = 52;
+    c.fillStyle = 'rgba(255,250,238,.97)';
+    c.beginPath(); c.roundRect(0, 0, w, 40, 20); c.fill();
+    c.beginPath(); c.moveTo(w / 2 - 7, 38); c.lineTo(w / 2 + 2, 51); c.lineTo(w / 2 + 7, 38); c.closePath(); c.fill();
+    c.font = 'bold 24px "Jua", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#4a3f6b'; c.fillText(text, w / 2, 21);
+    const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    const ts = 0.62 * (ZOOM / 12);
+    sp.scale.set(w / 52 * ts * 1.18, ts * 1.18, 1);
+    sp.position.set(n.x * M, 2.5, n.y * M);
+    sp.renderOrder = 11; sp.visible = false;
+    sc.add(sp); return sp;
   }
   function prop3(q) {
     const g = new THREE.Group(); g.position.set(q.x * M, 0, q.y * M); sc.add(g);
@@ -684,6 +717,20 @@ const Town3D = (() => {
     Char3D.animate(hero, now2, moving, 1 / 60);
     hero.group.position.y += 0;
     heroSh.position.set(hx, 0.06, hz);
+
+    // 마을 사람 — 숨을 쉬고, 가까이 가면 이쪽으로 돈다
+    npcs.forEach(o => {
+      Char3D.animate(o.c, now2 + o.n.x, false, 1 / 60);
+      const near = Math.hypot(px - o.n.x, py - o.n.y) < 96;
+      const face = near ? Math.atan2(hx - o.c.group.position.x, hz - o.c.group.position.z)
+        : (o.n.x > map.W / 2 ? -Math.PI / 2 : Math.PI / 2);
+      o.c.group.rotation.y += angDiff(face - o.c.group.rotation.y) * Math.min(1, 1 / 60 * 8);
+      if (near !== o.near) {
+        o.near = near;
+        if (near) o.idx = (o.idx + 1) % o.said.length;             // 다시 오면 다음 말
+        o.said.forEach((sp, i) => (sp.visible = near && i === o.idx));
+      }
+    });
 
     // 하늘섬은 둥둥 떠 있다
     const now = performance.now() / 1000;

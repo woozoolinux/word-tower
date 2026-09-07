@@ -878,6 +878,19 @@ ok('길 한가운데로 걸어 나갈 틈이 남는다', (() => {
 })() >= 60, '길 폭 156 중');
 ok('소품마다 3D 충돌이 생긴다', LAY.solids3.length >= LAY.places.length + LAY.props.length);
 
+// 마을 사람은 **부딪히지 않는다**. 아이 게임에서 마을 사람한테 끼는 것만큼
+// 답답한 게 없다 — 광장은 좁고 사람은 문 앞에 서 있다.
+ok('광장에 사람이 있다', LAY.npcs.length >= 3, LAY.npcs.length + '명');
+LAY.npcs.forEach((n, i) => {
+  const inBox = b => n.x > b.x && n.x < b.x + b.w && n.y > b.y && n.y < b.y + b.h;
+  ok('마을 사람 ' + (i + 1) + ' 은 부딪히지 않는다', !LAY.solids.some(inBox));
+  ok('마을 사람 ' + (i + 1) + ' 은 건물 안에 서 있지 않다', !LAY.places.some(p => inBox({ x: p.x, y: p.y, w: p.w, h: p.h })));
+  ok('마을 사람 ' + (i + 1) + ' 은 할 말이 여러 개다', n.lines.length >= 2, n.lines.length + '마디');
+  // 말풍선은 폰 화면(360) 안에 들어와야 읽힌다. 12px 글씨로 한 글자 약 12px
+  ok('마을 사람 ' + (i + 1) + ' 의 말이 말풍선에 들어간다',
+    n.lines.every(t => t.length <= 26), Math.max.apply(null, n.lines.map(t => t.length)) + '자');
+});
+
 // ===================================================================
 section('저장 파일');
 // 진행이 localStorage 한 곳에만 있다. 백업(keepBackup)조차 같은 곳이라

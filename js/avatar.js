@@ -569,7 +569,8 @@ const Avatar = (() => {
 
   // 러너용: SVG를 이미지로 (로딩 전엔 ready=false)
   function image(o) {
-    const av = state.player.avatar || defaults();
+    // av 를 넘기면 그 사람을 그린다. 안 넘기면 나. 마을 사람들이 이걸 쓴다
+    const av = (o && o.av) || state.player.avatar || defaults();
     const img = new Image();
     const box = { img, ready: false };
     img.onload = () => { box.ready = true; };
