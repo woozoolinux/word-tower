@@ -520,6 +520,7 @@ const Town3D = (() => {
     (map.lamps || []).forEach(lamp3);
     (map.props || []).forEach(prop3);
     (map.npcs || []).forEach(npc3);
+    (map.arches || []).forEach(arch3);
   }
   function pave(x, z, w, d, tile) {
     const t = paveTex(); t.repeat.set(w / tile, d / tile);
@@ -543,6 +544,51 @@ const Town3D = (() => {
       new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.2, depthWrite: false }));
     pool.rotation.x = -Math.PI / 2; pool.position.y = 0.13; g.add(pool);
   }
+  // 등급 입구 아치 — 2D 마을이 정한 자리를 그대로 쓴다.
+  // 기둥은 길 밖(±88px)에 서 있어서 걸어 지나가는 걸 막지 않는다
+  function arch3(a) {
+    const ts = levelTowers(a.level.id), open = !ts.length || ts.some(t => !towerLock(t));
+    const stone = open ? 0x8f86c9 : 0x5c5590, cap = open ? 0xa9a1dd : 0x6d64ab;
+    const g = new THREE.Group(); g.position.set(a.x * M, 0, a.y * M); sc.add(g);
+    const HT = 4.3, half = 72 * M;
+    [-half, half].forEach(x => {
+      mesh(new THREE.BoxGeometry(0.44, HT, 0.44), stone, x, HT / 2, 0, g);
+      mesh(new THREE.BoxGeometry(0.62, 0.22, 0.62), cap, x, 0.11, 0, g);       // 주춧돌
+      mesh(new THREE.BoxGeometry(0.6, 0.24, 0.6), cap, x, HT - 0.1, 0, g);     // 기둥머리
+    });
+    // 상인방 — 두 기둥을 잇는 가로대
+    mesh(new THREE.BoxGeometry(half * 2 + 0.7, 0.3, 0.46), cap, 0, HT + 0.15, 0, g);
+    mesh(new THREE.BoxGeometry(half * 2 + 0.4, 0.1, 0.52), stone, 0, HT - 0.05, 0, g);
+    // 가로대에서 늘어뜨린 천 — 긴 가로대가 휑하지 않게
+    [-1.5, 1.5].forEach(x => {
+      const b = mesh(new THREE.BoxGeometry(0.42, 0.72, 0.05), open ? 0xffc83d : 0x6a628f, x, HT - 0.4, 0.22, g);
+      b.castShadow = false;
+    });
+    // 현판
+    mesh(new THREE.BoxGeometry(0.06, 0.22, 0.06), 0x5c4f38, 0, HT - 0.1, 0.02, g);
+    plate3(a, open, HT - 0.55);
+  }
+  function plate3(a, open, y) {
+    const text = a.level.emoji + ' ' + a.level.name + ' 등급' + (open ? '' : ' 🔒');
+    const cv = document.createElement('canvas');
+    const c = cv.getContext('2d');
+    c.font = 'bold 26px "Jua", sans-serif';
+    const w = Math.ceil(c.measureText(text).width) + 40;
+    cv.width = w; cv.height = 46;
+    c.fillStyle = open ? '#3b2f6a' : '#2b2450';
+    c.beginPath(); c.roundRect(0, 0, w, 46, 12); c.fill();
+    c.strokeStyle = open ? '#ffc83d' : '#6a628f'; c.lineWidth = 3;
+    c.beginPath(); c.roundRect(3, 3, w - 6, 40, 9); c.stroke();
+    c.font = 'bold 26px "Jua", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = open ? '#fff6e0' : '#9a92c0'; c.fillText(text, w / 2, 24);
+    const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    const ts = 0.6 * (ZOOM / 12);
+    sp.scale.set(w / 46 * ts, ts, 1);
+    sp.position.set(a.x * M, y, a.y * M);
+    sp.renderOrder = 9; sc.add(sp); tags.push(sp);
+  }
+
   const npcs = [];
   function npc3(n) {
     const c = Char3D.build({ av: n.av, outfit: n.outfit, hat: 'none', weapon: 'none', aura: 'none' });

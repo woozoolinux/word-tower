@@ -107,7 +107,7 @@ const Town = (() => {
     }
     ctx.restore();
   }
-  let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts, props, npcs;
+  let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts, props, npcs, arches;
   let dirS, dust, stepAt;      // 부드럽게 도는 방향 · 발먼지 · 마지막 발소리
 
   const el = id => document.getElementById(id);
@@ -117,7 +117,7 @@ const Town = (() => {
 
   // ---------- 세계 만들기 ----------
   function build() {
-    places = []; solids = []; lamps = []; tufts = []; props = []; npcs = [];
+    places = []; solids = []; lamps = []; tufts = []; props = []; npcs = []; arches = [];
     const zones = LEVELS.filter(L => levelTowers(L.id).length);
     const ZH = 224, SKYY = 196;          // 북쪽 끝, 하늘섬이 떠 있을 자리 (높아야 못 간다는 게 보인다)
     H = 250 + zones.length * ZH + 30 + SKYY;
@@ -140,13 +140,20 @@ const Town = (() => {
       const zy = H - 262 - (i + 1) * ZH;
       addPlace({ kind: 'tower', level: L, towers: levelTowers(L.id), x: W / 2 - 48, y: zy, w: 96, h: 158 });
       if (L.animal) addPlace({ kind: 'king', level: L, x: W - 132, y: zy + 40, w: 104, h: 88 });
-      lamps.push({ x: W / 2 - 96, y: zy + 150 }, { x: W / 2 + 96, y: zy + 150 });
+      // 등급 입구 아치 — 탑 아래(zy+158)와 앞 등급 사이, 그 가운데.
+      // 가로등 둘을 아치 바깥에 세워 문에 불을 켠다
+      const ay = zy + 191;
+      arches.push({ level: L, x: W / 2, y: ay });
+      lamps.push({ x: W / 2 - 100, y: ay }, { x: W / 2 + 100, y: ay });
     });
     lamps.push({ x: W / 2 - 108, y: H - 44 }, { x: W / 2 + 108, y: H - 44 });
     // 광장 소품 — 우물 하나, 노점 하나. 바닥이 넓게 비어 있으면 마을이 안 산다.
     // 길 한가운데(x 256~358)는 비워 둔다 — 북쪽으로 걸어 나가는 길이다
     props.push({ kind: 'well', x: 228, y: plazaY + 46, r: 25 });
     props.push({ kind: 'stall', x: 508, y: plazaY + 44, w: 74 });
+    // 아치 기둥은 부딪힌다 — 길 밖에 있어서 지나가는 데는 상관없다
+    arches.forEach(a => [-72, 72].forEach(dx =>
+      solids.push({ x: a.x + dx - 11, y: a.y - 10, w: 22, h: 18 })));
     props.forEach(q => solids.push({ x: q.x - (q.r || q.w / 2) + 4, y: q.y - 12, w: (q.r || q.w / 2) * 2 - 8, h: 22 }));
     // 광장에 사람 셋. **부딪히지 않는다** — 아이 게임에서 마을 사람한테 끼는 것만큼
     // 답답한 게 없다. 그래서 solids 에 넣지 않는다.
@@ -425,7 +432,8 @@ const Town = (() => {
     const items = places.map(p => ({ y: p.y + p.h, p }))
       .concat(DECO.map(d => ({ y: d.y, d })))
       .concat(props.map(q => ({ y: q.y, q })))
-      .concat(npcs.map(n => ({ y: n.y, n })));
+      .concat(npcs.map(n => ({ y: n.y, n })))
+      .concat(arches.map(a => ({ y: a.y, a })));
     items.sort((a, b) => a.y - b.y);
     let drewMe = false;
     items.forEach(it => {
@@ -433,6 +441,7 @@ const Town = (() => {
       if (it.d) { drawDeco(it.d, t); return; }
       if (it.q) { drawProp(it.q, t); return; }
       if (it.n) { drawNpc(it.n); return; }
+      if (it.a) { drawArch(it.a); return; }
       if (it.p === nearP) ring(it.p);
       draws[it.p.kind](it.p);
     });
@@ -480,6 +489,46 @@ const Town = (() => {
     ctx.fillStyle = 'rgba(120,100,60,.28)';
     ctx.fillRect(0, H - 240, W, 5); ctx.fillRect(0, H - 137, W, 5);
   }
+  // ---------- 등급 입구 아치 ----------
+  // 아직 못 여는 등급이면 회색에 자물쇠. 길에서 저게 보이면 "저기까진 아직" 이 읽힌다
+  function archOpen(a) {
+    const ts = levelTowers(a.level.id);
+    return !ts.length || ts.some(t => !towerLock(t));
+  }
+  function drawArch(a) {
+    const open = archOpen(a), stone = open ? '#8f86c9' : '#5c5590';
+    const cap = open ? '#a9a1dd' : '#6d64ab', top = a.y - 124;
+    [-72, 72].forEach(dx => {
+      const x = a.x + dx;
+      softShadow(x + 4, a.y + 3, 15, 6, .3);
+      ctx.fillStyle = stone; ctx.fillRect(x - 11, top + 10, 22, a.y - top - 10);
+      ctx.fillStyle = 'rgba(255,255,255,.13)'; ctx.fillRect(x - 11, top + 10, 7, a.y - top - 10);
+      ctx.fillStyle = cap; ctx.fillRect(x - 15, a.y - 8, 30, 10);         // 주춧돌
+      ctx.fillStyle = cap; ctx.fillRect(x - 15, top, 30, 12);             // 기둥머리
+    });
+    // 상인방 — 두 기둥을 잇는 가로대
+    ctx.fillStyle = cap; ctx.fillRect(a.x - 88, top - 15, 176, 17);
+    ctx.fillStyle = stone; ctx.fillRect(a.x - 84, top - 1, 168, 5);
+    // 가로대에서 늘어뜨린 천 — 긴 가로대가 휑하지 않게
+    [-52, 52].forEach(dx => {
+      ctx.fillStyle = open ? C.gold : '#6a628f';
+      ctx.beginPath(); ctx.moveTo(a.x + dx - 9, top + 4); ctx.lineTo(a.x + dx + 9, top + 4);
+      ctx.lineTo(a.x + dx + 9, top + 24); ctx.lineTo(a.x + dx, top + 18);
+      ctx.lineTo(a.x + dx - 9, top + 24); ctx.closePath(); ctx.fill();
+    });
+    // 현판 — 가로대 아래 매달린다
+    ctx.fillStyle = '#5c4f38'; ctx.fillRect(a.x - 2, top + 2, 4, 8);
+    const text = a.level.emoji + ' ' + a.level.name + ' 등급';
+    ctx.font = 'bold 14px "Jua", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width + 26;
+    ctx.fillStyle = open ? '#3b2f6a' : '#2b2450';
+    ctx.beginPath(); ctx.roundRect(a.x - w / 2, top + 10, w, 24, 7); ctx.fill();
+    ctx.strokeStyle = open ? C.gold : '#6a628f'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(a.x - w / 2 + 2, top + 12, w - 4, 20, 5); ctx.stroke();
+    ctx.fillStyle = open ? '#fff6e0' : '#9a92c0'; ctx.fillText(text, a.x, top + 23);
+    if (!open) { ctx.font = '13px serif'; ctx.fillText('🔒', a.x + w / 2 + 10, top + 23); }
+  }
+
   // ---------- 마을 사람 ----------
   function drawNpc(n) {
     if (!n.img) n.img = Avatar.image({ av: n.av, outfit: n.outfit, weapon: false, hat: 'none', aura: 'none', pet: null });
@@ -799,8 +848,9 @@ const Town = (() => {
     // 3D 용 충돌: 건물 발자국 + 마을 바깥 벽 네 개
     const solids3 = places.map(p => p.foot)
       .concat(props.map(q => { const r = q.r || q.w / 2; return { x: q.x - r + 4, y: q.y - 12, w: r * 2 - 8, h: 22 }; }))
+      .concat([].concat.apply([], arches.map(a => [-72, 72].map(dx => ({ x: a.x + dx - 11, y: a.y - 10, w: 22, h: 18 }))))) 
       .concat(solids.slice(-4));
-    return { places, solids, solids3, deco: DECO, lamps, props, npcs, W, H, start: { x: px, y: py } };
+    return { places, solids, solids3, deco: DECO, lamps, props, npcs, arches, W, H, start: { x: px, y: py } };
   }
   return { start, resume, stop, debug, layout, enter, placeLabel, useHost };
 })();

@@ -880,6 +880,22 @@ ok('소품마다 3D 충돌이 생긴다', LAY.solids3.length >= LAY.places.lengt
 
 // 마을 사람은 **부딪히지 않는다**. 아이 게임에서 마을 사람한테 끼는 것만큼
 // 답답한 게 없다 — 광장은 좁고 사람은 문 앞에 서 있다.
+// 북쪽 길이 224px 마다 똑같았다 — 어디까지 왔는지도 여기가 어느 등급인지도 몰랐다.
+// 등급 입구마다 아치문. 기둥이 길을 막으면 아이가 갇힌다
+ok('등급마다 입구 아치가 있다', LAY.arches.length === LAY.places.filter(p => p.kind === 'tower').length,
+  LAY.arches.length + '개');
+LAY.arches.forEach(a => {
+  eq(a.level.name + ' 아치가 길 한가운데 서 있다', a.x, LAY.W / 2);
+  const road = [LAY.W / 2 - 78, LAY.W / 2 + 78];
+  let free = road[1] - road[0];
+  [-72, 72].forEach(dx => {
+    free -= Math.max(0, Math.min(road[1], a.x + dx + 11) - Math.max(road[0], a.x + dx - 11));
+  });
+  ok(a.level.name + ' 아치 밑으로 지나갈 수 있다', free >= 100, '길 폭 156 중 ' + free);
+  ok(a.level.name + ' 아치가 건물에 겹치지 않는다',
+    !LAY.places.some(p => Math.abs(a.x - p.cx) < p.w / 2 + 84 && a.y > p.y - 12 && a.y < p.y + p.h + 12));
+});
+
 ok('광장에 사람이 있다', LAY.npcs.length >= 3, LAY.npcs.length + '명');
 LAY.npcs.forEach((n, i) => {
   const inBox = b => n.x > b.x && n.x < b.x + b.w && n.y > b.y && n.y < b.y + b.h;
