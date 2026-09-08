@@ -91,6 +91,7 @@ const Town3D = (() => {
       </div>
       <div class="tw-wrap" id="t3-wrap">
         <div class="t3-sky"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="t3-tint" id="t3-tint"></div>
         <button class="tw-hint" id="t3-hint"></button>
         <div class="tw-joy on idle" id="t3-joy"><i></i></div>
       </div>
@@ -113,6 +114,7 @@ const Town3D = (() => {
     wrap.style.height = h + 'px';
 
     tags.length = 0; npcs.length = 0; fires.length = 0; wings.length = 0; plumes.length = 0;
+    posts.length = 0; panes.length = 0;
     for (const k in GEO) delete GEO[k];
     sc = new THREE.Scene();
     sc.background = null;                    // 하늘은 CSS 그라데이션이 깔린다 (공짜다)
@@ -129,6 +131,8 @@ const Town3D = (() => {
     // 조이스틱·버튼보다 아래에 깔린다
     const sky = wrap.querySelector('.t3-sky');
     wrap.insertBefore(rd.domElement, sky ? sky.nextSibling : wrap.firstChild);
+    const tint = wrap.querySelector('.t3-tint');
+    if (tint) wrap.insertBefore(tint, rd.domElement.nextSibling);   // 색조는 마을 위, 조이스틱 아래
 
     // 빛 — 2D 마을과 같은 방향(왼쪽 위)
     const sun = new THREE.DirectionalLight(0xfff0d0, 0.8);
@@ -140,8 +144,9 @@ const Town3D = (() => {
     // 채움광 — 그림자를 만들지 않는다. 보이는 면이 검게 죽는 걸 막는 역할만 한다
     const fill = new THREE.DirectionalLight(0xcfe4ff, 0.5);
     fill.position.set(14, 7, 10); fill.target.position.set(0, 0, 0);
-    sc.add(sun, sun.target, fill, fill.target, new THREE.HemisphereLight(0xbfe4ff, 0x4e7a3a, 0.46));
-    root = { sun, fill };
+    const hemi = new THREE.HemisphereLight(0xbfe4ff, 0x4e7a3a, 0.46);
+    sc.add(sun, sun.target, fill, fill.target, hemi);
+    root = { sun, fill, hemi };
 
     skyStuff();
     ground();
@@ -191,6 +196,7 @@ const Town3D = (() => {
     const p = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.05),
       new THREE.MeshBasicMaterial({ color: lit ? C3.gold : 0x241d3c }));
     p.position.set(x, y, z + 0.02); g.add(p);
+    f.pane = p;
     return f;
   }
   // 깃발 — 깃대에 매달린 천. 바람에 흔들리진 않지만 실루엣이 확 산다
@@ -290,8 +296,8 @@ const Town3D = (() => {
     const gird = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.09, 0.06), mat(C3.wood));
     gird.position.set(0, 0.98, 0.71); g.add(gird);
     // 창 둘 — 밤이 아니어도 켜 두면 "열려 있는 가게" 로 보인다
-    win(g, 0.26, 0.28, -0.52, 0.66, 0.71, true);
-    win(g, 0.26, 0.28, 0.52, 0.66, 0.71, true);
+    panes.push(win(g, 0.26, 0.28, -0.52, 0.66, 0.71, true).pane);
+    panes.push(win(g, 0.26, 0.28, 0.52, 0.66, 0.71, true).pane);
     // 창가 화분
     [-0.52, 0.52].forEach(x => {
       const box = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.12), mat(C3.wood));
@@ -568,9 +574,10 @@ const Town3D = (() => {
       new THREE.MeshBasicMaterial({ color: 0xffd964 }));
     lamp.position.y = 1.56; g.add(lamp);
     // 발밑에 빛 웅덩이 — 등이 정말 켜져 있는 것처럼 보이는 건 거의 이것 때문이다
-    const pool = new THREE.Mesh(new THREE.CircleGeometry(0.85, 18),
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(0.95, 18),
       new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.2, depthWrite: false }));
     pool.rotation.x = -Math.PI / 2; pool.position.y = 0.13; g.add(pool);
+    posts.push({ lamp, pool });   // 밤에 켤 등불 목록 (map.lamps 는 자리, 이건 메시)
   }
   // 등급 입구 아치 — 2D 마을이 정한 자리를 그대로 쓴다.
   // 기둥은 길 밖(±88px)에 서 있어서 걸어 지나가는 걸 막지 않는다
@@ -617,7 +624,7 @@ const Town3D = (() => {
     sp.renderOrder = 9; sc.add(sp); tags.push(sp);
   }
 
-  const npcs = [], fires = [], wings = [], plumes = [];
+  const npcs = [], fires = [], wings = [], plumes = [], posts = [], panes = [];
 
   function npc3(n) {
     const c = Char3D.build({ av: n.av, outfit: n.outfit, hat: 'none', weapon: 'none', aura: 'none' });
@@ -916,7 +923,34 @@ const Town3D = (() => {
     root.fill.target.position.set(camAt.x, 0, camAt.z);
     root.fill.target.updateMatrixWorld();
 
+    applyDay();
     rd.render(sc, cam);
+  }
+
+  // ☀️ 시간대. 1초에 한 번만 다시 센다 — 프레임마다 셀 값이 아니다
+  let dayAt = 0, wrapBg = '';
+  function applyDay() {
+    const n = performance.now();
+    if (n - dayAt < 1000) return;
+    dayAt = n;
+    const d = Daylight.now();
+    const bg = 'linear-gradient(' + d.sky[0] + ' 0%, ' + d.sky[1] + ' 42%, ' + d.sky[2] + ' 78%, ' + d.sky[2] + ' 100%)';
+    if (bg !== wrapBg) { wrapBg = bg; const w = el('t3-wrap'); if (w) w.style.background = bg; }
+    root.sun.color.set(d.sun); root.sun.intensity = d.sunI;
+    root.fill.intensity = 0.62 * d.sunI;
+    // 하늘에서 내려오는 빛은 **그 시각 하늘 색**이다. 밤에 파란 잔디가 되는 게 그래서다
+    root.hemi.color.set(d.fog); root.hemi.intensity = d.ambI;
+    sc.fog.color.set(d.fog);
+    const tn = el('t3-tint'); if (tn) tn.style.background = d.tint;
+    // 등불 — 낮엔 식은 유리, 밤엔 금빛에 빛 웅덩이까지
+    const k = d.lamp;
+    posts.forEach(o => {
+      o.lamp.material.color.set(k > .1 ? 0xffd964 : 0x8a8299);
+      o.pool.material.opacity = 0.26 * k;
+      o.pool.visible = k > .04;
+    });
+    panes.forEach(m => m.material.color.set(k > .3 ? 0xffd964 : 0xd8c9a0));
+    root.night = d.night;
   }
 
   function fit() {

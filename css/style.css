@@ -1555,6 +1555,8 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 /* 입체 마을의 구름 — 3D 로 띄웠더니 직교 카메라라 아무리 높여도 크기가 안 줄어
    마을과 캐릭터를 덮었다. 하늘(캔버스 뒤)에 CSS 로 흘린다. */
 .t3-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+/* 시간대 색조 — 마을 위, 조이스틱 아래. 같은 z-index 면 나중에 온 쪽이 위로 그려진다 */
+.t3-tint { position: absolute; inset: 0; pointer-events: none; z-index: 1; transition: background .6s linear; }
 .t3-sky i {
   position: absolute; border-radius: 999px; background: rgba(255,255,255,.8);
   box-shadow: 26px 8px 0 -4px rgba(255,255,255,.8), -24px 6px 0 -6px rgba(255,255,255,.8);

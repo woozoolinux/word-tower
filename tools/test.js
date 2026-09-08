@@ -80,6 +80,7 @@ sandbox.document.getElementById = () => null;
 sandbox.document.body = { insertBefore() {}, firstChild: null };
 // 입체 마을은 three.js 보다 먼저 로드된다 — 여기엔 THREE 가 없다.
 // 이 줄이 통과하는 것 자체가 '불러올 때 THREE 를 안 건드린다'는 증명이다.
+load('js/daylight.js', '\n;globalThis.DL = Daylight;');
 load('js/town.js', '\n;globalThis.TW = Town;');
 load('js/town3d.js', '\n;globalThis.T3 = typeof Town3D;');
 load('js/main.js', '\n;globalThis.G = Game;');
@@ -860,6 +861,36 @@ section('마을 광장');
 // 길은 x = W/2 ± 78 이고, 캐릭터는 x = W/2 에서 출발한다.
 // ===================================================================
 const TW = sandbox.TW, LAY = TW.layout();
+// ===================================================================
+// ☀️ 시간대 — 마을은 진짜 시각을 따라간다.
+// 아이가 밤 9시에 켜서 **단어를 봐야 한다.** 밤이라고 캄캄해지면 게임이 안 된다.
+// ===================================================================
+const DL = sandbox.DL;
+eq('낮에는 등이 꺼져 있다', DL.at(13).lamp, 0);
+eq('밤에는 등이 다 켜져 있다', DL.at(22).lamp, 1);
+ok('해가 지면서 등이 켜진다', DL.at(17).lamp < DL.at(18.5).lamp && DL.at(18.5).lamp < DL.at(20.5).lamp,
+  [17, 18.5, 20.5].map(h => DL.at(h).lamp.toFixed(2)).join(' → '));
+eq('낮에는 화면을 안 내린다', DL.at(13).mul, '#ffffff');
+ok('밤에도 마을이 읽힌다 — 곱하기 색이 너무 어둡지 않다', (() => {
+  let worst = 765;          // 세 칸 합의 최댓값에서 시작한다 (255 로 두면 그게 답이 된다)
+  for (let h = 0; h < 24; h += .25) {
+    const m = DL.at(h).mul, n = parseInt(m.slice(1), 16);
+    worst = Math.min(worst, (n >> 16) + ((n >> 8) & 255) + (n & 255));
+  }
+  return worst / 3;
+})() >= 88, '가장 어두운 시각의 평균 밝기');
+ok('밤에도 사방에서 오는 빛이 남아 있다', DL.at(23).ambI >= 0.2, DL.at(23).ambI);
+ok('색조가 화면을 덮어 버리지 않는다', (() => {
+  let mx = 0;
+  for (let h = 0; h < 24; h += .25) mx = Math.max(mx, Number(DL.at(h).tint.split(',')[3].replace(')', '')));
+  return mx;
+})() <= 0.35);
+// 자정을 넘어갈 때 색이 튀면 밤새 켜 둔 화면이 한 번 깜빡인다
+ok('자정에서 색이 튀지 않는다', DL.at(23.99).sky[0] === DL.at(0.01).sky[0], DL.at(23.99).sky[0]);
+ok('시각을 벗어나도 안 깨진다', !!DL.at(-3).name && !!DL.at(30).name);
+ok('시각을 강제하면 그 시각이 나온다', (() => { DL.force(3); const r = DL.now().hour === 3 && DL.now().lamp > .8; DL.force(null); return r; })());
+ok('강제를 풀면 진짜 시각으로 돌아온다', DL.hourNow() >= 0 && DL.hourNow() < 24, DL.hourNow().toFixed(1) + '시');
+
 // 하늘섬 관문 — 북쪽 끝. 여기는 **가고 싶어져야 하는 곳**이다.
 // 둥근 돌마당, 날개 석상 둘, 하늘을 보는 아이. 이륙 자리는 비어 있어야 한다.
 LAY.places.filter(p => p.kind === 'gate').forEach(p => {

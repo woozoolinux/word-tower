@@ -110,6 +110,14 @@ const Town = (() => {
   let cv, ctx, raf, last, active, places, solids, W, H, px, py, dir, walkT, cam, pimg, frames, moving, joy, keys, nearP, hint, lamps, tufts, props, npcs, arches;
   let dirS, dust, stepAt;      // 부드럽게 도는 방향 · 발먼지 · 마지막 발소리
 
+  // ☀️ 지금이 몇 시인가. 프레임마다 다시 셀 값이 아니다 — 1초에 한 번이면 충분하다
+  let sky = null, skyAt = 0;
+  function day() {
+    const n = performance.now();
+    if (!sky || n - skyAt > 1000) { sky = Daylight.now(); skyAt = n; }
+    return sky;
+  }
+
   const el = id => document.getElementById(id);
   let VIEW = { w: 380, h: 400, s: 1 };
   const vw = () => VIEW.w;
@@ -520,6 +528,7 @@ const Town = (() => {
     if (!drewMe) me();
     lamps.forEach(lampPost);
     places.forEach(p => { if (p.kind === 'gate') feathers(p, t); });
+    fireflies(t);
     npcs.forEach(bubble);
     places.forEach(p => tag(p, p.tagText, p.tagColor));      // 이름표는 항상 맨 위에
     ctx.restore();
@@ -751,12 +760,46 @@ const Town = (() => {
     [0, 7, 14].forEach(dx => { ctx.beginPath(); ctx.arc(q.x - w / 2 + 12 + dx, q.y - 36, 4, 0, 6.3); ctx.fill(); });
     ctx.fillStyle = '#6d8fb0'; ctx.beginPath(); ctx.ellipse(q.x + w / 2 - 16, q.y - 33, 8, 10, 0, 0, 6.3); ctx.fill();
   }
-  function lampGlow() {}
+  // 불빛 웅덩이는 **땅 위**에 (건물 뒤에 깔린다), 등 자체는 맨 위에
+  function lampGlow(l) {
+    const k = day().lamp;
+    if (k < .04) return;
+    const g = ctx.createRadialGradient(l.x, l.y - 12, 2, l.x, l.y - 12, 54);
+    g.addColorStop(0, 'rgba(255,214,120,' + (.30 * k).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(255,214,120,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(l.x, l.y - 4, 54, 32, 0, 0, 6.3); ctx.fill();
+  }
   function lampPost(l) {
+    const k = day().lamp;
     ctx.fillStyle = 'rgba(60,80,40,.2)'; ctx.beginPath(); ctx.ellipse(l.x, l.y + 1, 7, 3, 0, 0, 6.3); ctx.fill();
     ctx.fillStyle = '#7a6a4a'; ctx.fillRect(l.x - 2.5, l.y - 34, 5, 34);
     ctx.fillStyle = '#5c4f38'; ctx.fillRect(l.x - 7, l.y - 42, 14, 9);
-    ctx.fillStyle = C.gold; ctx.beginPath(); ctx.arc(l.x, l.y - 37, 4, 0, 6.3); ctx.fill();
+    // 꺼진 등은 금색이 아니라 식은 유리다
+    ctx.fillStyle = k > .1 ? C.gold : '#8a8299';
+    ctx.beginPath(); ctx.arc(l.x, l.y - 37, 4, 0, 6.3); ctx.fill();
+    if (k > .1) {
+      ctx.fillStyle = 'rgba(255,232,160,' + (.5 * k).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(l.x, l.y - 37, 9, 0, 6.3); ctx.fill();
+    }
+  }
+  // 반딧불이 — 밤에만. 하늘이 안 보이는 부감이라 별 대신 이게 밤을 만든다
+  const flies = [];
+  function fireflies(t) {
+    const k = day().lamp;
+    if (k < .35) return;
+    if (!flies.length) for (let i = 0; i < 40; i++)
+      flies.push({ x: 20 + Math.random() * (W - 40), y: 40 + Math.random() * (H - 80),
+        r: 12 + Math.random() * 26, f: Math.random() * 6.3, s: .5 + Math.random() * .7 });
+    flies.forEach(fl => {
+      const a = t * fl.s + fl.f;
+      const x = fl.x + Math.cos(a) * fl.r, y = fl.y + Math.sin(a * .7) * fl.r * .6;
+      const on = (.5 + Math.sin(t * 2.4 + fl.f) * .5) * k;
+      ctx.fillStyle = 'rgba(206,255,140,' + (on * .30).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(x, y, 9, 0, 6.3); ctx.fill();
+      ctx.fillStyle = 'rgba(226,255,170,' + (on * .95).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(x, y, 2.2, 0, 6.3); ctx.fill();
+    });
   }
   function shadow(p, rx) {
     softShadow(p.cx + SH.x, p.y + p.h - 2 + SH.y * .5, (rx || p.w * .5) * 1.15, 10, .3);
@@ -969,6 +1012,16 @@ const Town = (() => {
   // 화면 전체에 빛을 한 겹 입힌다. 왼쪽 위는 따뜻하게, 오른쪽 아래는 서늘하게 —
   // 같은 색이라도 한 방향에서 빛이 온다고 느껴지면 평평해 보이지 않는다.
   function vignette(w, h) {
+    // 시간대 색조는 **맨 위에** 덮는다. 땅만 물들이면 건물과 캐릭터가 낮에 남는다
+    const d = day();
+    // 먼저 곱하기로 **내리고**, 그 위에 색을 덮는다.
+    // 순서가 바뀌면 덮은 색까지 같이 어두워져 탁해진다
+    if (d.mul !== '#ffffff') {
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = d.mul; ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.fillStyle = d.tint; ctx.fillRect(0, 0, w, h);
     const lg = ctx.createLinearGradient(0, 0, w, h);
     lg.addColorStop(0, 'rgba(255,240,190,.20)');
     lg.addColorStop(.45, 'rgba(255,240,190,0)');
