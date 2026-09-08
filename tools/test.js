@@ -875,15 +875,19 @@ const AR = sandbox.AR, ARB = BAL.army;
 // 조준 보너스를 크게 두면 **틀린 문을 잘 겨눈 아이**가 맞는 문을 대충 지나간 아이를 이긴다.
 // 여긴 단어 게임이다 — 고르는 게 먼저고 조준은 그 위의 재미다. 그래서 보너스가 작다.
 //
-// 지키는 선: **다섯 개 다 맞히면 조준을 못해도 이기고, 세 개 이하면 아무리 잘 겨눠도 진다.**
-// 네 개일 때만 조준 실력이 가른다.
+// 지키는 선: **네 개 맞히면 조준을 못해도 이기고, 세 개면 아무리 잘 겨눠도 진다.**
+// 얻는 수(+6)와 잃는 수(−1)를 따로 둬서, 다섯 중 하나 틀린 건 용서한다.
 eq('문 다섯 개', ARB.gates, 5);
 eq('갈림길 셋 — 둘이면 반은 찍어서 맞는다', ARB.lanes, 3);
 eq('한 명으로 시작한다', ARB.start, 1);
 ok('조준 보너스는 기본보다 작다 — 고르는 게 먼저다', ARB.gateBonus < ARB.gateBase / 2,
   '기본 +' + ARB.gateBase + ' · 조준 +' + ARB.gateBonus);
+// 얻는 수와 잃는 수가 같으면 하나만 틀려도 지는 판이 나온다
+ok('맞아서 얻는 게 틀려서 잃는 것보다 크다', ARB.gateBase > ARB.gateLose * 2,
+  '+' + ARB.gateBase + ' vs −' + ARB.gateLose);
+ok('겨눠서 손해 보는 일은 없다', AR.gateAdd(false, 1) === AR.gateAdd(false, 0));
 // 1명이 한 번에 11명이 되면 늘어나는 재미가 없다. 한 문이 주는 건 지금 부대만큼을 넘지 않아야 한다
-ok('한 문이 부대를 몇 배로 만들지 않는다', ARB.gateBase + ARB.gateBonus <= ARB.start * 6,
+ok('한 문이 부대를 몇 배로 만들지 않는다', ARB.gateBase + ARB.gateBonus <= 8,
   '1명 → ' + (ARB.start + ARB.gateBase) + '명');
 ok('혼자일 땐 한 발씩 쏜다', ARB.shotEvery >= 0.8, ARB.shotEvery + '초에 한 발');
 const AIMS = [0, 0.25, 0.5, 0.75, 1];
@@ -895,12 +899,12 @@ const AIMS = [0, 0.25, 0.5, 0.75, 1];
     AIMS.forEach(aim => rows.push(Object.assign({ n, aim }, AR.simulate(m, lv, aim))));
   }
   const by = k => rows.filter(r => r.n === k);
-  ok(tag + ' 다 맞히면 조준을 못해도 이긴다', by(5).every(r => r.win),
-    '화력 ' + Math.min.apply(null, by(5).map(r => r.power)) + '~' + Math.max.apply(null, by(5).map(r => r.power)) + ' vs ' + c.boss);
-  ok(tag + ' 세 개 이하면 아무리 잘 겨눠도 진다', by(3).concat(by(2), by(1), by(0)).every(r => !r.win),
+  ok(tag + ' 네 개 맞히면 조준을 못해도 이긴다', by(4).concat(by(5)).every(r => r.win),
+    '화력 ' + Math.min.apply(null, by(4).map(r => r.power)) + '~' + Math.max.apply(null, by(5).map(r => r.power)) + ' vs ' + c.boss);
+  ok(tag + ' 세 개면 아무리 잘 겨눠도 진다', by(3).concat(by(2), by(1), by(0)).every(r => !r.win),
     '화력 최대 ' + Math.max.apply(null, by(3).map(r => r.power)));
-  // 3~4개는 조준이 가른다 — 둘 다 나와야 그 구간이 살아 있는 것이다
-  ok(tag + ' 네 개는 조준에 따라 갈린다', by(4).some(r => r.win) && by(4).some(r => !r.win));
+  // 다섯 중 하나 틀린 건 용서한다 — 아이가 한 번 틀렸다고 판이 끝나면 다시 안 한다
+  ok(tag + ' 하나 틀린 건 용서한다', by(4).every(r => r.win));
   ok(tag + ' 다 틀려도 부대가 남는다', by(0)[0].troops >= c.min, by(0)[0].troops + '명');
   ok(tag + ' 부하에 상한이 있다', rows.every(r => r.troops <= c.cap));
 });
@@ -908,7 +912,8 @@ const AIMS = [0, 0.25, 0.5, 0.75, 1];
 // 하나 더 맞힌 쪽이 조준을 못했어도 안 뒤처져야 한다
 ok('오래 겨눌수록 많이 는다', AR.gateAdd(true, 1) > AR.gateAdd(true, 0),
   '+' + AR.gateAdd(true, 0) + ' → +' + AR.gateAdd(true, 1));
-ok('틀린 문은 오래 겨눌수록 더 잃는다', AR.gateAdd(false, 1) < AR.gateAdd(false, 0));
+ok('틀린 문은 겨눠도 잃는 양이 그대로다 — 겨눠서 손해 보면 안 된다', AR.gateAdd(false, 1) === AR.gateAdd(false, 0),
+  AR.gateAdd(false, 0) + '명');
 ok('대충 지난 정답이 잘 겨눈 오답보다 낫다', AR.gateAdd(true, 0) > AR.gateAdd(false, 1));
 // 레벨이 올라도 규칙은 그대로. 어려워지는 건 판단할 시간뿐
 ok('레벨이 오르면 부대도 적도 같은 배로 커진다', (() => {
@@ -924,6 +929,8 @@ ok('한 웨이브가 데려가는 병사에 상한이 있다', ARB.maxLoss > 0 &
 // 총알은 병사 수에 비례해 계속 나간다. 처치 수에 묶으면 적이 적을 때 총알이 안 보인다
 ok('화력은 사람 수에 비례한다', AR.firepower(100) === AR.firepower(10) * 10);
 ok('총알이 좁게 나가야 겨눌 수 있다', ARB.shotSpread <= 0.25, '퍼짐 ' + ARB.shotSpread);
+// 너무 빠르면 눈이 못 따라간다 — 날아가는 게 보여야 쏘는 맛이 난다
+ok('총알이 눈으로 따라갈 만큼 천천히 난다', ARB.shotTime >= 1.2, ARB.shotTime + '초');
 // 세 갈래를 읽고 겨누려면 시간이 필요하다
 ok('문을 읽고 겨눌 시간이 넉넉하다', ARB.approach >= 3.5, ARB.approach + '초');
 ok('레벨이 올라도 겨눌 시간은 남는다', ARB.minApproach >= 2.5, ARB.minApproach + '초');

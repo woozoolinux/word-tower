@@ -31,7 +31,7 @@ const Army = (() => {
       k, gates: a.gates, lanes: a.lanes, win: a.win, lose: a.lose,
       fire: a.fire,
       start: a.start * k, min: a.min * k, cap: a.cap * k, maxLoss: a.maxLoss * k,
-      gateBase: a.gateBase * k, gateBonus: a.gateBonus * k,
+      gateBase: a.gateBase * k, gateBonus: a.gateBonus * k, gateLose: a.gateLose * k,
       waves: a.waves.map(w => w * k), boss: a.boss * k,
       approach: Math.max(a.minApproach, a.approach - (k - 1) * a.tierRush),
       waveTime: a.waveTime, bossTime: a.bossTime, shotTime: a.shotTime,
@@ -51,11 +51,16 @@ const Army = (() => {
   //
   // 전투 손실은 **머릿수 상한**으로 막는다. 비율로 두면 병력이 적을 때
   // 배로 늘려도 그만큼 다시 잃어서 영영 못 올라온다 (죽음의 나선).
-  // 문 하나가 부대에 더하는 수. 겨눈 시간(aim 0~1)만큼 보너스가 붙는다.
-  // **조준이 아니라 고르는 게 먼저다** — 기본이 10, 조준으로 붙는 건 3까지
+  // 문 하나가 부대에 더하는 수.
+  //
+  // 얻는 수(+6)와 잃는 수(−1)를 **따로** 둔다. 같게 두면 다섯 중 하나만 틀려도
+  // 지는 판이 나온다 — 아이한테 너무 가혹하다.
+  //
+  // 조준 보너스는 **얻을 때만** 붙는다. 겨눠서 손해 보는 일은 없어야 한다.
+  // 그리고 작다(+1) — 크게 두면 틀린 문을 잘 겨눈 아이가 맞는 문을 대충 지나간 아이를 이긴다.
   function gateAdd(ok, aim, c) {
     c = c || cfg();
-    return (ok ? 1 : -1) * (c.gateBase + Math.round(c.gateBonus * Math.max(0, Math.min(1, aim))));
+    return ok ? c.gateBase + Math.round(c.gateBonus * Math.max(0, Math.min(1, aim))) : -c.gateLose;
   }
   function gateStep(n, ok, aim, c) {
     c = c || cfg();
@@ -444,7 +449,7 @@ const Army = (() => {
     for (let i = 0; i < C.lanes; i++) {
       const cx = pxz(doorX(i), z), w = W * 0.30 * s;
       const ok = i === g.ans;
-      const add = (ok ? 1 : -1) * (C.gateBase + Math.round(C.gateBonus * Math.min(1, g.aim[i] / C.approach)));
+      const add = gateAdd(ok, g.aim[i] / C.approach, C);
       ctx.fillStyle = i === sel ? '#ffd964' : '#e9dfc8';
       ctx.fillRect(cx - w / 2, y - hgt, w, hgt);
       ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(cx - w / 2, y - hgt, w, 6 * s);
