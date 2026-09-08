@@ -862,6 +862,33 @@ section('마을 광장');
 // ===================================================================
 const TW = sandbox.TW, LAY = TW.layout();
 // ===================================================================
+section('배틀 무대');
+// 무대는 등급의 world 로 정해진다. 무대 층(먼 능선·앞 실루엣·먼지·빛줄기)은
+// **한 벌만** 쓰고 무대마다 색만 바꾼다 — 색을 안 정해 두면 조용히 기본값이 나온다.
+// LEVELS 에 world 를 새로 쓰면서 색을 안 정하는 게 딱 그 실수다.
+// ===================================================================
+const CSS = fs.readFileSync(path.join(ROOT, 'css/style.css'), 'utf8');
+const BJS = fs.readFileSync(path.join(ROOT, 'js/battle.js'), 'utf8');
+const SCENES = (() => {
+  const m = BJS.match(/const SCENES = \{([\s\S]*?)\};/);
+  const names = m ? (m[1].match(/'[a-z]+'/g) || []).map(x => x.slice(1, -1)) : [];
+  return names.concat(['colosseum', 'throne', 'stone']).filter((v, i, a2) => a2.indexOf(v) === i);
+})();
+ok('무대 종류를 찾았다', SCENES.length >= 5, SCENES.join(' '));
+SCENES.forEach(sc => {
+  ok(sc + ' 무대에 하늘이 있다', CSS.indexOf('.sc-' + sc + ' .ar-scene') >= 0);
+  const line = (CSS.match(new RegExp('\\.sc-' + sc + ' \\.ar-scene\\s*\\{[^}]*--far[^}]*\\}')) || [''])[0];
+  ok(sc + ' 무대에 층 색이 정해져 있다',
+    ['--far', '--front', '--dust', '--shaft'].every(v => line.indexOf(v) >= 0),
+    line ? '' : '색 없음');
+});
+// LEVELS 의 world 가 전부 무대로 이어지는가 — 안 이어지면 조용히 '시작' 무대가 나온다
+ok('모든 등급이 갈 무대가 있다', (() => {
+  const m = BJS.match(/const SCENES = \{([\s\S]*?)\};/)[1];
+  return S.LEVELS.every(L => !L.world || m.indexOf("'" + L.world + "'") >= 0);
+})(), S.LEVELS.map(L => L.world).filter((v, i, a2) => a2.indexOf(v) === i).join(' '));
+
+// ===================================================================
 // ☀️ 시간대 — 마을은 진짜 시각을 따라간다.
 // 아이가 밤 9시에 켜서 **단어를 봐야 한다.** 밤이라고 캄캄해지면 게임이 안 된다.
 // ===================================================================

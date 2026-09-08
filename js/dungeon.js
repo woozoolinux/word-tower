@@ -313,6 +313,7 @@ const Dungeon = (() => {
     g.addColorStop(0, '#241c46'); g.addColorStop(.65, '#140f2c'); g.addColorStop(1, '#0a0718');
     ctx.fillStyle = g; ctx.fillRect(-10, -10, W + 20, HGT + 20);
     drawSpikes(W);
+    drawAbyss(W);
 
     // 낭떠러지: t가 1에 가까울수록 발밑으로 다가온다
     let edge;
@@ -342,6 +343,42 @@ const Dungeon = (() => {
       ctx.fillStyle = msg.cls === 'good' ? '#3ee0c4' : '#ff8090';
       ctx.fillText(msg.t, W / 2, 30);
     }
+    ctx.restore();
+  }
+  // 다리 아래 — 먼 선반 두 층과 그 사이를 흐르는 안개.
+  // 층마다 다른 속도로 흘러야 깊이가 생긴다 (같은 속도면 그림 한 장이 밀리는 것뿐이다)
+  function drawAbyss(W) {
+    const top = LINE + 14, h = HGT - top;
+    if (h <= 10) return;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(-10, top, W + 20, h + 10); ctx.clip();
+    // 먼 선반 — 아래로 갈수록 어두워진다
+    [[0.06, 0.36, '#251d49'], [0.13, 0.66, '#181230']].forEach(([sp, at, col]) => {
+      const y = top + h * at, span2 = 190;
+      const off = (bgOff * sp) % span2;
+      ctx.fillStyle = col;
+      for (let x = -span2; x < W + span2; x += span2) {
+        const px = x - off;
+        ctx.beginPath();
+        ctx.moveTo(px, y + 26); ctx.lineTo(px + 22, y);
+        ctx.lineTo(px + 96, y + 4); ctx.lineTo(px + 122, y + 26);
+        ctx.closePath(); ctx.fill();
+      }
+    });
+    // 안개 — 선반 사이를 가로로 흐른다. 이게 있어야 밑이 '안 보이는' 것이 된다
+    [[0.22, 0.42, .075], [0.34, 0.72, .06], [0.5, 0.9, .045]].forEach(([sp, at, al]) => {
+      const y = top + h * at, off = (bgOff * sp) % 240;
+      ctx.fillStyle = 'rgba(170,190,255,' + al + ')';
+      for (let x = -240; x < W + 240; x += 240) {
+        ctx.beginPath();
+        ctx.ellipse(x - off + 120, y, 130, 9 + h * 0.03, 0, 0, 6.3);
+        ctx.fill();
+      }
+    });
+    // 바닥은 끝내 안 보인다 — 아래를 검게 덮어 끝을 지운다
+    const gg = ctx.createLinearGradient(0, top + h * 0.55, 0, HGT);
+    gg.addColorStop(0, 'rgba(6,4,16,0)'); gg.addColorStop(1, 'rgba(6,4,16,.92)');
+    ctx.fillStyle = gg; ctx.fillRect(-10, top + h * 0.55, W + 20, h);
     ctx.restore();
   }
   function stalactite(x, w, h) {

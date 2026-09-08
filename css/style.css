@@ -1486,8 +1486,96 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 }
 #battle-hero::after { width: 110%; height: 10px; }
 
+
+/* ── 무대의 깊이 ────────────────────────────────────────────────
+   층이 셋(뒤 모양 둘 + 바닥)뿐이라 그림 한 장처럼 납작했다.
+   깊이는 층 수가 아니라 **앞뒤가 있느냐**에서 온다 —
+   먼 능선은 뒤로 물러나고, 앞쪽 실루엣은 앞으로 나온다.
+   그 사이에 둘이 서 있으면 그때부터 '안쪽' 이 생긴다.
+
+   층은 모두 **한 벌만** 쓰고, 무대마다 색만 바꾼다.
+   무대 일곱 개에 층마다 CSS 를 따로 쓰면 그때부터 못 고친다. */
+.ar-scene {
+  --far: #55668f; --front: #14102a; --dust: #ffffff; --shaft: 255,240,200;
+}
+/* 먼 능선 — 둥근 봉우리 셋. 흐릿하고 **연해야** 멀어 보인다.
+   가까운 것보다 어둡게 칠하면 뒤로 안 물러나고 앞으로 튀어나온다 */
+.ar-far {
+  left: -6%; right: -6%; bottom: 26%; height: 26%; z-index: 0; opacity: .72;
+  background:
+    radial-gradient(58% 130% at 16% 100%, var(--far) 0 99%, transparent 100%),
+    radial-gradient(46% 155% at 51% 100%, var(--far) 0 99%, transparent 100%),
+    radial-gradient(62% 120% at 88% 100%, var(--far) 0 99%, transparent 100%);
+  filter: blur(1.5px);
+}
+/* 앞쪽 실루엣 — 발밑보다 아래에 둔다. 발을 덮으면 떠 있는 것처럼 보인다 */
+.ar-front {
+  left: -6%; right: -6%; bottom: -6%; height: 15%; z-index: 5;
+  background:
+    radial-gradient(44% 120% at 9% 0%, var(--front) 0 99%, transparent 100%),
+    radial-gradient(34% 150% at 31% 14%, var(--front) 0 99%, transparent 100%),
+    radial-gradient(50% 130% at 72% 4%, var(--front) 0 99%, transparent 100%),
+    radial-gradient(40% 140% at 94% 10%, var(--front) 0 99%, transparent 100%),
+    linear-gradient(transparent 42%, var(--front) 42%);
+}
+/* 빛줄기 — 공기가 있다는 표시. 이거 하나로 무대가 실내/실외로 갈린다 */
+.ar-scene::before {
+  content: ''; position: absolute; inset: -25% -14%; z-index: 2; pointer-events: none;
+  background: linear-gradient(104deg,
+    transparent 30%, rgba(var(--shaft), .14) 39%, transparent 47%,
+    transparent 56%, rgba(var(--shaft), .09) 63%, transparent 70%);
+}
+/* 떠다니는 것 — 숲이면 홀씨, 야생이면 모래, 전설이면 불티 */
+.ar-dust { inset: 0; z-index: 2; pointer-events: none; }
+.ar-dust b {
+  position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--dust); opacity: 0;
+  animation: arDust 9s linear infinite;
+}
+.ar-dust b:nth-child(1) { left: 12%; animation-duration: 8s;  animation-delay: -1s; }
+.ar-dust b:nth-child(2) { left: 26%; animation-duration: 11s; animation-delay: -5s; width: 3px; height: 3px; }
+.ar-dust b:nth-child(3) { left: 38%; animation-duration: 9s;  animation-delay: -8s; }
+.ar-dust b:nth-child(4) { left: 49%; animation-duration: 13s; animation-delay: -3s; width: 5px; height: 5px; }
+.ar-dust b:nth-child(5) { left: 61%; animation-duration: 10s; animation-delay: -6s; width: 3px; height: 3px; }
+.ar-dust b:nth-child(6) { left: 72%; animation-duration: 12s; animation-delay: -10s; }
+.ar-dust b:nth-child(7) { left: 84%; animation-duration: 8.5s; animation-delay: -2s; width: 3px; height: 3px; }
+.ar-dust b:nth-child(8) { left: 93%; animation-duration: 11.5s; animation-delay: -7s; }
+@keyframes arDust {
+  0%   { transform: translate(0, 100%) scale(.7); opacity: 0; }
+  12%  { opacity: .7; }
+  80%  { opacity: .55; }
+  100% { transform: translate(18px, -14%) scale(1); opacity: 0; }
+}
+/* 바닥 결 — 단색 바닥은 아무리 넓어도 아무것도 없는 면으로 읽힌다 (마을에서 배운 것) */
+.ar-ground::after {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(96deg,
+    rgba(255,255,255,.055) 0 12px, transparent 12px 34px);
+}
+.ar-ground { position: absolute; }
+
+/* 무대마다 색만 바꾼다 */
+.sc-stone .ar-scene      { --far: #6c64ad; --front: #14102a; --dust: #b9a8ff; --shaft: 180,190,255; }
+.sc-field .ar-scene      { --far: #cfeaff; --front: #4c7d3a; --dust: #ffffff; --shaft: 255,250,210; }
+.sc-forest .ar-scene     { --far: #3f8a70; --front: #0e2a26; --dust: #cfff9a; --shaft: 200,255,190; }
+.sc-wild .ar-scene       { --far: #b3607f; --front: #2c1a2c; --dust: #ffc98a; --shaft: 255,200,130; }
+.sc-legend .ar-scene     { --far: #8a2a48; --front: #150a1c; --dust: #ff9a5b; --shaft: 255,140,80; }
+.sc-colosseum .ar-scene  { --far: #8a95c4; --front: #1c2244; --dust: #ffe7a8; --shaft: 255,240,200; }
+.sc-throne .ar-scene     { --far: #6f4a80; --front: #1a1028; --dust: #d8b0ff; --shaft: 220,180,255; }
+
+/* 몬스터도 숨을 쉰다. 가만히 있으면 그림 한 장이지 상대가 아니다.
+   맞고 덤비는 동작은 .mon-art 에 걸려 있어서, 숨쉬기는 **바깥 상자**에 건다 —
+   같은 요소에 걸면 한 번 맞은 뒤로 영영 숨을 안 쉰다 (hurt 클래스가 안 지워진다) */
+#battle-monster.monster-box { animation: monIdle 3.1s ease-in-out infinite; }
+@keyframes monIdle {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-3px) scale(1.018); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ar-scene i { animation: none !important; }
+  .ar-dust b, #battle-monster.monster-box { animation: none !important; }
+  .ar-dust { display: none; }
 }
 
 /* ===================== 💾 저장 파일 ===================== */
