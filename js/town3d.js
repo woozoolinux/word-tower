@@ -112,7 +112,7 @@ const Town3D = (() => {
     const h = Math.max(280, Math.min(700, window.innerHeight - wrap.getBoundingClientRect().top - 60));
     wrap.style.height = h + 'px';
 
-    tags.length = 0; npcs.length = 0; fires.length = 0;
+    tags.length = 0; npcs.length = 0; fires.length = 0; wings.length = 0; plumes.length = 0;
     for (const k in GEO) delete GEO[k];
     sc = new THREE.Scene();
     sc.background = null;                    // 하늘은 CSS 그라데이션이 깔린다 (공짜다)
@@ -336,16 +336,26 @@ const Town3D = (() => {
       new THREE.MeshBasicMaterial({ color: open ? 0xbfe6ff : 0x8079a8 }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.16; g.add(ring);
     // 걸어서는 못 간다 — 섬은 저 위에 있다
-    const isle = new THREE.Group(); isle.position.y = 4.3; g.add(isle);
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.15, 1.3, 7), mat(C3.dirt));
-    cone.rotation.x = Math.PI; cone.position.y = -0.62; cone.castShadow = true; isle.add(cone);
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.15, 0.22, 7), mat(C3.grass));
+    const isle = new THREE.Group(); isle.position.y = 6.9; g.add(isle);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.5, 1.8, 7), mat(C3.dirt));
+    cone.rotation.x = Math.PI; cone.position.y = -0.86; cone.castShadow = true; isle.add(cone);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(1.56, 1.5, 0.28, 7), mat(0xc9ea9f));
     top.position.y = 0.05; top.castShadow = true; isle.add(top);
+    // 허리에 걸린 구름 — 섬과 땅 사이를 끊어 준다
+    [[-1.5, 0.1, -0.35], [1.35, 0.35, -0.55], [0.2, 1.5, -0.5], [-0.5, -1.4, -0.3]].forEach(([x, z, y], i) => {
+      const c = new THREE.Mesh(new THREE.SphereGeometry(0.52, 10, 8),
+        new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, fog: false }));
+      c.position.set(x, y, z); c.scale.set(1.5, 0.42, 1.1); isle.add(c);
+    });
+    // 땅에 지는 그림자 — 이게 없으면 섬이 얼마나 높은지 알 수가 없다
+    const gsh = new THREE.Mesh(new THREE.CircleGeometry(1.35, 24),
+      new THREE.MeshBasicMaterial({ color: 0x2a3a1e, transparent: true, opacity: 0.22, depthWrite: false }));
+    gsh.rotation.x = -Math.PI / 2; gsh.position.y = 0.16; g.add(gsh);
     mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.5), C3.wood, -0.35, 0.4, 0.1, isle);
     mesh(new THREE.SphereGeometry(0.34, 12, 10), C3.leaf, -0.35, 0.85, 0.1, isle);
     if (!open) isle.children.forEach(c => { if (c.material) { c.material = c.material.clone(); c.material.transparent = true; c.material.opacity = 0.55; } });
     p._isle = isle;
-    tag(p, open ? '하늘섬 · 날아오르기' : '하늘섬 · 날개가 없다', 6.2, open ? '⛰️' : '🦋');
+    tag(p, open ? '하늘섬 · 날아오르기' : '하늘섬 · 날개가 없다', 8.9, open ? '⛰️' : '🦋');
   }
 
   // ---------- 하늘 · 구름 · 먼 산 ----------
@@ -505,6 +515,15 @@ const Town3D = (() => {
     const TILE = 1.9;                                  // 돌판 한 칸이 대략 1.9m
     pave(W / 2, H / 2, 150 * M, H + 2, TILE);
     pave(W / 2, (map.H - 186) * M, W - 2, 96 * M, TILE);
+    map.places.filter(p => p._yard).forEach(p => {
+      const y = p._yard, r = y.r * M;
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.2, r + 0.2, 0.12, 32), mat(0xc9b183));
+      disc.position.set(y.x * M, 0.05, y.y * M); disc.receiveShadow = true; sc.add(disc);
+      const t = paveTex(); t.repeat.set(r * 2 / 1.9, r * 2 / 1.9);
+      const top = new THREE.Mesh(new THREE.CircleGeometry(r, 32), new THREE.MeshLambertMaterial({ map: t }));
+      top.rotation.x = -Math.PI / 2; top.position.set(y.x * M, 0.115, y.y * M);
+      top.receiveShadow = true; sc.add(top);
+    });
     // 왕의 성으로 가는 샛길 — 큰길에서 갈라져 나온다
     map.places.filter(p => p._spur).forEach(p => {
       const sp = p._spur, w = (sp.x1 - sp.x0) * M;
@@ -529,6 +548,7 @@ const Town3D = (() => {
     (map.props || []).forEach(prop3);
     (map.npcs || []).forEach(npc3);
     (map.arches || []).forEach(arch3);
+    map.places.filter(p => p.kind === 'gate').forEach(feathers3);
   }
   function pave(x, z, w, d, tile) {
     const t = paveTex(); t.repeat.set(w / tile, d / tile);
@@ -597,7 +617,7 @@ const Town3D = (() => {
     sp.renderOrder = 9; sc.add(sp); tags.push(sp);
   }
 
-  const npcs = [], fires = [];
+  const npcs = [], fires = [], wings = [], plumes = [];
 
   function npc3(n) {
     const c = Char3D.build({ av: n.av, outfit: n.outfit, hat: 'none', weapon: 'none', aura: 'none' });
@@ -636,6 +656,50 @@ const Town3D = (() => {
     else if (q.kind === 'stall') stall3(g, (q.w || 74) * M);
     else if (q.kind === 'banner') banner3(g, q);
     else if (q.kind === 'brazier') brazier3(g, q);
+    else if (q.kind === 'wing') wing3(g, q);
+  }
+  // 날개 석상 — 날개가 있으면 빛나고, 없으면 그냥 차가운 돌이다
+  function wing3(g, q) {
+    const col = q.lit ? 0xbfe6ff : 0x6d64ab, lit2 = q.lit ? 0xe6f5ff : 0x7b72bb;
+    mesh(new THREE.BoxGeometry(0.86, 0.2, 0.7), 0x6d64ab, 0, 0.1, 0, g);      // 주춧돌
+    mesh(new THREE.BoxGeometry(0.5, 0.5, 0.42), 0x5c5590, 0, 0.44, 0, g);     // 받침
+    const pair = new THREE.Group(); pair.position.y = 0.68; g.add(pair);
+    [-1, 1].forEach(sx => {
+      const w = new THREE.Group(); w.position.x = sx * 0.08; pair.add(w);
+      for (let k = 0; k < 5; k++) {
+        // 깃 하나를 **뿌리가 원점에 오도록** 그룹에 담고, 그 그룹을 돌린다.
+        // 상자를 제 중심에서 돌리면 뿌리가 벌어져 뿔 넷이 된다
+        const len = 1.15 - k * 0.15;
+        const fg = new THREE.Group();
+        fg.position.set(sx * k * 0.05, 0, -k * 0.025);
+        fg.rotation.z = -sx * (0.1 + k * 0.17);
+        w.add(fg);
+        mesh(new THREE.BoxGeometry(0.19, len, 0.075), k % 2 ? col : lit2, 0, len / 2, 0, fg);
+      }
+    });
+    if (q.lit) {
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(1.2, 20),
+        new THREE.MeshBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.2, depthWrite: false }));
+      pool.rotation.x = -Math.PI / 2; pool.position.y = 0.13; g.add(pool);
+      wings.push(pair);
+    }
+  }
+
+  // 섬에서 깃털이 내려온다. 위에 뭔가 있다는 걸 보여주는 가장 조용한 방법
+  function feathers3(p) {
+    const cv = document.createElement('canvas'); cv.width = 24; cv.height = 48;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#eaf4ff';
+    c.beginPath(); c.ellipse(12, 24, 7, 20, 0, 0, 6.3); c.fill();
+    c.strokeStyle = 'rgba(150,190,230,.8)'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(12, 5); c.lineTo(12, 43); c.stroke();
+    const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter;
+    for (let i = 0; i < 7; i++) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+      sp.scale.set(0.16, 0.32, 1);
+      sc.add(sp);
+      plumes.push({ sp, x: p.cx * M, z: (p.y + p.h - 12) * M, ph: i / 7, i });
+    }
   }
   // 배너 — 성으로 가는 길에 줄지어 선다
   function banner3(g, q) {
@@ -823,9 +887,19 @@ const Town3D = (() => {
       f.fl.scale.set(1, k, 1); f.in2.scale.set(1, 1 + Math.sin(now2 * 9 + f.seed) * 0.2, 1);
     });
 
+    // 날개 석상이 천천히 숨쉬듯 벌어진다 — 돌인데도 살아 있는 것처럼 보인다
+    wings.forEach((w, i) => { w.scale.setScalar(1 + Math.sin(now2 * 1.6 + i) * 0.05); });
+    // 깃털이 섬에서 이륙 자리로 내려온다
+    plumes.forEach(f => {
+      const ph = (now2 * 0.16 + f.ph) % 1;
+      f.sp.position.set(f.x + Math.sin(ph * 7 + f.i * 2) * 0.9, 6.6 - ph * 6.1, f.z + Math.cos(ph * 5 + f.i) * 0.6);
+      f.sp.material.rotation = Math.sin(ph * 9 + f.i) * 0.7;
+      f.sp.material.opacity = Math.min(1, (1 - ph) * 2.4) * 0.85;
+    });
+
     // 하늘섬은 둥둥 떠 있다
     const now = performance.now() / 1000;
-    map.places.forEach(p => { if (p._isle) p._isle.position.y = 4.3 + Math.sin(now * 0.8) * 0.16; });
+    map.places.forEach(p => { if (p._isle) p._isle.position.y = 6.9 + Math.sin(now * 0.8) * 0.22; });
 
     // 카메라가 살짝 늦게 따라온다 (2D 마을과 같은 규칙)
     if (!camAt) camAt = { x: hx, z: hz };

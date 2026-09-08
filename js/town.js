@@ -133,7 +133,9 @@ const Town = (() => {
     ].forEach(f => addPlace(Object.assign({ kind: 'hut', w: 78, h: 64 }, f)));
     addPlace({ kind: 'hole', act: 'dungeon', emoji: '🕳️', name: '지하 던전', x: 400, y: plazaY + 14, w: 84, h: 46 });
     // 북쪽 길 끝의 **이륙 자리**. 하늘섬 자체는 저 위에 떠 있어서 걸어서는 못 간다.
-    addPlace({ kind: 'gate', act: 'sky', x: W / 2 - 52, y: 30, w: 104, h: 138 });
+    const gp = { kind: 'gate', act: 'sky', x: W / 2 - 52, y: 30, w: 104, h: 138 };
+    addPlace(gp);
+    skyApproach(gp);
 
     // 등급 구역: 큰 탑 하나 + 왕의 성
     zones.forEach((L, i) => {
@@ -184,6 +186,39 @@ const Town = (() => {
     px = W / 2; py = H - 34; dir = 1; dirS = 1; walkT = 0; dust = []; stepAt = 0;
     cam = { x: px, y: py };      // 처음엔 캐릭터 자리에서 시작 (안 그러면 첫 프레임에 확 밀린다)
   }
+  // 하늘섬 관문 — 이륙 자리를 둥근 돌마당으로 감싸고, 날개 석상 둘을 세운다.
+  // 날개가 있으면 석상에 불이 들어온다 — 없는 아이한테 "저건 뭐지" 가 남게
+  function skyApproach(p) {
+    const cx = p.cx, py = p.y + p.h - 7;
+    const wings = typeof Cards !== 'undefined' && Cards.hasAura && Cards.hasAura('fairy');
+    p._yard = { x: cx, y: py + 6, r: 76 };
+    [-68, 68].forEach(dx => props.push({ kind: 'wing', x: cx + dx, y: py + 22, r: 13, lit: wings }));
+    npcs.push({
+      x: cx - 74, y: py + 46,
+      av: { skin: 1, hairStyle: 'bob', hairColor: 5 }, outfit: 'dress',
+      lines: wings
+        ? ['날개가 있구나! 나도 언젠가는…', '위에서 뭐가 보이는지 알려줘.']
+        : ['날개가 있어야 저기 올라간대.', '요정 날개… 어떻게 얻는 걸까?', '언젠가 나도 날아볼 거야.'],
+    });
+  }
+  // 섬에서 깃털이 내려온다. 위에 뭔가 있다는 걸 보여주는 가장 조용한 방법
+  function feathers(p, t) {
+    const iy = p.y + 20, py = p.y + p.h - 7;
+    for (let i = 0; i < 5; i++) {
+      const ph = ((t * 0.16 + i * 0.2) % 1);
+      const y = iy + 40 + ph * (py - iy - 30);
+      const x = p.cx + Math.sin(ph * 7 + i * 2) * (16 + i * 5);
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(ph * 9 + i) * .7);
+      ctx.globalAlpha = Math.min(1, (1 - ph) * 2.4) * .85;
+      ctx.fillStyle = '#eaf4ff';
+      ctx.beginPath(); ctx.ellipse(0, 0, 2.6, 7, 0, 0, 6.3); ctx.fill();
+      ctx.strokeStyle = 'rgba(150,190,230,.7)'; ctx.lineWidth = .8;
+      ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(0, 7); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // 큰길 → 성문. 샛길 좌우에 배너 넷, 성 모서리에 화톳불 둘, 문 앞에 경비병 둘
   function kingApproach(p) {
     const cx = p.x + p.w / 2, gy = p.y + p.h + 6;      // 성문 앞
@@ -484,6 +519,7 @@ const Town = (() => {
     });
     if (!drewMe) me();
     lamps.forEach(lampPost);
+    places.forEach(p => { if (p.kind === 'gate') feathers(p, t); });
     npcs.forEach(bubble);
     places.forEach(p => tag(p, p.tagText, p.tagColor));      // 이름표는 항상 맨 위에
     ctx.restore();
@@ -522,6 +558,22 @@ const Town = (() => {
         ctx.fillStyle = 'rgba(255,246,220,.30)'; ctx.fillRect(x, y, 48, 19);
       }
     }
+    // 하늘섬 관문의 둥근 돌마당 — 북쪽 끝이 마당 하나로 마무리된다
+    places.filter(q => q._yard).forEach(q => {
+      const y = q._yard;
+      ctx.fillStyle = C.roadEdge;
+      ctx.beginPath(); ctx.ellipse(y.x, y.y, y.r + 5, (y.r + 5) * .62, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = C.road;
+      ctx.beginPath(); ctx.ellipse(y.x, y.y, y.r, y.r * .62, 0, 0, 6.3); ctx.fill();
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(y.x, y.y, y.r, y.r * .62, 0, 0, 6.3); ctx.clip();
+      for (let r = 0, yy = y.y - 50; yy < y.y + 50; yy += 20, r++)
+        for (let x = y.x - 90 + (r % 2) * 22; x < y.x + 90; x += 44) {
+          ctx.fillStyle = 'rgba(0,0,0,.05)'; ctx.fillRect(x + 1, yy + 1, 40, 16);
+          ctx.fillStyle = 'rgba(226,240,255,.34)'; ctx.fillRect(x, yy, 40, 15);
+        }
+      ctx.restore();
+    });
     // 왕의 성으로 가는 샛길 — 큰길에서 갈라져 나온다
     places.filter(q => q._spur).forEach(q => {
       const sp = q._spur, w = sp.x1 - sp.x0;
@@ -604,6 +656,31 @@ const Town = (() => {
     if (q.kind === 'stall') return drawStall(q);
     if (q.kind === 'banner') return drawBanner(q, t);
     if (q.kind === 'brazier') return drawBrazier(q, t);
+    if (q.kind === 'wing') return drawWing(q, t);
+  }
+  // 날개 석상 — 날개가 있으면 빛나고, 없으면 그냥 차가운 돌이다
+  function drawWing(q, t) {
+    softShadow(q.x + 4, q.y + 3, 14, 6, .3);
+    const col = q.lit ? '#bfe6ff' : '#6d64ab';
+    ctx.fillStyle = '#5c5590'; ctx.fillRect(q.x - 10, q.y - 16, 20, 16);
+    ctx.fillStyle = '#6d64ab'; ctx.fillRect(q.x - 13, q.y - 20, 26, 6);
+    if (q.lit) {
+      ctx.fillStyle = 'rgba(190,230,255,' + (.14 + Math.sin(t * 2 + q.x) * .06) + ')';
+      ctx.beginPath(); ctx.arc(q.x, q.y - 42, 30, 0, 6.3); ctx.fill();
+    }
+    // 위로 뻗은 날개 한 쌍
+    const sp = q.lit ? 1 + Math.sin(t * 1.6 + q.x) * .05 : 1;
+    [-1, 1].forEach(sx => {
+      ctx.save(); ctx.translate(q.x, q.y - 20); ctx.scale(sx * sp, sp);
+      for (let k = 3; k >= 0; k--) {                 // 뒤쪽 깃부터 그린다
+        const len = 34 - k * 6, ang = k * .19;
+        ctx.save(); ctx.rotate(ang);
+        ctx.fillStyle = k % 2 ? col : (q.lit ? '#e6f5ff' : '#7b72bb');
+        ctx.beginPath(); ctx.ellipse(3 + k * 4, -len / 2, 3.4, len / 2, 0, 0, 6.3); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    });
   }
   // 배너 — 성으로 가는 길에 줄지어 선다. 천이 바람에 조금 흔들린다
   function drawBanner(q, t) {

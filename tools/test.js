@@ -860,6 +860,22 @@ section('마을 광장');
 // 길은 x = W/2 ± 78 이고, 캐릭터는 x = W/2 에서 출발한다.
 // ===================================================================
 const TW = sandbox.TW, LAY = TW.layout();
+// 하늘섬 관문 — 북쪽 끝. 여기는 **가고 싶어져야 하는 곳**이다.
+// 둥근 돌마당, 날개 석상 둘, 하늘을 보는 아이. 이륙 자리는 비어 있어야 한다.
+LAY.places.filter(p => p.kind === 'gate').forEach(p => {
+  ok('이륙 자리에 돌마당이 있다', !!p._yard);
+  ok('돌마당이 이륙 자리를 감싼다', Math.abs(p._yard.x - p.cx) < 4 && p._yard.r >= 60, 'r=' + p._yard.r);
+  const st = LAY.props.filter(q => q.kind === 'wing');
+  eq('날개 석상이 둘', st.length, 2);
+  ok('날개 석상이 이륙 자리 양옆에 있다',
+    st.length === 2 && st[0].x < p.cx && st[1].x > p.cx && st.every(q => Math.abs(q.x - p.cx) < 90));
+  // 이륙 자리 자체는 막혀 있다(그 위엔 못 올라간다). 그 **앞에 설 자리**가 비어야 한다
+  const pad = { x: p.cx - 40, y: p.y + p.h - 8, w: 80, h: 50 };
+  const stuck = LAY.solids.filter(b => b.x < pad.x + pad.w && b.x + b.w > pad.x && b.y < pad.y + pad.h && b.y + b.h > pad.y);
+  ok('이륙 자리 앞이 막히지 않는다', !stuck.length, stuck.length ? JSON.stringify(stuck) : '');
+  ok('하늘을 보는 아이가 있다', LAY.npcs.some(n => Math.abs(n.y - (p.y + p.h)) < 70 && Math.abs(n.x - p.cx) < 110));
+});
+
 // 왕의 성이 길에서 뚝 떨어져 혼자 서 있었다. 큰길에서 성문까지 샛길을 내고
 // 배너·화톳불·경비병을 세웠다 — 그 무엇도 **성문 앞을 막으면 안 된다**.
 LAY.places.filter(p => p.kind === 'king').forEach(p => {
