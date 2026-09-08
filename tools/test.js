@@ -81,6 +81,7 @@ sandbox.document.body = { insertBefore() {}, firstChild: null };
 // 입체 마을은 three.js 보다 먼저 로드된다 — 여기엔 THREE 가 없다.
 // 이 줄이 통과하는 것 자체가 '불러올 때 THREE 를 안 건드린다'는 증명이다.
 load('js/daylight.js', '\n;globalThis.DL = Daylight;');
+load('js/army.js', '\n;globalThis.AR = Army;');
 load('js/town.js', '\n;globalThis.TW = Town;');
 load('js/town3d.js', '\n;globalThis.T3 = typeof Town3D;');
 load('js/main.js', '\n;globalThis.G = Game;');
@@ -861,6 +862,54 @@ section('마을 광장');
 // 길은 x = W/2 ± 78 이고, 캐릭터는 x = W/2 에서 출발한다.
 // ===================================================================
 const TW = sandbox.TW, LAY = TW.layout();
+// ===================================================================
+section('연병장');
+// 맞으면 ×2, 틀리면 ×0.55. **곱하기라서 순서가 상관없다** —
+// +N/−N 이면 "몇 번째 문에서 틀렸나"에 따라 결과가 달라져서 난이도를 못 박을 수 없다.
+// 여기서 지키는 것은 딱 하나: **4개 맞히면 이기고 3개면 진다.**
+// ===================================================================
+const AR = sandbox.AR, ARB = BAL.army;
+const enemy = AR.enemyCount();
+ok('적군이 있다', enemy >= 3, enemy + '명');
+eq('문 여섯 개', ARB.gates, 6);
+ok('4개 맞히면 이긴다', AR.simulate(4) > enemy, AR.simulate(4) + ' vs ' + enemy);
+ok('3개면 진다', AR.simulate(3) <= enemy, AR.simulate(3) + ' vs ' + enemy);
+// 순서를 바꿔도 같아야 곱하기를 쓴 보람이 있다. 64가지를 다 돌려 본다
+ok('맞힌 순서가 결과를 안 바꾼다 (4개)', (() => {
+  const res = new Set();
+  for (let m = 0; m < 64; m++) {
+    let c = 0; for (let b = 0; b < 6; b++) if (m & (1 << b)) c++;
+    if (c !== 4) continue;
+    let n = ARB.start;
+    for (let b = 0; b < 6; b++) n = AR.step(n, !!(m & (1 << b)));
+    res.add(n);
+  }
+  return Array.from(res).every(v => v > enemy) ? '' : Array.from(res).join(' ');
+})() === '', '어떤 순서든 이긴다');
+ok('틀린 순서도 결과를 안 바꾼다 (3개)', (() => {
+  const bad = [];
+  for (let m = 0; m < 64; m++) {
+    let c = 0; for (let b = 0; b < 6; b++) if (m & (1 << b)) c++;
+    if (c !== 3) continue;
+    let n = ARB.start;
+    for (let b = 0; b < 6; b++) n = AR.step(n, !!(m & (1 << b)));
+    if (n > enemy) bad.push(n);
+  }
+  return bad.length === 0;
+})(), '어떤 순서든 진다');
+// 0이 되면 판이 그 자리에서 끝나 버린다 — 아이는 끝까지 달려 보고 지는 게 낫다
+ok('아무리 틀려도 부하가 남는다', AR.simulate(0) >= 2, AR.simulate(0) + '명');
+// 전승하면 그리기 상한을 넘어야 한다. "다 그릴 수 없을 만큼 많다"가 이 게임의 순간이다
+ok('전승하면 화면에 다 못 그릴 만큼 많아진다', AR.simulate(6) > ARB.drawMax * 3,
+  AR.simulate(6) + '명 (그리는 건 ' + ARB.drawMax + '명까지)');
+ok('연병장이 마을에 있다', LAY.places.some(p => p.act === 'army'));
+ok('연병장 문 앞이 막히지 않는다', (() => {
+  const p = LAY.places.filter(x => x.act === 'army')[0];
+  if (!p) return false;
+  const d = { x: p.cx - 30, y: p.y + p.h, w: 60, h: 40 };
+  return !LAY.solids.some(b => b.x < d.x + d.w && b.x + b.w > d.x && b.y < d.y + d.h && b.y + b.h > d.y);
+})());
+
 // ===================================================================
 section('금고 방');
 // 크림색 사각형 넷이 배경 위에 떠 있는 게 다였다. 여긴 **방**이다 —

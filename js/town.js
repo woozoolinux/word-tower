@@ -140,6 +140,8 @@ const Town = (() => {
       { act: 'arena',  emoji: '🏟️', name: '투기장', x: 66,  y: plazaY + 4 },
     ].forEach(f => addPlace(Object.assign({ kind: 'hut', w: 78, h: 64 }, f)));
     addPlace({ kind: 'hole', act: 'dungeon', emoji: '🕳️', name: '지하 던전', x: 400, y: plazaY + 14, w: 84, h: 46 });
+    // 연병장은 건물이 아니라 **마당**이다. 광장이 꽉 차서 길 서쪽 잔디에 둔다
+    addPlace({ kind: 'yard', act: 'army', emoji: '⚔️', name: '연병장', x: 20, y: H - 360, w: 104, h: 76 });
     // 북쪽 길 끝의 **이륙 자리**. 하늘섬 자체는 저 위에 떠 있어서 걸어서는 못 간다.
     const gp = { kind: 'gate', act: 'sky', x: W / 2 - 52, y: 30, w: 104, h: 138 };
     addPlace(gp);
@@ -261,7 +263,7 @@ const Town = (() => {
     const cz = p.y + p.h - 12;                    // 3D 에서 건물이 서는 자리
     const dim = {
       tower: [Math.min(54, p.w * .84), 54], king: [78, 46],
-      hut: [46, 42], hole: [42, 42], gate: [50, 50],
+      hut: [46, 42], hole: [42, 42], gate: [50, 50], yard: [70, 40],
     }[p.kind] || [p.w, 30];
     return { x: p.cx - dim[0] / 2, y: cz - dim[1] / 2, w: dim[0], h: dim[1] };
   }
@@ -435,6 +437,7 @@ const Town = (() => {
       return `👑 ${p.level.name} 왕${k && k.ok ? ' · 도전!' : k ? ` · 🃏 ${k.have}/${k.need}` : ''}`;
     }
     if (p.kind === 'hole') return '🕳️ 지하 던전 · 들어가기';
+    if (p.kind === 'yard') return '⚔️ 연병장 · 부하 모으기';
     if (p.kind === 'gate') {
       const lock = zoneLock(ZONES.find(x => x.id === 'sky'));
       if (!lock) return '🦋 하늘섬으로 날아오르기';
@@ -454,7 +457,7 @@ const Town = (() => {
     hstop();
     if (p.kind === 'king') { Game.startKing(p.level.id); hresume(); return; }
     const go = {
-      dungeon: () => Dungeon.start(), arena: () => Game.startArena(),
+      dungeon: () => Dungeon.start(), arena: () => Game.startArena(), army: () => Army.start(),
       sky: () => Lobby.enterZone('sky'),
       shop: () => Lobby.shop(), book: () => Cards.book(),
       dress: () => Lobby.charCreator(false), skills: () => Lobby.skills(),
@@ -970,6 +973,46 @@ const Town = (() => {
         ctx.globalAlpha = 1;
       }
       want(p, open ? '하늘섬 · 날아오르기' : '하늘섬 · 날개가 없다', open ? '#bfe6ff' : '#c3bce6');
+    },
+    yard(p) {
+      const t = performance.now() / 1000;
+      const cy = p.y + p.h - 16;
+      // 흙 마당
+      ctx.fillStyle = '#c9b183';
+      ctx.beginPath(); ctx.ellipse(p.cx, cy, p.w * .46, 26, 0, 0, 6.3); ctx.fill();
+      ctx.fillStyle = 'rgba(120,95,55,.20)';
+      ctx.beginPath(); ctx.ellipse(p.cx, cy + 3, p.w * .40, 20, 0, 0, 6.3); ctx.fill();
+      // 울타리 — 뒤쪽만. 앞을 막으면 안이 안 보인다
+      ctx.strokeStyle = '#7a5636'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      for (let i = -2; i <= 2; i++) {
+        const x = p.cx + i * (p.w * .21), y = cy - 26 + Math.abs(i) * 3;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 20); ctx.stroke();
+      }
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(p.cx - p.w * .43, cy - 40); ctx.lineTo(p.cx + p.w * .43, cy - 40); ctx.stroke();
+      // 허수아비 둘 — 여기가 훈련하는 곳이라는 표시
+      [-1, 1].forEach(sx => {
+        const x = p.cx + sx * 26, y = cy - 4;
+        const sw = Math.sin(t * 1.4 + sx) * 2;
+        ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + sw * .3, y - 26); ctx.stroke();
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(x - 10 + sw, y - 20); ctx.lineTo(x + 10 + sw, y - 20); ctx.stroke();
+        ctx.fillStyle = '#d9c48a';
+        ctx.beginPath(); ctx.arc(x + sw * .5, y - 32, 7, 0, 6.3); ctx.fill();
+        ctx.fillStyle = '#5c4f38';
+        ctx.beginPath(); ctx.arc(x + sw * .5 - 2.5, y - 33, 1.4, 0, 6.3); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + sw * .5 + 2.5, y - 33, 1.4, 0, 6.3); ctx.fill();
+      });
+      // 깃발 — 무리를 부르는 곳
+      ctx.fillStyle = '#7a5636'; ctx.fillRect(p.cx - 2, cy - 66, 4, 46);
+      ctx.fillStyle = '#6d4fd0';
+      ctx.beginPath(); ctx.moveTo(p.cx + 2, cy - 66); ctx.lineTo(p.cx + 24, cy - 62);
+      ctx.lineTo(p.cx + 24, cy - 46); ctx.lineTo(p.cx + 13, cy - 49);
+      ctx.lineTo(p.cx + 2, cy - 44); ctx.closePath(); ctx.fill();
+      ctx.font = '12px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('⚔️', p.cx + 13, cy - 55);
+      want(p, '연병장', '#ffd6a8');
     },
     hole(p) {
       ctx.fillStyle = '#0a0718';

@@ -214,6 +214,7 @@ const Town3D = (() => {
     else if (p.kind === 'hut') hut3(p, g, s);
     else if (p.kind === 'hole') hole3(p, g, s);
     else if (p.kind === 'gate') gate3(p, g, s);
+    else if (p.kind === 'yard') yard3(p, g, s);
   }
 
   // 등급의 탑 — 권이 층층이 (2D 마을과 같은 규칙)
@@ -320,6 +321,33 @@ const Town3D = (() => {
     });
     door(g, 0.44, 0.68, 0.34, 0.72);
     tag(p, p.name, 2.15, p.emoji);
+  }
+
+  // 연병장 — 건물이 아니라 마당이다. 지붕이 없는 게 다른 장소와 구별해 준다
+  function yard3(p, g, s) {
+    const w = s.w;
+    const dirt = new THREE.Mesh(new THREE.CylinderGeometry(w * .5, w * .52, 0.14, 22), mat(0xc9b183));
+    dirt.position.y = 0.07; dirt.receiveShadow = true; g.add(dirt);
+    // 뒤쪽 울타리
+    for (let i = -2; i <= 2; i++) {
+      mesh(new THREE.BoxGeometry(0.1, 0.72, 0.1), C3.wood, i * (w * .21), 0.36, -w * .42, g);
+    }
+    const rail = mesh(new THREE.BoxGeometry(w * .9, 0.09, 0.08), C3.wood, 0, 0.6, -w * .42, g);
+    rail.castShadow = true;
+    // 허수아비 둘
+    [-0.5, 0.5].forEach(sx => {
+      const y = new THREE.Group(); y.position.set(sx, 0, 0.1); g.add(y);
+      mesh(new THREE.CylinderGeometry(0.055, 0.055, 1.05, 6), 0x8a6a44, 0, 0.52, 0, y);
+      mesh(new THREE.BoxGeometry(0.7, 0.08, 0.08), 0x8a6a44, 0, 0.82, 0, y);
+      mesh(new THREE.SphereGeometry(0.16, 10, 8), 0xd9c48a, 0, 1.06, 0, y);
+      mesh(new THREE.BoxGeometry(0.34, 0.34, 0.2), 0xc0a86e, 0, 0.72, 0, y);
+    });
+    // 깃대
+    mesh(new THREE.CylinderGeometry(0.045, 0.055, 1.9, 6), C3.wood, 0, 0.95, -0.2, g);
+    mesh(new THREE.SphereGeometry(0.085, 10, 8), C3.gold, 0, 1.95, -0.2, g);
+    const cl = mesh(new THREE.BoxGeometry(0.05, 0.62, 0.5), 0x6d4fd0, 0.04, 1.5, 0.06, g);
+    cl.castShadow = true;
+    tag(p, p.name, 2.5, p.emoji);
   }
 
   // 지하 던전 — 땅에 뚫린 구멍

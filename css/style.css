@@ -1043,6 +1043,32 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .dpad .down { grid-column: 2; grid-row: 3; }
 .dpad-btn.big { padding: 14px; font-size: 20px; flex: 1; }
 
+/* ---------- ⚔️ 연병장 ---------- */
+/* 조작은 **화면 좌/우 한 번**. 방향키를 그리면 손가락이 아래를 보게 되는데,
+   여긴 앞에서 다가오는 문을 봐야 하는 게임이다 — 화면 절반씩이 버튼이다. */
+.ar-hud { padding: 12px 14px; margin-bottom: 8px; text-align: center; }
+.ar-ask-label { font-size: 13px; color: var(--ink-dim); }
+.ar-ask-word { display: block; font-size: 26px; color: var(--coral-dark); line-height: 1.15; }
+.ar-count { margin-top: 4px; font-size: 14px; color: var(--ink-dim); }
+.ar-count b { color: var(--mint-dark); font-size: 17px; }
+.ar-wrap { position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+.ar-wrap canvas { display: block; width: 100%; }
+.ar-side {
+  position: absolute; top: 0; bottom: 0; width: 50%;
+  background: transparent; border: none; padding: 0; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ar-side.left { left: 0; } .ar-side.right { right: 0; }
+.ar-side:active { background: rgba(255,255,255,.10); }
+.ar-tip { margin: 8px 0 2px; font-size: 14px; color: var(--ink-dim); }
+/* 끝에 뜨는 큰 숫자 — 이 판이 무슨 이야기였는지 한 줄로 말한다 */
+.ar-big {
+  font-family: var(--font-en); font-weight: 800; font-size: 40px; line-height: 1.1;
+  color: var(--mint-dark); margin: 6px 0 4px;
+}
+.ar-big.lose { color: var(--coral-dark); }
+.ar-big span { font-size: 20px; color: var(--ink-dim); margin: 0 8px; }
+
 /* ---------- 금고 방 ---------- */
 /* ── 금고 방 ─────────────────────────────────────────────────────
    크림색 사각형 넷이 배경 위에 떠 있는 게 다였다.
