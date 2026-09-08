@@ -869,39 +869,41 @@ section('연병장');
 // 여기서 지키는 것은 딱 하나: **4개 맞히면 이기고 3개면 진다.**
 // ===================================================================
 const AR = sandbox.AR, ARB = BAL.army;
-const enemy = AR.enemyCount();
-ok('적군이 있다', enemy >= 3, enemy + '명');
-eq('문 여섯 개', ARB.gates, 6);
-ok('4개 맞히면 이긴다', AR.simulate(4) > enemy, AR.simulate(4) + ' vs ' + enemy);
-ok('3개면 진다', AR.simulate(3) <= enemy, AR.simulate(3) + ' vs ' + enemy);
-// 순서를 바꿔도 같아야 곱하기를 쓴 보람이 있다. 64가지를 다 돌려 본다
-ok('맞힌 순서가 결과를 안 바꾼다 (4개)', (() => {
-  const res = new Set();
-  for (let m = 0; m < 64; m++) {
-    let c = 0; for (let b = 0; b < 6; b++) if (m & (1 << b)) c++;
-    if (c !== 4) continue;
-    let n = ARB.start;
-    for (let b = 0; b < 6; b++) n = AR.step(n, !!(m & (1 << b)));
-    res.add(n);
-  }
-  return Array.from(res).every(v => v > enemy) ? '' : Array.from(res).join(' ');
-})() === '', '어떤 순서든 이긴다');
-ok('틀린 순서도 결과를 안 바꾼다 (3개)', (() => {
-  const bad = [];
-  for (let m = 0; m < 64; m++) {
-    let c = 0; for (let b = 0; b < 6; b++) if (m & (1 << b)) c++;
-    if (c !== 3) continue;
-    let n = ARB.start;
-    for (let b = 0; b < 6; b++) n = AR.step(n, !!(m & (1 << b)));
-    if (n > enemy) bad.push(n);
-  }
-  return bad.length === 0;
-})(), '어떤 순서든 진다');
-// 0이 되면 판이 그 자리에서 끝나 버린다 — 아이는 끝까지 달려 보고 지는 게 낫다
-ok('아무리 틀려도 부하가 남는다', AR.simulate(0) >= 2, AR.simulate(0) + '명');
-// 전승하면 그리기 상한을 넘어야 한다. "다 그릴 수 없을 만큼 많다"가 이 게임의 순간이다
-ok('전승하면 화면에 다 못 그릴 만큼 많아진다', AR.simulate(6) > ARB.drawMax * 3,
-  AR.simulate(6) + '명 (그리는 건 ' + ARB.drawMax + '명까지)');
+// 게이트는 전부 곱하기 — 순서가 결과를 안 바꾼다.
+// 전투 손실은 **머릿수 상한**이다. 비율로 두면 병력이 적을 때 배로 늘려도
+// 그만큼 다시 잃어서 영영 못 올라온다 (죽음의 나선).
+// 지키는 선은 하나: **4개 맞히면 이기고 3개면 진다.** 32가지 순서를 다 돌린다.
+eq('문 다섯 개', ARB.gates, 5);
+ok('적장의 무리가 있다', ARB.boss >= 10, ARB.boss + '명');
+const ARR = [];
+for (let m = 0; m < 32; m++) {
+  let c = 0; for (let bt = 0; bt < 5; bt++) if (m & (1 << bt)) c++;
+  ARR.push(Object.assign({ c }, AR.simulate(m)));
+}
+const arBy = c => ARR.filter(r => r.c === c);
+ok('4개 맞히면 어떤 순서로든 이긴다', arBy(4).every(r => r.win),
+  '화력 ' + Math.min.apply(null, arBy(4).map(r => r.power)) + '~' + Math.max.apply(null, arBy(4).map(r => r.power)));
+ok('5개면 당연히 이긴다', arBy(5).every(r => r.win));
+ok('3개면 어떤 순서로든 진다', arBy(3).every(r => !r.win),
+  '화력 ' + Math.min.apply(null, arBy(3).map(r => r.power)) + '~' + Math.max.apply(null, arBy(3).map(r => r.power)));
+ok('2개 이하도 물론 진다', arBy(2).concat(arBy(1), arBy(0)).every(r => !r.win));
+// 죽음의 나선 — 다 틀려도 부대가 사라지면 안 된다. 아이는 끝까지 달려 보고 지는 게 낫다
+ok('다 틀려도 부대가 남는다', arBy(0)[0].troops >= ARB.min, arBy(0)[0].troops + '명');
+// 한 웨이브가 병력의 일부를 **비율로** 가져가면 작은 부대는 영영 못 올라온다.
+// 머릿수 상한이라야 ×2 두 번으로 되살아난다
+ok('한 웨이브가 데려가는 병사에 상한이 있다', ARB.maxLoss > 0 && ARB.maxLoss <= 5, ARB.maxLoss + '명');
+ok('작은 부대도 ×2 두 번이면 되살아난다',
+  AR.gateStep(AR.gateStep(ARB.min, true), true) - ARB.maxLoss * 2 > ARB.min);
+// 무기 — 맞힐 때마다 좋아진다. 이게 이 판의 보너스다
+eq('무기는 네 단계', AR.WEAPONS.length, ARB.weaponMax + 1);
+ok('한 문 맞힐 때마다 무기가 좋아진다', AR.level(0) === 0 && AR.level(1) === 1 && AR.level(9) === ARB.weaponMax);
+ok('무기가 좋아질수록 화력이 세진다', ARB.fire.every((v, i) => i === 0 || v > ARB.fire[i - 1]), ARB.fire.join(' → '));
+// 부하가 너무 많아지면 폰이 못 버티고 화면도 안 읽힌다
+ok('부하에 상한이 있다', arBy(5)[0].troops <= ARB.cap, arBy(5)[0].troops + '명 (상한 ' + ARB.cap + ')');
+// 판 하나가 아이가 앉아 있을 만한 길이인가
+ok('한 판이 1분 안쪽이다',
+  ARB.gates * (ARB.approach + ARB.waveTime) + ARB.bossTime < 60,
+  Math.round(ARB.gates * (ARB.approach + ARB.waveTime) + ARB.bossTime) + '초');
 ok('연병장이 마을에 있다', LAY.places.some(p => p.act === 'army'));
 ok('연병장 문 앞이 막히지 않는다', (() => {
   const p = LAY.places.filter(x => x.act === 'army')[0];
