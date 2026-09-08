@@ -29,7 +29,7 @@ const Army = (() => {
     const a = A(), k = tier(lv);
     return {
       k, gates: a.gates, lanes: a.lanes, win: a.win, lose: a.lose,
-      weaponMax: a.weaponMax, weaponPer: a.weaponPer, fire: a.fire,
+      fire: a.fire,
       start: a.start * k, min: a.min * k, cap: a.cap * k, maxLoss: a.maxLoss * k,
       waves: a.waves.map(w => w * k), boss: a.boss * k,
       approach: Math.max(a.minApproach, a.approach - (k - 1) * a.tierRush),
@@ -40,7 +40,7 @@ const Army = (() => {
 
   let cv, ctx, raf, last, active;
   let W = 360, H = 260;
-  let troops, wgauge, gateIdx, gate, lane, laneS, phase, phaseT, pool, queue, hit;
+  let troops, gateIdx, gate, lane, laneS, phase, phaseT, pool, queue, hit;
   let bg, crowd, foes, shots, wave, result, runWords, msg, msgT, C, chief;
 
   // ---------- 균형 ----------
@@ -53,27 +53,26 @@ const Army = (() => {
     c = c || cfg();
     return Math.min(c.cap, Math.max(c.min, Math.round(ok ? n * c.win : n * c.lose)));
   }
-  function level(g) { return Math.min(A().weaponMax, Math.floor(g / A().weaponPer)); }
-  function firepower(n, g) { return Math.floor(n * A().fire[level(g)]); }
+  // 화력은 오직 **사람 수**다. 많이 맞혀서 사람이 많아지면 총알이 많이 나간다
+  function firepower(n) { return Math.floor(n * A().fire); }
   // 한 웨이브의 결과 — 몇을 잡고 몇을 잃는가. **그림이 이 답을 따라간다.**
   // 반대로 하면(그림이 결과를 정하면) 폰 성능에 따라 난이도가 달라진다
-  function waveOutcome(n, g, size, c) {
+  function waveOutcome(n, size, c) {
     c = c || cfg();
-    const kills = Math.min(size, firepower(n, g));
+    const kills = Math.min(size, firepower(n));
     return { kills, loss: Math.min(c.maxLoss, size - kills) };
   }
   // 문 다섯 개를 이렇게 지났을 때의 마지막 화력.
   // 테스트가 이걸로 "4개 맞히면 이기고 3개면 진다"를 32가지 순서로 확인한다
   function simulate(mask, lv) {
     const c = cfg(lv);
-    let n = c.start, g = 0;
+    let n = c.start;
     for (let i = 0; i < c.gates; i++) {
       const ok = typeof mask === 'number' ? !!(mask & (1 << i)) : i < mask;
       n = gateStep(n, ok, c);
-      if (ok) g++;
-      n = Math.max(c.min, n - waveOutcome(n, g, c.waves[i], c).loss);
+      n = Math.max(c.min, n - waveOutcome(n, c.waves[i], c).loss);
     }
-    return { troops: n, power: firepower(n, g), lv: level(g), win: firepower(n, g) >= c.boss, cfg: c };
+    return { troops: n, power: firepower(n), win: firepower(n) >= c.boss, cfg: c };
   }
 
   // ---------- 단어 ----------
@@ -100,7 +99,7 @@ const Army = (() => {
   function reset() {
     const a = A();
     C = cfg();
-    troops = C.start; wgauge = 0; gateIdx = 0; lane = 1; laneS = 1;   // 가운데에서 출발
+    troops = C.start; gateIdx = 0; lane = 1; laneS = 1;   // 가운데에서 출발
     hit = 0; result = null; bg = 0; foes = []; shots = []; wave = null;
     msg = null; msgT = 0; chief = chiefOf();
     crowd = [];
@@ -142,20 +141,14 @@ const Army = (() => {
     return L && L.animal ? { emoji: L.emoji, name: L.name + ' 대장' } : { emoji: '👹', name: '적장' };
   }
 
-  // 무기 — 맞힐수록 올라간다. 총알 색과 크기가 바뀌어서 **화력이 눈에 보인다**
-  const WEAPONS = [
-    { name: '돌팔매', emoji: '🪨', color: '#d8d2c0', r: 2.4 },
-    { name: '화살', emoji: '🏹', color: '#ffe08a', r: 2.9 },
-    { name: '불화살', emoji: '🔥', color: '#ff9a3d', r: 3.5 },
-    { name: '번개', emoji: '⚡', color: '#8fd4ff', r: 4.3 },
-  ];
+  const SHOT = { color: '#ffe27a', glow: '#fff6d8', r: 3.2 };
 
   function brief() {
     const a = C;
     UI.modal(`
       <div class="modal-title">⚔️ 연병장</div>
       <div class="modal-sub">뜻에 맞는 <b>영어 단어가 적힌 문</b>으로 지나가요.<br>
-        맞으면 부하가 <b>두 배</b>가 되고 <b>무기도 좋아져요.</b><br>
+        맞으면 부하가 <b>두 배</b>가 돼요 — <b>사람이 많아지면 총알도 많이 나가요.</b><br>
         문을 지날 때마다 적이 내려와요 — 못 막으면 병사를 잃어요!</div>
       <div class="ar-tip">화면을 <b>왼쪽 · 가운데 · 오른쪽</b> 눌러서 길을 골라요</div>
       <div class="modal-sub">끝에는 <b>${chief.emoji} ${esc(chief.name)}</b>의 무리 <b>${a.boss}명</b>.
@@ -174,7 +167,7 @@ const Army = (() => {
   }
 
   function startWave(size, boss) {
-    const out = waveOutcome(troops, wgauge, size);
+    const out = waveOutcome(troops, size);
     wave = { size, boss: !!boss, kills: out.kills, loss: out.loss, killed: 0, applied: false };
     foes = [];
     const n = Math.min(C.drawMax, size);
@@ -191,8 +184,7 @@ const Army = (() => {
     const el = $('ar-ask');
     if (el) el.textContent = t;
     const c = $('ar-count');
-    const wp = WEAPONS[level(wgauge)];
-    if (c) c.innerHTML = `<b>${troops}</b>명 · ${wp.emoji} ${wp.name}`;
+    if (c) c.innerHTML = `<b>${troops}</b>명 · 💥 화력 ${firepower(troops)}`;
   }
 
   // ---------- 화면 ----------
@@ -210,7 +202,7 @@ const Army = (() => {
           <button class="ar-side" data-side="2" aria-label="오른쪽 길"></button>
         </div>
       </div>
-      <p class="hint-text">⚔️ 맞는 문으로! 부하가 두 배가 되고 무기도 좋아져요.</p>`;
+      <p class="hint-text">⚔️ 맞는 문으로! 사람이 많아지면 총알도 많이 나가요.</p>`;
     cv = $('ar-cv'); ctx = cv.getContext('2d');
     $('screen-army').querySelectorAll('.ar-side').forEach(b => {
       b.onclick = () => { lane = Number(b.dataset.side); };
@@ -254,14 +246,7 @@ const Army = (() => {
     recordResult(gate.word.towerId || (lastTower() || {}).id, gate.word, ok);
     troops = gateStep(troops, ok);
     if (ok) {
-      const before = level(wgauge);
-      wgauge++;
       Sfx.ok(); say('×2!', '#3ee0c4');
-      if (level(wgauge) > before) {
-        const wp = WEAPONS[level(wgauge)];
-        setTimeout(() => say(wp.emoji + ' ' + wp.name + '!', '#ffc83d'), 420);
-        Sfx.coin();
-      }
     } else {
       Sfx.bad(); hit = .5; say('부하가 줄었다', '#ff8090'); UI.shake($('ar-cv'));
     }
@@ -319,7 +304,7 @@ const Army = (() => {
 
   function finish() {
     stop();
-    const power = firepower(troops, wgauge);
+    const power = firepower(troops);
     result = power >= C.boss ? 'win' : 'lose';
     setTimeout(() => result === 'win' ? won(power) : lost(power), 500);
   }
@@ -425,7 +410,7 @@ const Army = (() => {
         ctx.beginPath(); ctx.arc(pxz(f.ox * sp, f.z), pz(f.z) - 12 * s, 9 * s, 0, 6.3); ctx.fill();
         ctx.globalAlpha = 1; return;
       }
-      soldier(pxz(f.ox * sp, f.z), pz(f.z), sz(f.z), '#d9455a', '#8f2436', f.f + phaseT * 9);
+      soldier(pxz(Math.max(-1, Math.min(1, f.ox * sp)), f.z), pz(f.z), sz(f.z), '#d9455a', '#8f2436', f.f + phaseT * 9);
     });
     if (wave.boss) drawChief();
     const left = Math.max(0, wave.size - wave.killed);
@@ -449,12 +434,11 @@ const Army = (() => {
   }
 
   function drawShots() {
-    const wp = WEAPONS[level(wgauge)];
     shots.forEach(s => {
       const t = Math.min(1, s.t);
       const x = s.x0 + (s.tx - s.x0) * t, z = s.z0 + (s.tz - s.z0) * t;
-      const r = (s.spark ? 2.2 : wp.r) * sz(z) * 1.7;
-      ctx.fillStyle = s.spark ? '#fff6e0' : wp.color;
+      const r = (s.spark ? 2.2 : SHOT.r) * sz(z) * 1.7;
+      ctx.fillStyle = s.spark ? '#fff6e0' : SHOT.color;
       ctx.beginPath(); ctx.arc(pxz(x, z), pz(z) - 16 * sz(z), r, 0, 6.3); ctx.fill();
       if (!s.spark) {                      // 꼬리 — 날아간다는 게 이걸로 읽힌다
         ctx.globalAlpha = .38;
@@ -471,7 +455,9 @@ const Army = (() => {
     const sp = spread(troops), mid = phase === 'gate' ? laneX(laneS) : 0;
     crowd.slice(0, n).sort((a2, b2) => b2.oz - a2.oz).forEach(c => {
       const zz = 0.03 + c.oz * (0.07 + sp * 0.07);
-      soldier(pxz(mid + c.ox * sp, zz), pz(zz), sz(zz) * 0.9, look.base, look.belt, c.f + t * 9);
+      // 길 밖으로 나가면 안 보인다 — 갈림길 끝에 서면 무리가 반쯤 화면을 벗어났다
+      const x = Math.max(-1, Math.min(1, mid + c.ox * sp));
+      soldier(pxz(x, zz), pz(zz), sz(zz) * 0.9, look.base, look.belt, c.f + t * 9);
     });
     badge(pxz(phase === 'gate' ? mid : -0.55, 0.06), pz(0.06) - 118, troops + '명', '#3ee0c4');
   }
@@ -511,11 +497,10 @@ const Army = (() => {
     state.player.armyClears = (state.player.armyClears || 0) + 1;
     saveState();
     Sfx.fanfare(); UI.confetti({ count: 140, colors: ['#ffc83d', '#3ee0c4', '#ffffff'] });
-    const wp = WEAPONS[level(wgauge)];
     UI.modal(`
       <div class="modal-title">⚔️ 돌파!</div>
       <div class="ar-big">${power} <span>vs</span> ${a.boss}</div>
-      <div class="modal-sub">부하 <b>${troops}명</b>이 ${wp.emoji} <b>${wp.name}</b>으로<br>
+      <div class="modal-sub">부하 <b>${troops}명</b>이 쏜 총알이<br>
         ${chief.emoji} <b>${esc(chief.name)}</b>의 무리 <b>${a.boss}명</b>을 쓸어버렸어요!</div>
       <div class="reward-row">💰 +${gold} · ⭐ +${a.exp.win}</div>
       <div class="dg-brief small">${wordList()}</div>
@@ -558,7 +543,7 @@ const Army = (() => {
   window.addEventListener('resize', () => { if (UI.current() === 'army') resize(); });
 
   // 테스트에서 정답 쪽을 알아야 한 판을 끝까지 돌려 볼 수 있다
-  function debug() { return { troops, wgauge, lv: level(wgauge), gateIdx, ans: gate && gate.ans, phase }; }
+  function debug() { return { troops, power: firepower(troops), gateIdx, ans: gate && gate.ans, phase }; }
 
-  return { start, stop, simulate, gateStep, firepower, level, waveOutcome, tier, cfg, WEAPONS, debug };
+  return { start, stop, simulate, gateStep, firepower, waveOutcome, tier, cfg, debug };
 })();

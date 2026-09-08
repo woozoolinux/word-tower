@@ -909,10 +909,13 @@ ok('작은 부대도 ×2 두 번이면 되살아난다', (() => {
   const c = AR.cfg(1);
   return AR.gateStep(AR.gateStep(c.min, true, c), true, c) - c.maxLoss * 2 > c.min;
 })());
-// 무기 — 맞힐 때마다 좋아진다. 이게 이 판의 보너스다
-eq('무기는 네 단계', AR.WEAPONS.length, ARB.weaponMax + 1);
-ok('한 문 맞힐 때마다 무기가 좋아진다', AR.level(0) === 0 && AR.level(1) === 1 && AR.level(9) === ARB.weaponMax);
-ok('무기가 좋아질수록 화력이 세진다', ARB.fire.every((v, i) => i === 0 || v > ARB.fire[i - 1]), ARB.fire.join(' → '));
+// 무기는 하나뿐이다. 화력은 오직 **사람 수**에서 온다 —
+// 많이 맞혀서 사람이 많아지면 그만큼 총알이 많이 나간다
+ok('화력은 사람 수에 비례한다', AR.firepower(100) === AR.firepower(10) * 10, AR.firepower(10) + ' → ' + AR.firepower(100));
+ok('사람이 두 배면 총알도 두 배', AR.firepower(40) === AR.firepower(20) * 2);
+// 세 갈래를 읽고 고르려면 시간이 필요하다
+ok('문을 읽을 시간이 넉넉하다', ARB.approach >= 3.5, ARB.approach + '초');
+ok('레벨이 올라도 읽을 시간은 남는다', ARB.minApproach >= 2.5, ARB.minApproach + '초');
 // 판 하나가 아이가 앉아 있을 만한 길이인가
 ok('한 판이 1분 안쪽이다',
   ARB.gates * (ARB.approach + ARB.waveTime) + ARB.bossTime < 60,
