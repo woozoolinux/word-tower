@@ -112,7 +112,7 @@ const Town3D = (() => {
     const h = Math.max(280, Math.min(700, window.innerHeight - wrap.getBoundingClientRect().top - 60));
     wrap.style.height = h + 'px';
 
-    tags.length = 0; npcs.length = 0;
+    tags.length = 0; npcs.length = 0; fires.length = 0;
     for (const k in GEO) delete GEO[k];
     sc = new THREE.Scene();
     sc.background = null;                    // 하늘은 CSS 그라데이션이 깔린다 (공짜다)
@@ -505,6 +505,14 @@ const Town3D = (() => {
     const TILE = 1.9;                                  // 돌판 한 칸이 대략 1.9m
     pave(W / 2, H / 2, 150 * M, H + 2, TILE);
     pave(W / 2, (map.H - 186) * M, W - 2, 96 * M, TILE);
+    // 왕의 성으로 가는 샛길 — 큰길에서 갈라져 나온다
+    map.places.filter(p => p._spur).forEach(p => {
+      const sp = p._spur, w = (sp.x1 - sp.x0) * M;
+      const road = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, 72 * M), mat(0xc9b183));
+      road.position.set((sp.x0 + sp.x1) / 2 * M, 0.05, sp.y * M);
+      road.receiveShadow = true; sc.add(road);
+      pave((sp.x0 + sp.x1) / 2 * M, sp.y * M, w - 0.15, 68 * M, TILE);
+    });
     // 길 가장자리 돌 — 길이 땅보다 살짝 파여 보인다
     [W / 2 - 79 * M, W / 2 + 79 * M].forEach(x => {
       const k = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, H + 4), mat(0xb49a71));
@@ -589,7 +597,8 @@ const Town3D = (() => {
     sp.renderOrder = 9; sc.add(sp); tags.push(sp);
   }
 
-  const npcs = [];
+  const npcs = [], fires = [];
+
   function npc3(n) {
     const c = Char3D.build({ av: n.av, outfit: n.outfit, hat: 'none', weapon: 'none', aura: 'none' });
     c.group.scale.setScalar(0.92);
@@ -625,6 +634,32 @@ const Town3D = (() => {
     const g = new THREE.Group(); g.position.set(q.x * M, 0, q.y * M); sc.add(g);
     if (q.kind === 'well') well3(g);
     else if (q.kind === 'stall') stall3(g, (q.w || 74) * M);
+    else if (q.kind === 'banner') banner3(g, q);
+    else if (q.kind === 'brazier') brazier3(g, q);
+  }
+  // 배너 — 성으로 가는 길에 줄지어 선다
+  function banner3(g, q) {
+    mesh(new THREE.CylinderGeometry(0.045, 0.055, 1.95, 6), C3.wood, 0, 0.98, 0, g);
+    mesh(new THREE.SphereGeometry(0.085, 10, 8), C3.gold, 0, 2.0, 0, g);
+    const cl = mesh(new THREE.BoxGeometry(0.05, 0.98, 0.62), 0x6d4fd0, 0.04, 1.32, 0.32, g);
+    cl.castShadow = true;
+    mesh(new THREE.BoxGeometry(0.07, 0.1, 0.66), C3.gold, 0.05, 1.8, 0.32, g);
+  }
+  // 화톳불 — 왕을 만날 수 있으면 타오른다. 아직이면 숯만 남아 있다
+  function brazier3(g, q) {
+    mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.72, 8), 0x5c5590, 0, 0.36, 0, g);
+    mesh(new THREE.CylinderGeometry(0.36, 0.22, 0.3, 10), 0x6d64ab, 0, 0.85, 0, g);
+    if (!q.lit) { mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.06, 10), 0x2b2450, 0, 0.99, 0, g); return; }
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.66, 7),
+      new THREE.MeshBasicMaterial({ color: 0xffa63d }));
+    fl.position.y = 1.28; g.add(fl);
+    const in2 = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffe37a }));
+    in2.position.y = 1.2; g.add(in2);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(1.1, 18),
+      new THREE.MeshBasicMaterial({ color: 0xffb85c, transparent: true, opacity: 0.24, depthWrite: false }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = 0.13; g.add(pool);
+    fires.push({ fl, in2, seed: q.x });
   }
   function well3(g) {
     // 돌 테두리 → 갓돌 → 물 → 기둥 둘 → 맞배 지붕 → 도르래에 매달린 두레박
@@ -764,11 +799,15 @@ const Town3D = (() => {
     hero.group.position.y += 0;
     heroSh.position.set(hx, 0.06, hz);
 
-    // 마을 사람 — 숨을 쉬고, 가까이 가면 이쪽으로 돈다
+    // 마을 사람 — 숨을 쉬고, 가까이 가면 이쪽으로 돈다.
+    // 말풍선은 **가장 가까운 한 사람만** — 경비병 둘이 나란히 떠들면 못 읽는다
+    let talker = null, td = 96;
+    npcs.forEach(o => { const d = Math.hypot(px - o.n.x, py - o.n.y); if (d < td) { td = d; talker = o.n; } });
     npcs.forEach(o => {
       Char3D.animate(o.c, now2 + o.n.x, false, 1 / 60);
-      const near = Math.hypot(px - o.n.x, py - o.n.y) < 96;
-      const face = near ? Math.atan2(hx - o.c.group.position.x, hz - o.c.group.position.z)
+      const near = o.n === talker;
+      const see = Math.hypot(px - o.n.x, py - o.n.y) < 110;         // 보는 건 둘 다 한다
+      const face = see ? Math.atan2(hx - o.c.group.position.x, hz - o.c.group.position.z)
         : (o.n.x > map.W / 2 ? -Math.PI / 2 : Math.PI / 2);
       o.c.group.rotation.y += angDiff(face - o.c.group.rotation.y) * Math.min(1, 1 / 60 * 8);
       if (near !== o.near) {
@@ -776,6 +815,12 @@ const Town3D = (() => {
         if (near) o.idx = (o.idx + 1) % o.said.length;             // 다시 오면 다음 말
         o.said.forEach((sp, i) => (sp.visible = near && i === o.idx));
       }
+    });
+
+    // 화톳불 — 불꽃이 흔들린다. 가만히 있으면 불이 아니라 주황색 고깔이다
+    fires.forEach(f => {
+      const k = 1 + Math.sin(now2 * 7 + f.seed) * 0.16;
+      f.fl.scale.set(1, k, 1); f.in2.scale.set(1, 1 + Math.sin(now2 * 9 + f.seed) * 0.2, 1);
     });
 
     // 하늘섬은 둥둥 떠 있다

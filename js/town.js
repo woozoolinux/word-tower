@@ -139,7 +139,11 @@ const Town = (() => {
     zones.forEach((L, i) => {
       const zy = H - 262 - (i + 1) * ZH;
       addPlace({ kind: 'tower', level: L, towers: levelTowers(L.id), x: W / 2 - 48, y: zy, w: 96, h: 158 });
-      if (L.animal) addPlace({ kind: 'king', level: L, x: W - 132, y: zy + 40, w: 104, h: 88 });
+      if (L.animal) {
+        const kp = { kind: 'king', level: L, x: W - 132, y: zy + 40, w: 104, h: 88 };
+        addPlace(kp);
+        kingApproach(kp);
+      }
       // 등급 입구 아치 — 탑 아래(zy+158)와 앞 등급 사이, 그 가운데.
       // 가로등 둘을 아치 바깥에 세워 문에 불을 켠다
       const ay = zy + 191;
@@ -151,6 +155,9 @@ const Town = (() => {
     // 길 한가운데(x 256~358)는 비워 둔다 — 북쪽으로 걸어 나가는 길이다
     props.push({ kind: 'well', x: 228, y: plazaY + 46, r: 25 });
     props.push({ kind: 'stall', x: 508, y: plazaY + 44, w: 74 });
+    // ---- 왕의 성 가는 길 ----
+    // 배너와 화톳불은 부딪힌다 (샛길 가장자리와 성 모서리에 있어서 지나는 데 지장 없다).
+    // 경비병은 안 부딪힌다 — 문 앞에 서 있는 사람한테 끼면 왕을 만나러 못 간다
     // 아치 기둥은 부딪힌다 — 길 밖에 있어서 지나가는 데는 상관없다
     arches.forEach(a => [-72, 72].forEach(dx =>
       solids.push({ x: a.x + dx - 11, y: a.y - 10, w: 22, h: 18 })));
@@ -168,12 +175,36 @@ const Town = (() => {
     npcs.forEach(n => { n.said = 0; n.near = false; n.face = -1; n.faceS = -1; });
     for (let i = 0; i < 130; i++) tufts.push({ x: 10 + Math.random() * (W - 20), y: 20 + Math.random() * (H - 40), s: 2 + Math.random() * 3 });
     // 빈 땅이 넓으면 휑하다 — 건물과 길을 피해 나무·꽃·울타리를 촘촘히 뿌린다
-    scatter(W, H, (x, y) => places.some(p => x > p.x - 22 && x < p.x + p.w + 22 && y > p.y - 20 && y < p.y + p.h + 26));
+    // 왕의 성 샛길에도 나무가 자라면 안 된다 — 포장 위에 나무가 서 있으면 길이 아니게 보인다
+    scatter(W, H, (x, y) => places.some(p => x > p.x - 22 && x < p.x + p.w + 22 && y > p.y - 20 && y < p.y + p.h + 26)
+      || places.some(p => p._spur && x > p._spur.x0 - 16 && x < p._spur.x1 + 16 && Math.abs(y - p._spur.y) < 48));
 
     solids.push({ x: -40, y: -40, w: W + 80, h: 40 }, { x: -40, y: H, w: W + 80, h: 40 },
       { x: -40, y: -40, w: 40, h: H + 80 }, { x: W, y: -40, w: 40, h: H + 80 });
     px = W / 2; py = H - 34; dir = 1; dirS = 1; walkT = 0; dust = []; stepAt = 0;
     cam = { x: px, y: py };      // 처음엔 캐릭터 자리에서 시작 (안 그러면 첫 프레임에 확 밀린다)
+  }
+  // 큰길 → 성문. 샛길 좌우에 배너 넷, 성 모서리에 화톳불 둘, 문 앞에 경비병 둘
+  function kingApproach(p) {
+    const cx = p.x + p.w / 2, gy = p.y + p.h + 6;      // 성문 앞
+    const k = typeof Game !== 'undefined' && Game.kingInfo ? Game.kingInfo(p.level.id) : null;
+    const beaten = k && k.beaten, ready = k && k.ok;
+    p._spur = { y: gy - 4, x0: W / 2 + 66, x1: Math.min(W - 4, cx + 80) };
+    [0, 1].forEach(i => {
+      const bx = W / 2 + 86 + i * 58;      // 성문 앞(cx±40)까지 오면 문을 막는다
+      [-32, 32].forEach(dy => props.push({ kind: 'banner', x: bx, y: p._spur.y + dy, r: 8, color: p.level.emoji }));
+    });
+    // 화톳불은 성 모서리 바깥(±64), 경비병은 문 양옆(±38) — 겹치면 경비병이 불을 가린다
+    [-64, 64].forEach(dx => props.push({ kind: 'brazier', x: cx + dx, y: gy - 2, r: 11, lit: ready || beaten }));
+    const say = beaten
+      ? ['왕께서 자네를 기다리셨네.', '이 성은 이제 자네 것일세.']
+      : ready ? ['왕께서 기다리신다. 들어가라.', '준비됐나? 되돌아올 수 없다.']
+        : ['카드를 더 모아 오게.', '아직 왕을 뵐 때가 아니야.'];
+    [-38, 38].forEach((dx, i) => npcs.push({
+      x: cx + dx, y: gy + 16, guard: true,
+      av: { skin: i ? 1 : 2, hairStyle: i ? 'short' : 'bob', hairColor: i ? 0 : 1 },
+      outfit: 'knight', lines: say,
+    }));
   }
   function addPlace(p) {
     p.cx = p.x + p.w / 2; p.cy = p.y + p.h / 2;
@@ -320,11 +351,17 @@ const Town = (() => {
       const d = dx + Math.abs(dy);
       if (d < bd) { bd = d; best = p; }
     });
+    let talker = null, td = 96;
     npcs.forEach(n => {
-      const near = Math.hypot(px - n.x, py - n.y) < 96;
+      const d = Math.hypot(px - n.x, py - n.y);
+      if (d < td) { td = d; talker = n; }        // 한 번에 한 사람만 말한다
+    });
+    npcs.forEach(n => {
+      const near = n === talker;
       if (near && !n.near) n.said = (n.said + 1) % n.lines.length;   // 다시 오면 다음 말
       n.near = near;
-      n.face = near ? (px < n.x ? -1 : 1) : (n.x > W / 2 ? -1 : 1);  // 가까우면 이쪽을 본다
+      const see = Math.hypot(px - n.x, py - n.y) < 110;              // 보는 건 둘 다 한다
+      n.face = see ? (px < n.x ? -1 : 1) : (n.x > W / 2 ? -1 : 1);
       n.faceS += (n.face - n.faceS) * Math.min(1, dt * 10);
     });
     nearP = best;
@@ -485,6 +522,17 @@ const Town = (() => {
         ctx.fillStyle = 'rgba(255,246,220,.30)'; ctx.fillRect(x, y, 48, 19);
       }
     }
+    // 왕의 성으로 가는 샛길 — 큰길에서 갈라져 나온다
+    places.filter(q => q._spur).forEach(q => {
+      const sp = q._spur, w = sp.x1 - sp.x0;
+      ctx.fillStyle = C.roadEdge; ctx.fillRect(sp.x0, sp.y - 36, w, 72);
+      ctx.fillStyle = C.road; ctx.fillRect(sp.x0, sp.y - 32, w, 64);
+      for (let r = 0, y = sp.y - 30; y < sp.y + 30; y += 22, r++)
+        for (let x = sp.x0 + (r % 2) * 24; x < sp.x1; x += 48) {
+          ctx.fillStyle = 'rgba(0,0,0,.055)'; ctx.fillRect(x + 1, y + 1, 44, 18);
+          ctx.fillStyle = 'rgba(255,246,220,.28)'; ctx.fillRect(x, y, 44, 17);
+        }
+    });
     // 광장 테두리 돌
     ctx.fillStyle = 'rgba(120,100,60,.28)';
     ctx.fillRect(0, H - 240, W, 5); ctx.fillRect(0, H - 137, W, 5);
@@ -554,6 +602,37 @@ const Town = (() => {
   function drawProp(q, t) {
     if (q.kind === 'well') return drawWell(q, t);
     if (q.kind === 'stall') return drawStall(q);
+    if (q.kind === 'banner') return drawBanner(q, t);
+    if (q.kind === 'brazier') return drawBrazier(q, t);
+  }
+  // 배너 — 성으로 가는 길에 줄지어 선다. 천이 바람에 조금 흔들린다
+  function drawBanner(q, t) {
+    softShadow(q.x + 3, q.y + 3, 7, 3, .28);
+    ctx.fillStyle = '#7a5636'; ctx.fillRect(q.x - 2, q.y - 48, 4, 48);
+    ctx.fillStyle = C.gold; ctx.beginPath(); ctx.arc(q.x, q.y - 50, 3.5, 0, 6.3); ctx.fill();
+    const sw = Math.sin(t * 1.7 + q.x) * 2;
+    ctx.fillStyle = '#6d4fd0';
+    ctx.beginPath(); ctx.moveTo(q.x + 2, q.y - 47); ctx.lineTo(q.x + 18 + sw, q.y - 44);
+    ctx.lineTo(q.x + 18 + sw, q.y - 24); ctx.lineTo(q.x + 10 + sw, q.y - 27);
+    ctx.lineTo(q.x + 2, q.y - 22); ctx.closePath(); ctx.fill();
+    ctx.font = '11px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(q.color, q.x + 10 + sw * .6, q.y - 35);
+  }
+  // 화톳불 — 왕을 만날 수 있으면 타오르고, 아직이면 꺼져 있다
+  function drawBrazier(q, t) {
+    softShadow(q.x + 3, q.y + 3, 11, 5, .3);
+    ctx.fillStyle = '#5c5590'; ctx.fillRect(q.x - 3, q.y - 22, 6, 22);
+    ctx.fillStyle = '#6d64ab';
+    ctx.beginPath(); ctx.moveTo(q.x - 12, q.y - 34); ctx.lineTo(q.x + 12, q.y - 34);
+    ctx.lineTo(q.x + 8, q.y - 22); ctx.lineTo(q.x - 8, q.y - 22); ctx.closePath(); ctx.fill();
+    if (!q.lit) { ctx.fillStyle = '#2b2450'; ctx.fillRect(q.x - 9, q.y - 35, 18, 4); return; }
+    const f = Math.sin(t * 7 + q.x) * .5 + .5;
+    ctx.fillStyle = 'rgba(255,180,60,.22)';
+    ctx.beginPath(); ctx.arc(q.x, q.y - 36, 22 + f * 4, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#ff8a3d';
+    ctx.beginPath(); ctx.moveTo(q.x - 9, q.y - 33); ctx.quadraticCurveTo(q.x, q.y - 56 - f * 7, q.x + 9, q.y - 33); ctx.fill();
+    ctx.fillStyle = '#ffd24a';
+    ctx.beginPath(); ctx.moveTo(q.x - 5, q.y - 33); ctx.quadraticCurveTo(q.x + 1, q.y - 47 - f * 5, q.x + 5, q.y - 33); ctx.fill();
   }
   function drawWell(q, t) {
     softShadow(q.x + 5, q.y + 5, 27, 11, .3);

@@ -860,9 +860,25 @@ section('마을 광장');
 // 길은 x = W/2 ± 78 이고, 캐릭터는 x = W/2 에서 출발한다.
 // ===================================================================
 const TW = sandbox.TW, LAY = TW.layout();
-ok('광장에 소품이 있다', LAY.props.length >= 2, LAY.props.length + '개');
+// 왕의 성이 길에서 뚝 떨어져 혼자 서 있었다. 큰길에서 성문까지 샛길을 내고
+// 배너·화톳불·경비병을 세웠다 — 그 무엇도 **성문 앞을 막으면 안 된다**.
+LAY.places.filter(p => p.kind === 'king').forEach(p => {
+  const nm = p.level.name + ' 성';
+  ok(nm + ' 앞에 샛길이 있다', !!p._spur);
+  ok(nm + ' 샛길이 큰길에서 시작한다', p._spur.x0 <= LAY.W / 2 + 78 + 2, 'x0=' + p._spur.x0);
+  ok(nm + ' 샛길이 성문까지 닿는다', p._spur.x1 >= p.cx, 'x1=' + p._spur.x1);
+  // 문 앞 상자(cx±40, 문 아래 40px) 안에 걸리는 게 하나도 없어야 들어갈 수 있다
+  const door = { x: p.cx - 40, y: p.y + p.h, w: 80, h: 40 };
+  const blockers = LAY.solids.filter(b => b.x < door.x + door.w && b.x + b.w > door.x && b.y < door.y + door.h && b.y + b.h > door.y);
+  ok(nm + ' 문 앞이 막히지 않는다', !blockers.length, blockers.length ? JSON.stringify(blockers) : '');
+  ok(nm + ' 문 앞에 경비병이 둘', LAY.npcs.filter(n => n.guard && Math.abs(n.x - p.cx) < 60 && Math.abs(n.y - (p.y + p.h)) < 40).length === 2);
+  ok(nm + ' 화톳불이 둘', LAY.props.filter(q => q.kind === 'brazier' && Math.abs(q.x - p.cx) < 90 && Math.abs(q.y - (p.y + p.h)) < 40).length === 2);
+});
+
+const PLZ = LAY.props.filter(q => q.kind === 'well' || q.kind === 'stall');
+ok('광장에 소품이 있다', PLZ.length >= 2, PLZ.length + '개');
 ok('가로등 자리를 3D 마을도 받는다', LAY.lamps.length >= 4, LAY.lamps.length + '개');
-LAY.props.forEach(q => {
+PLZ.forEach(q => {
   const r = q.r || q.w / 2;
   ok(q.kind + ' 이 광장 바닥 위에 있다', q.y > LAY.H - 236 && q.y < LAY.H - 136, 'y=' + q.y);
   ok(q.kind + ' 이 출발 자리를 안 막는다', Math.abs(q.x - LAY.W / 2) > r + 26, 'x=' + q.x);
@@ -870,7 +886,7 @@ LAY.props.forEach(q => {
 ok('길 한가운데로 걸어 나갈 틈이 남는다', (() => {
   const road = [LAY.W / 2 - 78, LAY.W / 2 + 78];
   let free = road[1] - road[0];
-  LAY.props.forEach(q => {
+  PLZ.forEach(q => {
     const r = q.r || q.w / 2;
     free -= Math.max(0, Math.min(road[1], q.x + r) - Math.max(road[0], q.x - r));
   });
