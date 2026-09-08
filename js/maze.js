@@ -58,6 +58,7 @@ const Maze = (() => {
     gen(); px = 1; py = 1; trail = null; face = 1;
     gridEl().innerHTML =
       `<div class="maze-cells" style="grid-template-columns:repeat(${W},1fr);grid-template-rows:repeat(${H},1fr);aspect-ratio:${W}/${H}"></div>` +
+      '<div class="mz-light" id="mz-light"></div>' +
       '<div class="maze-sprites"><div class="sprite pet no-anim" id="mz-pet"></div><div class="sprite player no-anim" id="mz-player"></div></div>';
     const { dist, prev } = bfs(1, 1);
     const cs = cells();
@@ -95,6 +96,13 @@ const Maze = (() => {
     if (petId && pe.dataset.pet !== petId) { pe.innerHTML = `<span class="petwrap">${Art.pet(petId)}</span>`; pe.dataset.pet = petId; }
     pe.style.display = petId && trail ? '' : 'none';
     place(p, px, py);
+    // 횃불 빛도 아이를 따라온다 — 셀 크기의 몇 배로 퍼진다
+    const lt = document.getElementById('mz-light');
+    if (lt) {
+      lt.style.width = (cw * 7) + '%'; lt.style.height = (ch * 7) + '%';
+      lt.style.left = ((px - 3) * cw) + '%';
+      lt.style.top = ((py - 3) * ch) + '%';
+    }
     if (trail) { const t = trail.split(',').map(Number); place(pe, t[0], t[1]); }
     requestAnimationFrame(() => { p.classList.remove('no-anim'); pe.classList.remove('no-anim'); });
   }
@@ -118,6 +126,9 @@ const Maze = (() => {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const c = k(x, y), wall = grid[y][x] === 1, vis = seen.has(c);
       let cls = 'cell ' + (wall ? 'wall' : 'floor') + (vis ? '' : ' fog') + (c === door && opened ? ' door-open' : '');
+      // 벽 횃불 — 자리를 좌표로 정한다. 매번 무작위로 뽑으면 다시 그릴 때마다 옮겨 다닌다
+      if (wall && vis && (x + y) % 2 === 0 && y < H - 1 && grid[y + 1][x] === 0) cls += ' torch';
+      if (c === door && !opened) cls += ' door';
       let inner = '';
       if (c === door) inner = `<span class="ent">${opened ? '🪜' : vis ? '🚪' : ''}</span>`;
       else if (keys[c] && (vis || sight)) inner = `<span class="ent key ${vis ? '' : 'ghost'}">🔑<i>${esc(keys[c].w)}</i></span>`;

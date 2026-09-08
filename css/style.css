@@ -957,6 +957,83 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
   background: var(--gold); color: var(--ink); padding: 0 5px; border-radius: 6px; white-space: nowrap; z-index: 5;
 }
 .cell.door-open { background: #cdeed9; }
+
+/* ── 미로의 돌바닥과 벽 ─────────────────────────────────────────
+   단색 사각형이 격자로 깔린 게 다였다. 탑에 들어가면 제일 먼저 만나는 화면인데.
+   벽은 **위에서 본 블록**이 아니라 **앞이 보이는 블록**이어야 두께가 생긴다 —
+   윗면은 밝게, 아랫면은 그늘. 그것만으로 바닥과 벽이 갈린다. */
+.cell.floor {
+  background:
+    linear-gradient(rgba(255,255,255,.5) 0 2px, transparent 2px),
+    repeating-linear-gradient(90deg, rgba(140,115,70,.12) 0 1px, transparent 1px 50%),
+    var(--floor);
+  box-shadow: inset 0 -2px 0 rgba(140,115,70,.16);
+}
+.cell.wall {
+  background: linear-gradient(#4d4585 0 38%, var(--wall) 38%);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.13),
+    inset 0 -3px 0 rgba(0,0,0,.28),
+    inset 2px 0 0 rgba(0,0,0,.14);
+}
+/* 벽 횃불 — 아래를 향한 벽면에만 걸린다 */
+.cell.wall.torch::before {
+  content: ''; position: absolute; left: 50%; bottom: 6%; z-index: 1;
+  width: 34%; height: 46%; transform: translateX(-50%);
+  border-radius: 50% 50% 40% 40%;
+  background: radial-gradient(50% 60% at 50% 62%, #fff3b0 0 22%, #ffb03d 55%, rgba(255,120,40,0) 100%);
+  animation: mzFlame 1.1s ease-in-out infinite alternate;
+}
+.cell.wall.torch::after {
+  content: ''; position: absolute; left: 50%; bottom: -30%;
+  width: 260%; height: 190%; transform: translateX(-50%);
+  border-radius: 50%; pointer-events: none; z-index: 0;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(255,178,80,.20) 0%, rgba(255,178,80,0) 70%);
+}
+@keyframes mzFlame {
+  from { transform: translateX(-50%) scaleY(.88); filter: brightness(.92); }
+  to   { transform: translateX(-50%) scaleY(1.08); filter: brightness(1.12); }
+}
+/* 안개는 벽도 바닥도 아닌 **아직 안 가 본 곳**이다. 결도 두께도 지운다 */
+.cell.fog {
+  background:
+    repeating-linear-gradient(48deg, rgba(255,255,255,.014) 0 3px, transparent 3px 9px),
+    var(--fog);
+  box-shadow: none;
+}
+.cell.wall.fog { background: #191b3d; box-shadow: none; }
+.cell.fog::before, .cell.fog::after { display: none; }
+
+/* 문 — 여기가 목적지다. 계속 빛나야 눈에 들어온다 */
+.cell.door {
+  background: radial-gradient(60% 60% at 50% 50%, rgba(255,200,61,.30), transparent 72%), var(--floor);
+  box-shadow: inset 0 0 0 2px rgba(255,200,61,.55), 0 0 14px rgba(255,200,61,.35);
+  animation: mzDoor 1.9s ease-in-out infinite;
+}
+@keyframes mzDoor {
+  0%, 100% { box-shadow: inset 0 0 0 2px rgba(255,200,61,.45), 0 0 10px rgba(255,200,61,.24); }
+  50%      { box-shadow: inset 0 0 0 2px rgba(255,200,61,.75), 0 0 20px rgba(255,200,61,.5); }
+}
+.cell.door-open {
+  background: #cdeed9;
+  box-shadow: inset 0 0 0 2px rgba(62,224,196,.7), 0 0 16px rgba(62,224,196,.4);
+}
+
+/* 아이가 든 횃불. 격자 위에 얹는 빛이라 셀 하나하나를 안 건드려도 된다 */
+.mz-light {
+  position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2;
+  background: radial-gradient(50% 50% at 50% 50%,
+    rgba(255,224,150,.34) 0%, rgba(255,190,100,.17) 40%, rgba(255,190,100,0) 70%);
+  transition: left .19s ease-out, top .19s ease-out;
+}
+.maze { overflow: hidden; }
+/* 열쇠 이름표가 아래 칸을 덮고 있었다 — 칸 안으로 당긴다 */
+.ent.key i { top: 92%; font-size: 10px; padding: 0 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cell.wall.torch::before, .cell.door { animation: none; }
+}
+
 .dpad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 52px); gap: 6px; justify-content: center; margin-top: 14px; }
 .dpad-btn { background: rgba(255,255,255,.12); border-radius: 12px; font-size: 22px; color: #fff; box-shadow: inset 0 0 0 2px rgba(255,255,255,.18); }
 .dpad-btn:active { background: rgba(255,255,255,.3); }

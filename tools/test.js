@@ -862,6 +862,23 @@ section('마을 광장');
 // ===================================================================
 const TW = sandbox.TW, LAY = TW.layout();
 // ===================================================================
+section('미로');
+// 탑에 들어가면 **제일 먼저** 만나는 화면. 여기가 단색 사각형이면 탑 전체가 싸구려가 된다.
+// 그림은 CSS 에 있고 자리는 JS 가 정한다 — 한쪽만 고치면 조용히 아무것도 안 나온다.
+// ===================================================================
+const MZ = fs.readFileSync(path.join(ROOT, 'js/maze.js'), 'utf8');
+const CSS0 = fs.readFileSync(path.join(ROOT, 'css/style.css'), 'utf8');
+ok('미로가 벽에 횃불을 건다', MZ.indexOf("' torch'") >= 0);
+ok('횃불 그림이 있다', CSS0.indexOf('.cell.wall.torch::before') >= 0);
+ok('횃불은 아래가 트인 벽에만 걸린다', /grid\[y \+ 1\]\[x\] === 0/.test(MZ));
+ok('미로가 문에 표시를 단다', MZ.indexOf("' door'") >= 0);
+ok('문이 빛난다', /\.cell\.door\s*\{[^}]*animation/.test(CSS0));
+// 아이가 든 횃불은 일곱 칸짜리다. transform 의 % 는 **자기 크기** 기준이라
+// translate(px*100%) 로 옮기면 한 걸음에 일곱 칸씩 건너뛴다. 실제로 그렇게 깨졌다.
+ok('횃불 빛을 left/top 으로 옮긴다', /lt\.style\.left/.test(MZ) && !/lt\.style\.transform\s*=\s*'translate/.test(MZ));
+ok('그래서 부드럽게 따라오는 것도 left/top 이다', /\.mz-light\s*\{[^}]*transition:\s*left/.test(CSS0));
+
+// ===================================================================
 section('배틀 무대');
 // 무대는 등급의 world 로 정해진다. 무대 층(먼 능선·앞 실루엣·먼지·빛줄기)은
 // **한 벌만** 쓰고 무대마다 색만 바꾼다 — 색을 안 정해 두면 조용히 기본값이 나온다.
