@@ -869,54 +869,60 @@ section('연병장');
 // 여기서 지키는 것은 딱 하나: **4개 맞히면 이기고 3개면 진다.**
 // ===================================================================
 const AR = sandbox.AR, ARB = BAL.army;
-// 게이트는 전부 곱하기 — 순서가 결과를 안 바꾼다.
-// 전투 손실은 **머릿수 상한**이다. 비율로 두면 병력이 적을 때 배로 늘려도
-// 그만큼 다시 잃어서 영영 못 올라온다 (죽음의 나선).
-// 지키는 선은 하나: **4개 맞히면 이기고 3개면 진다.** 32가지 순서를 다 돌린다 —
-// 그리고 **레벨이 올라도** 그대로여야 한다.
+// 한 명으로 시작해서 **문을 겨눠 쏘며** 늘린다.
+// 문마다 기본 +10, 오래 겨누면 +3 까지 더 붙는다 (오답 문이면 그만큼 잃는다).
+//
+// 조준 보너스를 크게 두면 **틀린 문을 잘 겨눈 아이**가 맞는 문을 대충 지나간 아이를 이긴다.
+// 여긴 단어 게임이다 — 고르는 게 먼저고 조준은 그 위의 재미다. 그래서 보너스가 작다.
+//
+// 지키는 선: **다섯 개 다 맞히면 조준을 못해도 이기고, 두 개 이하면 아무리 잘 겨눠도 진다.**
+// 그 사이(3~4개)가 조준 실력이 가르는 구간이다.
 eq('문 다섯 개', ARB.gates, 5);
 eq('갈림길 셋 — 둘이면 반은 찍어서 맞는다', ARB.lanes, 3);
-[1, 8, 16, 24, 40].forEach(lv => {
+eq('한 명으로 시작한다', ARB.start, 1);
+ok('조준 보너스는 기본보다 작다 — 고르는 게 먼저다', ARB.gateBonus < ARB.gateBase / 2,
+  '기본 +' + ARB.gateBase + ' · 조준 +' + ARB.gateBonus);
+const AIMS = [0, 0.25, 0.5, 0.75, 1];
+[1, 8, 16, 24].forEach(lv => {
   const c = AR.cfg(lv), tag = 'Lv' + lv + '(×' + c.k + ')';
   const rows = [];
   for (let m = 0; m < 32; m++) {
     let n = 0; for (let bt = 0; bt < 5; bt++) if (m & (1 << bt)) n++;
-    rows.push(Object.assign({ n }, AR.simulate(m, lv)));
+    AIMS.forEach(aim => rows.push(Object.assign({ n, aim }, AR.simulate(m, lv, aim))));
   }
   const by = k => rows.filter(r => r.n === k);
-  ok(tag + ' 4개 맞히면 어떤 순서로든 이긴다', by(4).every(r => r.win),
-    '화력 ' + Math.min.apply(null, by(4).map(r => r.power)) + '~' + Math.max.apply(null, by(4).map(r => r.power)) + ' vs 적장 ' + c.boss);
-  ok(tag + ' 3개면 어떤 순서로든 진다', by(3).every(r => !r.win),
-    '화력 ' + Math.min.apply(null, by(3).map(r => r.power)) + '~' + Math.max.apply(null, by(3).map(r => r.power)));
-  ok(tag + ' 2개 이하도 물론 진다', by(2).concat(by(1), by(0)).every(r => !r.win));
-  // 죽음의 나선 — 다 틀려도 부대가 사라지면 안 된다
+  ok(tag + ' 다 맞히면 조준을 못해도 이긴다', by(5).every(r => r.win),
+    '화력 ' + Math.min.apply(null, by(5).map(r => r.power)) + '~' + Math.max.apply(null, by(5).map(r => r.power)) + ' vs ' + c.boss);
+  ok(tag + ' 두 개 이하면 아무리 잘 겨눠도 진다', by(2).concat(by(1), by(0)).every(r => !r.win),
+    '화력 최대 ' + Math.max.apply(null, by(2).map(r => r.power)));
+  // 3~4개는 조준이 가른다 — 둘 다 나와야 그 구간이 살아 있는 것이다
+  ok(tag + ' 네 개는 조준에 따라 갈린다', by(4).some(r => r.win) && by(4).some(r => !r.win));
   ok(tag + ' 다 틀려도 부대가 남는다', by(0)[0].troops >= c.min, by(0)[0].troops + '명');
-  ok(tag + ' 부하에 상한이 있다', by(5)[0].troops <= c.cap, by(5)[0].troops + '명 / ' + c.cap);
+  ok(tag + ' 부하에 상한이 있다', rows.every(r => r.troops <= c.cap));
 });
-// 레벨이 올라도 **수만 커지고 규칙은 그대로**다. 어려워지는 건 판단할 시간뿐
+// 조준은 보너스지 승패가 아니다 — 같은 개수를 맞혔으면 조준한 쪽이 더 세야 하고,
+// 하나 더 맞힌 쪽이 조준을 못했어도 안 뒤처져야 한다
+ok('오래 겨눌수록 많이 는다', AR.gateAdd(true, 1) > AR.gateAdd(true, 0),
+  '+' + AR.gateAdd(true, 0) + ' → +' + AR.gateAdd(true, 1));
+ok('틀린 문은 오래 겨눌수록 더 잃는다', AR.gateAdd(false, 1) < AR.gateAdd(false, 0));
+ok('대충 지난 정답이 잘 겨눈 오답보다 낫다', AR.gateAdd(true, 0) > AR.gateAdd(false, 1));
+// 레벨이 올라도 규칙은 그대로. 어려워지는 건 판단할 시간뿐
 ok('레벨이 오르면 부대도 적도 같은 배로 커진다', (() => {
   const a1 = AR.cfg(1), a2 = AR.cfg(1 + ARB.tierPer);
-  return a2.k === a1.k + 1 && a2.start === a1.start * a2.k && a2.boss === a1.boss * a2.k;
+  return a2.k === a1.k + 1 && a2.start === a1.start * a2.k && a2.boss === a1.boss * a2.k
+    && a2.gateBase === a1.gateBase * a2.k;
 })());
 ok('레벨이 오르면 문이 더 빨리 온다', AR.cfg(1).approach > AR.cfg(1 + ARB.tierPer).approach,
   AR.cfg(1).approach.toFixed(2) + '초 → ' + AR.cfg(1 + ARB.tierPer).approach.toFixed(2) + '초');
-ok('아무리 높아도 손이 못 따라갈 만큼 빨라지진 않는다', AR.cfg(999).approach >= ARB.minApproach,
-  AR.cfg(999).approach.toFixed(2) + '초');
+ok('아무리 높아도 손이 못 따라갈 만큼 빨라지진 않는다', AR.cfg(999).approach >= ARB.minApproach);
 ok('배율에도 끝이 있다', AR.tier(999) === ARB.tierMax, '×' + AR.tier(999));
-// 한 웨이브가 병력의 일부를 **비율로** 가져가면 작은 부대는 영영 못 올라온다
 ok('한 웨이브가 데려가는 병사에 상한이 있다', ARB.maxLoss > 0 && ARB.maxLoss <= 5, ARB.maxLoss + '명');
-ok('작은 부대도 ×2 두 번이면 되살아난다', (() => {
-  const c = AR.cfg(1);
-  return AR.gateStep(AR.gateStep(c.min, true, c), true, c) - c.maxLoss * 2 > c.min;
-})());
-// 무기는 하나뿐이다. 화력은 오직 **사람 수**에서 온다 —
-// 많이 맞혀서 사람이 많아지면 그만큼 총알이 많이 나간다
-ok('화력은 사람 수에 비례한다', AR.firepower(100) === AR.firepower(10) * 10, AR.firepower(10) + ' → ' + AR.firepower(100));
-ok('사람이 두 배면 총알도 두 배', AR.firepower(40) === AR.firepower(20) * 2);
-// 세 갈래를 읽고 고르려면 시간이 필요하다
-ok('문을 읽을 시간이 넉넉하다', ARB.approach >= 3.5, ARB.approach + '초');
-ok('레벨이 올라도 읽을 시간은 남는다', ARB.minApproach >= 2.5, ARB.minApproach + '초');
-// 판 하나가 아이가 앉아 있을 만한 길이인가
+// 총알은 병사 수에 비례해 계속 나간다. 처치 수에 묶으면 적이 적을 때 총알이 안 보인다
+ok('화력은 사람 수에 비례한다', AR.firepower(100) === AR.firepower(10) * 10);
+ok('총알이 좁게 나가야 겨눌 수 있다', ARB.shotSpread <= 0.25, '퍼짐 ' + ARB.shotSpread);
+// 세 갈래를 읽고 겨누려면 시간이 필요하다
+ok('문을 읽고 겨눌 시간이 넉넉하다', ARB.approach >= 3.5, ARB.approach + '초');
+ok('레벨이 올라도 겨눌 시간은 남는다', ARB.minApproach >= 2.5, ARB.minApproach + '초');
 ok('한 판이 1분 안쪽이다',
   ARB.gates * (ARB.approach + ARB.waveTime) + ARB.bossTime < 60,
   Math.round(ARB.gates * (ARB.approach + ARB.waveTime) + ARB.bossTime) + '초');

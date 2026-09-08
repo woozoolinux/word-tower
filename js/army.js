@@ -31,6 +31,7 @@ const Army = (() => {
       k, gates: a.gates, lanes: a.lanes, win: a.win, lose: a.lose,
       fire: a.fire,
       start: a.start * k, min: a.min * k, cap: a.cap * k, maxLoss: a.maxLoss * k,
+      gateBase: a.gateBase * k, gateBonus: a.gateBonus * k,
       waves: a.waves.map(w => w * k), boss: a.boss * k,
       approach: Math.max(a.minApproach, a.approach - (k - 1) * a.tierRush),
       waveTime: a.waveTime, bossTime: a.bossTime, shotTime: a.shotTime,
@@ -40,9 +41,9 @@ const Army = (() => {
 
   let cv, ctx, raf, last, active;
   let W = 360, H = 260;
-  let troops, gateIdx, gate, lane, laneS, phase, phaseT, pool, queue, hit;
+  let troops, gateIdx, gate, aimX, x, phase, phaseT, pool, queue, hit;
   let bg, crowd, foes, shots, wave, result, runWords, msg, msgT, C, chief;
-  let fireT = 0, fired = 0;
+  let fireT = 0, fired = 0, sparks = [];
 
   // ---------- 균형 ----------
   // 게이트는 **전부 곱하기**다. 맞으면 ×2, 틀리면 ×0.6.
@@ -50,9 +51,15 @@ const Army = (() => {
   //
   // 전투 손실은 **머릿수 상한**으로 막는다. 비율로 두면 병력이 적을 때
   // 배로 늘려도 그만큼 다시 잃어서 영영 못 올라온다 (죽음의 나선).
-  function gateStep(n, ok, c) {
+  // 문 하나가 부대에 더하는 수. 겨눈 시간(aim 0~1)만큼 보너스가 붙는다.
+  // **조준이 아니라 고르는 게 먼저다** — 기본이 10, 조준으로 붙는 건 3까지
+  function gateAdd(ok, aim, c) {
     c = c || cfg();
-    return Math.min(c.cap, Math.max(c.min, Math.round(ok ? n * c.win : n * c.lose)));
+    return (ok ? 1 : -1) * (c.gateBase + Math.round(c.gateBonus * Math.max(0, Math.min(1, aim))));
+  }
+  function gateStep(n, ok, aim, c) {
+    c = c || cfg();
+    return Math.min(c.cap, Math.max(c.min, n + gateAdd(ok, aim, c)));
   }
   // 화력은 오직 **사람 수**다. 많이 맞혀서 사람이 많아지면 총알이 많이 나간다
   function firepower(n) { return Math.floor(n * A().fire); }
@@ -65,12 +72,15 @@ const Army = (() => {
   }
   // 문 다섯 개를 이렇게 지났을 때의 마지막 화력.
   // 테스트가 이걸로 "4개 맞히면 이기고 3개면 진다"를 32가지 순서로 확인한다
-  function simulate(mask, lv) {
+  // 문 다섯 개를 이렇게 지났을 때의 마지막 화력.
+  // aim 은 문마다 얼마나 오래 겨눴는지(0~1). 테스트가 최선·최악을 다 돌려 본다
+  function simulate(mask, lv, aim) {
     const c = cfg(lv);
+    if (aim === undefined) aim = 0;
     let n = c.start;
     for (let i = 0; i < c.gates; i++) {
       const ok = typeof mask === 'number' ? !!(mask & (1 << i)) : i < mask;
-      n = gateStep(n, ok, c);
+      n = gateStep(n, ok, aim, c);
       n = Math.max(c.min, n - waveOutcome(n, c.waves[i], c).loss);
     }
     return { troops: n, power: firepower(n), win: firepower(n) >= c.boss, cfg: c };
@@ -100,8 +110,8 @@ const Army = (() => {
   function reset() {
     const a = A();
     C = cfg();
-    troops = C.start; gateIdx = 0; lane = 1; laneS = 1;   // 가운데에서 출발
-    hit = 0; result = null; bg = 0; foes = []; shots = []; wave = null; fireT = 0; fired = 0;
+    troops = C.start; gateIdx = 0; aimX = 0; x = 0;   // 가운데에서 출발
+    hit = 0; result = null; bg = 0; foes = []; shots = []; sparks = []; wave = null; fireT = 0; fired = 0;
     msg = null; msgT = 0; chief = chiefOf();
     crowd = [];
     for (let i = 0; i < a.drawMax; i++) {
@@ -132,7 +142,7 @@ const Army = (() => {
     runWords = queue.map(g => g.word);
   }
   // 갈림길 i(0..L-1) 의 좌우 자리. 가운데가 0 이 되게 −1..1 로 편다
-  function laneX(i) { return C.lanes === 1 ? 0 : (i / (C.lanes - 1) * 2 - 1) * 0.62; }
+  function doorX(i) { return C.lanes === 1 ? 0 : (i / (C.lanes - 1) * 2 - 1) * 0.62; }
   // 가운데 선을 갈림길 수만큼 긋는다 — 길이 몇 갈래인지 미리 보여야 고를 수 있다
   // 적장 — 마지막으로 오른 탑의 등급 동물이 무리를 이끈다.
   // 이름 없는 빨간 무리보다 "곰 대장" 이 훨씬 무섭다
@@ -149,9 +159,9 @@ const Army = (() => {
     UI.modal(`
       <div class="modal-title">⚔️ 연병장</div>
       <div class="modal-sub">뜻에 맞는 <b>영어 단어가 적힌 문</b>으로 지나가요.<br>
-        맞으면 부하가 <b>두 배</b>가 돼요 — <b>사람이 많아지면 총알도 많이 나가요.</b><br>
+        <b>겨누고 있으면 총알이 문에 박혀 그 문의 수가 커져요.</b><br>
         문을 지날 때마다 적이 내려와요 — 못 막으면 병사를 잃어요!</div>
-      <div class="ar-tip">화면을 <b>왼쪽 · 가운데 · 오른쪽</b> 눌러서 길을 골라요</div>
+      <div class="ar-tip">화면을 <b>끌어서</b> 부대를 옮겨요. 겨누고 있으면 그 문의 수가 커져요!</div>
       <div class="modal-sub">끝에는 <b>${chief.emoji} ${esc(chief.name)}</b>의 무리 <b>${a.boss}명</b>.
         문 ${a.gates}개 중 <b>4개</b>만 맞히면 쓸어버릴 수 있어요.</div>
       <div class="actions"><button class="btn" data-close="go">⚔️ 출발!</button></div>`,
@@ -163,7 +173,8 @@ const Army = (() => {
 
   function nextGate() {
     if (gateIdx >= queue.length) { startWave(C.boss, true); return; }
-    gate = Object.assign({ z: 1 }, queue[gateIdx]);
+    gate = Object.assign({ z: GATE_Z, aim: [] }, queue[gateIdx]);
+    for (let i = 0; i < C.lanes; i++) gate.aim[i] = 0;
     setAsk(gate.word.m); phase = 'gate'; phaseT = 0;
   }
 
@@ -196,18 +207,28 @@ const Army = (() => {
         <b class="ar-ask-word" id="ar-ask">…</b>
         <div class="ar-count" id="ar-count"></div>
       </div>
-      <div class="ar-wrap"><canvas id="ar-cv"></canvas>
-        <div class="ar-lanes">
-          <button class="ar-side" data-side="0" aria-label="왼쪽 길"></button>
-          <button class="ar-side" data-side="1" aria-label="가운데 길"></button>
-          <button class="ar-side" data-side="2" aria-label="오른쪽 길"></button>
-        </div>
-      </div>
-      <p class="hint-text">⚔️ 맞는 문으로! 사람이 많아지면 총알도 많이 나가요.</p>`;
+      <div class="ar-wrap" id="ar-wrap"><canvas id="ar-cv"></canvas></div>
+      <p class="hint-text">⚔️ 화면을 끌어서 맞는 문을 겨누세요. 오래 겨눌수록 많이 늘어나요!</p>`;
     cv = $('ar-cv'); ctx = cv.getContext('2d');
-    $('screen-army').querySelectorAll('.ar-side').forEach(b => {
-      b.onclick = () => { lane = Number(b.dataset.side); };
-    });
+    bindDrag();
+  }
+  // 화면 어디를 끌어도 부대가 따라온다. 마을 조이스틱과 같은 감각
+  function bindDrag() {
+    const wrap = $('ar-wrap');
+    let down = false;
+    const at = e => {
+      const r = wrap.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      aimX = Math.max(-1, Math.min(1, ((t.clientX - r.left) / r.width * 2 - 1) / 0.92));
+    };
+    const on = e => { down = true; at(e); e.preventDefault(); };
+    const mv = e => { if (down) { at(e); e.preventDefault(); } };
+    const up = () => { down = false; };
+    wrap.addEventListener('touchstart', on, { passive: false });
+    wrap.addEventListener('touchmove', mv, { passive: false });
+    wrap.addEventListener('touchend', up); wrap.addEventListener('touchcancel', up);
+    wrap.addEventListener('mousedown', on); wrap.addEventListener('mousemove', mv);
+    window.addEventListener('mouseup', up);
   }
   function resize() {
     if (!cv) return;
@@ -218,6 +239,7 @@ const Army = (() => {
   // 원근 — z 는 0(발밑)부터 1(지평선)까지
   const HOR = 0.24;
   const LINE = 0.14;                 // 내 부대가 선 줄. 적이 여기 닿으면 병사를 잃는다
+  const GATE_Z = 0.78;               // 문이 나타나는 거리 — 지평선에서 오면 글씨가 안 읽힌다
   function pz(z) { return HOR * H + (H - HOR * H) * Math.pow(1 - z, 1.7); }
   function sz(z) { return Math.pow(1 - z, 1.5) * 0.88 + 0.12; }
   function pxz(x, z) { return W / 2 + x * W * 0.46 * sz(z); }
@@ -232,26 +254,32 @@ const Army = (() => {
   function update(dt) {
     bg += dt * 0.9;
     shoot(dt);
-    laneS += (lane - laneS) * Math.min(1, dt * 10);
+    // 손가락을 따라 부드럽게 미끄러진다. 칸을 뛰면 겨눌 수가 없다
+    x += (aimX - x) * Math.min(1, dt * 9);
     if (hit > 0) hit -= dt;
     if (msgT > 0) msgT -= dt;
     if (phase === 'gate' && gate) {
-      gate.z -= dt / C.approach;
+      gate.z -= dt * (GATE_Z - LINE) / C.approach;
       if (gate.z <= LINE) resolveGate();
     } else if (phase === 'wave' || phase === 'boss') {
       fight(dt);
     }
   }
 
+  // 어느 문 아래에 서 있나 — 가장 가까운 문
+  function doorAt(px2) {
+    let best = 0, bd = 9;
+    for (let i = 0; i < C.lanes; i++) { const d = Math.abs(px2 - doorX(i)); if (d < bd) { bd = d; best = i; } }
+    return best;
+  }
   function resolveGate() {
-    const ok = gate.ans === Math.round(laneS);
+    const door = doorAt(x), ok = gate.ans === door;
+    const aim = Math.max(0, Math.min(1, gate.aim[door] / C.approach));
     recordResult(gate.word.towerId || (lastTower() || {}).id, gate.word, ok);
-    troops = gateStep(troops, ok);
-    if (ok) {
-      Sfx.ok(); say('×2!', '#3ee0c4');
-    } else {
-      Sfx.bad(); hit = .5; say('부하가 줄었다', '#ff8090'); UI.shake($('ar-cv'));
-    }
+    const add = gateAdd(ok, aim, C);
+    troops = gateStep(troops, ok, aim, C);
+    if (ok) { Sfx.ok(); say('+' + add + '명!', '#3ee0c4'); }
+    else { Sfx.bad(); hit = .5; say(add + '명…', '#ff8090'); UI.shake($('ar-cv')); }
     gateIdx++; saveState();
     const ws = C.waves;
     startWave(ws[gateIdx - 1] !== undefined ? ws[gateIdx - 1] : ws[ws.length - 1]);
@@ -268,16 +296,27 @@ const Army = (() => {
     const shooters = Math.min(C.drawMax, troops);
     let want = Math.floor(fireT * (shooters / a.shotEvery)) - fired;
     if (want > 60) { fired += want - 60; want = 60; }     // 창을 다시 열었을 때 몰아 나오지 않게
-    const sp = spread(troops), mid = phase === 'gate' ? laneX(laneS) : 0;
+    // 총알은 **부대 한가운데에서 좁게** 나간다. 무리 넓이만큼 퍼지면 겨눌 수가 없다
     for (let i = 0; i < want && shots.length < a.maxShots; i++) {
-      const c = crowd[(fired + i) % crowd.length];
       shots.push({
-        x: Math.max(-1, Math.min(1, mid + c.ox * sp)),
+        x: Math.max(-1, Math.min(1, x + (Math.random() - .5) * a.shotSpread)),
         z: LINE + 0.02 + Math.random() * 0.03,
         v: 1 / a.shotTime,
       });
     }
     fired += want;
+    // 문을 겨누고 있으면 그 문의 숫자가 오른다 — 총알이 박히는 게 보인다
+    if (gate && phase === 'gate') {
+      const d = doorAt(x);
+      if (Math.abs(x - doorX(d)) < 0.34) gate.aim[d] = Math.min(C.approach, gate.aim[d] + dt);
+      shots = shots.filter(s => {
+        if (s.z < gate.z) return true;
+        sparks.push({ x: s.x, z: gate.z, t: 0 });
+        return false;                     // 문에 박히고 멈춘다
+      });
+    }
+    sparks.forEach(s => (s.t += dt * 4));
+    sparks = sparks.filter(s => s.t < 1);
     // 날아가고, 지나가는 적을 쓰러뜨린다
     const fsp = wave ? spread(wave.size) : 1;
     const per = wave && foes.length ? wave.size / foes.length : 1;
@@ -337,7 +376,7 @@ const Army = (() => {
     if (hit > 0.3) ctx.translate((Math.random() - .5) * 5, (Math.random() - .5) * 5);
     sky(); road(); scenery();
     drawFoes();
-    if (gate && phase === 'gate') drawGate(gate);
+    if (gate && phase === 'gate') { drawGate(gate); drawSparks(); }
     drawShots();
     drawCrowd();
     if (msgT > 0) {
@@ -379,8 +418,8 @@ const Army = (() => {
     // 갈림길 사이마다 선을 긋는다 — 길이 몇 갈래인지 미리 보여야 고를 수 있다
     ctx.strokeStyle = 'rgba(255,255,255,.34)'; ctx.lineWidth = 2; ctx.setLineDash([8, 10]);
     for (let i = 1; i < C.lanes; i++) {
-      const x = (laneX(i - 1) + laneX(i)) / 2;
-      ctx.beginPath(); ctx.moveTo(pxz(x, 0), pz(0)); ctx.lineTo(pxz(x, 1), pz(1)); ctx.stroke();
+      const dx2 = (doorX(i - 1) + doorX(i)) / 2;
+      ctx.beginPath(); ctx.moveTo(pxz(dx2, 0), pz(0)); ctx.lineTo(pxz(dx2, 1), pz(1)); ctx.stroke();
     }
     ctx.setLineDash([]);
   }
@@ -400,22 +439,39 @@ const Army = (() => {
   }
 
   function drawGate(g) {
-    const z = Math.max(0, g.z), s = sz(z), y = pz(z), hgt = 76 * s;
-    const sel = Math.round(laneS);
+    const z = Math.max(0, g.z), s = sz(z), y = pz(z), hgt = 88 * s;
+    const sel = doorAt(x);
     for (let i = 0; i < C.lanes; i++) {
-      const cx = pxz(laneX(i), z), w = W * 0.30 * s;
+      const cx = pxz(doorX(i), z), w = W * 0.30 * s;
+      const ok = i === g.ans;
+      const add = (ok ? 1 : -1) * (C.gateBase + Math.round(C.gateBonus * Math.min(1, g.aim[i] / C.approach)));
       ctx.fillStyle = i === sel ? '#ffd964' : '#e9dfc8';
       ctx.fillRect(cx - w / 2, y - hgt, w, hgt);
       ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(cx - w / 2, y - hgt, w, 6 * s);
       ctx.strokeStyle = '#7a5636'; ctx.lineWidth = Math.max(1, 3 * s);
       ctx.strokeRect(cx - w / 2, y - hgt, w, hgt);
-      // 긴 단어는 글씨가 줄어든다. 문이 좁아졌으니 처음부터 조금 작게 시작한다
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // 단어
       const fs = Math.max(8, 18 * s);
       ctx.font = `700 ${fs}px "Baloo 2", sans-serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#3a2d1c';
-      ctx.fillText(g.doors[i], cx, y - hgt / 2, w - 6 * s);
+      ctx.fillText(g.doors[i], cx, y - hgt * 0.66, w - 6 * s);
+      // 그 문이 주는 수 — 겨누고 있으면 커진다. 이게 조준의 이유다
+      const ns = Math.max(10, 24 * s);
+      ctx.font = `800 ${ns}px "Jua", sans-serif`;
+      ctx.fillStyle = add >= 0 ? '#1e9e78' : '#c4364a';
+      ctx.fillText((add >= 0 ? '+' : '') + add, cx, y - hgt * 0.26, w - 6 * s);
     }
+  }
+  // 총알이 문에 박히는 자리
+  function drawSparks() {
+    sparks.forEach(s => {
+      const s0 = sz(s.z);
+      ctx.globalAlpha = 1 - s.t;
+      ctx.fillStyle = SHOT.glow;
+      ctx.beginPath(); ctx.arc(pxz(s.x, s.z), pz(s.z) - 30 * s0, (3 + s.t * 7) * s0 * 1.6, 0, 6.3); ctx.fill();
+      ctx.globalAlpha = 1;
+    });
   }
 
   // 무리가 커질수록 **넓게** 퍼진다. 80명이 20명과 같은 크기면 늘어난 보람이 없다
@@ -487,14 +543,14 @@ const Army = (() => {
     const look = (typeof Avatar !== 'undefined' && Avatar.OUTFIT_LOOK[state.player.outfit]) || { base: '#3fae6a', belt: '#8a5a2b' };
     const n = Math.min(C.drawMax, troops);
     const t = performance.now() / 1000;
-    const sp = spread(troops), mid = phase === 'gate' ? laneX(laneS) : 0;
+    const sp = spread(troops), mid = x;
     crowd.slice(0, n).sort((a2, b2) => b2.oz - a2.oz).forEach(c => {
       const zz = 0.03 + c.oz * (0.07 + sp * 0.07);
       // 길 밖으로 나가면 안 보인다 — 갈림길 끝에 서면 무리가 반쯤 화면을 벗어났다
       const x = Math.max(-1, Math.min(1, mid + c.ox * sp));
       soldier(pxz(x, zz), pz(zz), sz(zz) * 0.9, look.base, look.belt, c.f + t * 9);
     });
-    badge(pxz(phase === 'gate' ? mid : -0.55, 0.06), pz(0.06) - 118, troops + '명', '#3ee0c4');
+    badge(pxz(phase === 'gate' ? Math.max(-0.6, Math.min(0.6, mid)) : -0.55, 0.06), pz(0.06) - 118, troops + '명', '#3ee0c4');
   }
 
   // 부하 하나 — 머리·몸·다리 셋이면 사람으로 읽힌다. 작게 그리니 이걸로 충분하다
@@ -571,14 +627,15 @@ const Army = (() => {
 
   function key(e) {
     if (UI.current() !== 'army') return;
-    if (e.key === 'ArrowLeft' || e.key === 'a') { lane = Math.max(0, lane - 1); e.preventDefault(); }
-    if (e.key === 'ArrowRight' || e.key === 'd') { lane = Math.min(C.lanes - 1, lane + 1); e.preventDefault(); }
+    if (e.key === 'ArrowLeft' || e.key === 'a') { aimX = Math.max(-1, aimX - 0.34); e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'd') { aimX = Math.min(1, aimX + 0.34); e.preventDefault(); }
   }
   window.addEventListener('keydown', key);
   window.addEventListener('resize', () => { if (UI.current() === 'army') resize(); });
 
   // 테스트에서 정답 쪽을 알아야 한 판을 끝까지 돌려 볼 수 있다
-  function debug() { return { troops, power: firepower(troops), gateIdx, ans: gate && gate.ans, phase }; }
+  function debug() { return { troops, power: firepower(troops), gateIdx, ans: gate && gate.ans, phase, x, aimX }; }
+  function aimTo(i) { aimX = doorX(i); }
 
-  return { start, stop, simulate, gateStep, firepower, waveOutcome, tier, cfg, debug };
+  return { start, stop, simulate, gateStep, gateAdd, firepower, waveOutcome, tier, cfg, debug, aimTo };
 })();

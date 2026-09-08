@@ -1053,16 +1053,10 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .ar-count b { color: var(--mint-dark); font-size: 17px; }
 .ar-wrap { position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
 .ar-wrap canvas { display: block; width: 100%; }
-/* 갈림길만큼 눌러야 할 자리가 있다. 화면을 그 수만큼 나눈다.
-   버튼을 flex 로 만들면 캔버스가 흐름에서 빠져 **높이가 0** 이 된다 —
-   높이는 캔버스가 정하고, 버튼은 그 위에 덮는다 */
-.ar-lanes { position: absolute; inset: 0; display: flex; }
-.ar-side {
-  flex: 1; background: transparent; border: none; padding: 0; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.ar-side:active { background: rgba(255,255,255,.10); }
-.ar-side + .ar-side { box-shadow: inset 1px 0 0 rgba(255,255,255,.07); }
+/* 칸을 뛰어다니면 가운데로 가기가 어렵다 — 화면을 끌면 부대가 따라온다.
+   마을 조이스틱과 같은 감각이고, 그래야 **겨눌 수** 있다 */
+.ar-wrap { touch-action: none; -webkit-tap-highlight-color: transparent; cursor: grab; }
+.ar-wrap:active { cursor: grabbing; }
 .ar-tip { margin: 8px 0 2px; font-size: 14px; color: var(--ink-dim); }
 /* 끝에 뜨는 큰 숫자 — 이 판이 무슨 이야기였는지 한 줄로 말한다 */
 .ar-big {
