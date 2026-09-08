@@ -42,6 +42,7 @@ const Army = (() => {
   let W = 360, H = 260;
   let troops, gateIdx, gate, lane, laneS, phase, phaseT, pool, queue, hit;
   let bg, crowd, foes, shots, wave, result, runWords, msg, msgT, C, chief;
+  let fireT = 0, fired = 0;
 
   // ---------- 균형 ----------
   // 게이트는 **전부 곱하기**다. 맞으면 ×2, 틀리면 ×0.6.
@@ -100,7 +101,7 @@ const Army = (() => {
     const a = A();
     C = cfg();
     troops = C.start; gateIdx = 0; lane = 1; laneS = 1;   // 가운데에서 출발
-    hit = 0; result = null; bg = 0; foes = []; shots = []; wave = null;
+    hit = 0; result = null; bg = 0; foes = []; shots = []; wave = null; fireT = 0; fired = 0;
     msg = null; msgT = 0; chief = chiefOf();
     crowd = [];
     for (let i = 0; i < a.drawMax; i++) {
@@ -141,7 +142,7 @@ const Army = (() => {
     return L && L.animal ? { emoji: L.emoji, name: L.name + ' 대장' } : { emoji: '👹', name: '적장' };
   }
 
-  const SHOT = { color: '#ffe27a', glow: '#fff6d8', r: 3.2 };
+  const SHOT = { color: '#ffd633', glow: '#fff6b0', r: 4.6 };
 
   function brief() {
     const a = C;
@@ -230,6 +231,7 @@ const Army = (() => {
 
   function update(dt) {
     bg += dt * 0.9;
+    shoot(dt);
     laneS += (lane - laneS) * Math.min(1, dt * 10);
     if (hit > 0) hit -= dt;
     if (msgT > 0) msgT -= dt;
@@ -255,29 +257,54 @@ const Army = (() => {
     startWave(ws[gateIdx - 1] !== undefined ? ws[gateIdx - 1] : ws[ws.length - 1]);
   }
 
-  // 전투 — 총알이 나가고 적이 쓰러진다.
+  // 총알은 **늘 나간다.** 병사 수에 비례해서 나가니 사람이 많으면 화면이 총알로 찬다.
+  // 앞으로 곧게 날아가고, 살아 있는 적을 지나가면 그 적이 쓰러진다.
+  //
+  // 처치 수만큼만 쏘게 했더니 적이 6명인 웨이브에선 총알이 6발뿐이라 보이지도 않았다.
+  // 총알은 그림이고, 승패는 이미 정해진 숫자다 — 둘을 묶을 이유가 없다.
+  function shoot(dt) {
+    const a = A();
+    fireT += dt;
+    const shooters = Math.min(C.drawMax, troops);
+    let want = Math.floor(fireT * (shooters / a.shotEvery)) - fired;
+    if (want > 60) { fired += want - 60; want = 60; }     // 창을 다시 열었을 때 몰아 나오지 않게
+    const sp = spread(troops), mid = phase === 'gate' ? laneX(laneS) : 0;
+    for (let i = 0; i < want && shots.length < a.maxShots; i++) {
+      const c = crowd[(fired + i) % crowd.length];
+      shots.push({
+        x: Math.max(-1, Math.min(1, mid + c.ox * sp)),
+        z: LINE + 0.02 + Math.random() * 0.03,
+        v: 1 / a.shotTime,
+      });
+    }
+    fired += want;
+    // 날아가고, 지나가는 적을 쓰러뜨린다
+    const fsp = wave ? spread(wave.size) : 1;
+    const per = wave && foes.length ? wave.size / foes.length : 1;
+    shots.forEach(s => {
+      const z0 = s.z;
+      s.z += s.v * dt;
+      if (!wave || wave.killed >= wave.kills) return;
+      for (let i = 0; i < foes.length; i++) {
+        const f = foes[i];
+        if (f.fall) continue;
+        if (f.z <= a.range && f.z > z0 && f.z <= s.z && Math.abs(f.ox * fsp - s.x) < 0.17) {
+          f.fall = 0.7; wave.killed = Math.min(wave.kills, wave.killed + per); s.gone = true;
+          break;
+        }
+      }
+    });
+    shots = shots.filter(s => !s.gone && s.z < 1.08);
+  }
+
+  // 전투 — 적이 내려오고, 못 막은 만큼 병사를 잃는다.
   // 결과는 이미 정해져 있고 **그림이 그 답을 따라간다**
   function fight(dt) {
     phaseT += dt;
     const dur = wave.boss ? C.bossTime : C.waveTime;
-    // 총알 — 처치할 수만큼 나간다. 많이 맞혔으면 화면이 총알로 찬다
-    const want = Math.floor(wave.kills * Math.min(1, phaseT / (dur * 0.68)));
-    let guard = 0;
-    while (wave.killed < want && guard++ < 12) {
-      const alive = foes.filter(f => !f.dead);
-      if (!alive.length) { wave.killed = want; break; }
-      const target = alive.reduce((p, q) => q.z < p.z ? q : p);
-      shots.push({ x0: laneX(laneS) + (Math.random() - .5) * .5, z0: LINE, tx: target.ox, tz: target.z, t: 0, f: target });
-      wave.killed++;
-    }
-    shots.forEach(s => {
-      s.t += dt / (s.spark ? C.shotTime * 1.6 : C.shotTime);
-      if (!s.spark && s.t >= 1 && s.f && !s.f.dead) { s.f.dead = 0.35; puff(s.f); }
-    });
-    shots = shots.filter(s => s.t < 1.2);
-    // 적이 내려온다
     foes.forEach(f => {
-      if (f.dead > 0) { f.dead -= dt; return; }
+      if (f.fall) { f.fall -= dt; if (f.fall <= 0) { f.fall = 0; f.dead = true; } return; }
+      if (f.dead) return;
       f.z = Math.max(LINE, f.z - dt / dur);
     });
     // 결산 — 못 막은 적이 줄에 닿으면 병사를 잃는다
@@ -295,11 +322,6 @@ const Army = (() => {
     }
   }
 
-  function puff(f) {
-    for (let i = 0; i < 3; i++) {
-      shots.push({ x0: f.ox, z0: f.z, tx: f.ox + (Math.random() - .5) * .35, tz: f.z + Math.random() * .05, t: 0, spark: true });
-    }
-  }
   function say(t, c) { msg = { t, c }; msgT = 1.1; }
 
   function finish() {
@@ -403,23 +425,34 @@ const Army = (() => {
     if (!foes.length) return;
     const sp = spread(wave ? wave.size : 10);
     foes.slice().sort((a2, b2) => b2.z - a2.z).forEach(f => {
-      if (f.dead > 0) {
-        const s = sz(f.z) * (1 + (0.35 - f.dead) * 2);
-        ctx.globalAlpha = Math.max(0, f.dead / 0.35);
-        ctx.fillStyle = '#ffd0d6';
-        ctx.beginPath(); ctx.arc(pxz(f.ox * sp, f.z), pz(f.z) - 12 * s, 9 * s, 0, 6.3); ctx.fill();
-        ctx.globalAlpha = 1; return;
+      if (f.dead) return;
+      const x = pxz(Math.max(-1, Math.min(1, f.ox * sp)), f.z), y = pz(f.z), s = sz(f.z);
+      if (f.fall) {
+        // 맞으면 **쓰러진다.** 옆으로 넘어가며 사라진다 — 그래야 맞은 게 보인다
+        const k = 1 - f.fall / 0.7;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(k * Math.PI / 2 * 1.05);
+        ctx.globalAlpha = Math.max(0, 1 - k * 0.9);
+        soldier(0, 0, s, '#d9455a', '#8f2436', 0);
+        ctx.globalAlpha = 1; ctx.restore();
+        // 맞은 자리에서 튀는 빛
+        if (k < 0.4) {
+          ctx.globalAlpha = 1 - k / 0.4;
+          ctx.fillStyle = SHOT.glow;
+          ctx.beginPath(); ctx.arc(x, y - 16 * s, 11 * s * (1 + k * 2), 0, 6.3); ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        return;
       }
-      soldier(pxz(Math.max(-1, Math.min(1, f.ox * sp)), f.z), pz(f.z), sz(f.z), '#d9455a', '#8f2436', f.f + phaseT * 9);
+      soldier(x, y, s, '#d9455a', '#8f2436', f.f + phaseT * 9);
     });
     if (wave.boss) drawChief();
-    const left = Math.max(0, wave.size - wave.killed);
+    const left = Math.max(0, Math.round(wave.size - wave.killed));
     if (left > 0) badge(pxz(0.55, 0.06), pz(0.06) - 118, left + '명', '#ff8090');
   }
 
   // 적장 — 무리 맨 앞에 크게. 이름 없는 빨간 무리보다 "곰 대장" 이 훨씬 무섭다
   function drawChief() {
-    const alive = foes.filter(f => !f.dead);
+    const alive = foes.filter(f => !f.dead && !f.fall);
     const z = alive.length ? alive.reduce((p, q) => q.z < p.z ? q : p).z : LINE;
     const s = sz(z) * 2.1, x = pxz(0, z), y = pz(z);
     soldier(x, y, s, '#8f2436', '#5a1420', phaseT * 7);
@@ -429,22 +462,24 @@ const Army = (() => {
     const fs = Math.max(10, 15 * sz(z) * 1.6);
     ctx.font = '800 ' + fs + 'px "Jua", sans-serif';
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,8,28,.75)';
-    ctx.strokeText(chief.name, x, y - 56 * s);
-    ctx.fillStyle = '#ff8090'; ctx.fillText(chief.name, x, y - 56 * s);
+    ctx.strokeText(chief.name, x, y - 78 * s);
+    ctx.fillStyle = '#ff8090'; ctx.fillText(chief.name, x, y - 78 * s);
   }
 
+  // 총알 — 노란 빛덩이가 앞으로 곧게 날아간다. 꼬리가 있어야 날아가는 것으로 읽힌다
   function drawShots() {
     shots.forEach(s => {
-      const t = Math.min(1, s.t);
-      const x = s.x0 + (s.tx - s.x0) * t, z = s.z0 + (s.tz - s.z0) * t;
-      const r = (s.spark ? 2.2 : SHOT.r) * sz(z) * 1.7;
-      ctx.fillStyle = s.spark ? '#fff6e0' : SHOT.color;
-      ctx.beginPath(); ctx.arc(pxz(x, z), pz(z) - 16 * sz(z), r, 0, 6.3); ctx.fill();
-      if (!s.spark) {                      // 꼬리 — 날아간다는 게 이걸로 읽힌다
-        ctx.globalAlpha = .38;
-        ctx.beginPath(); ctx.arc(pxz(x, z), pz(z) - 16 * sz(z) + 6 * sz(z), r * .7, 0, 6.3); ctx.fill();
-        ctx.globalAlpha = 1;
-      }
+      const s0 = sz(s.z), x = pxz(s.x, s.z), y = pz(s.z) - 17 * s0;
+      const r = SHOT.r * s0 * 1.7;
+      const tz = Math.max(0, s.z - 0.05), ty = pz(tz) - 17 * sz(tz);
+      ctx.strokeStyle = SHOT.color; ctx.globalAlpha = .45;
+      ctx.lineWidth = r * 1.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(pxz(s.x, tz), ty); ctx.lineTo(x, y); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = SHOT.color;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill();
+      ctx.fillStyle = SHOT.glow;
+      ctx.beginPath(); ctx.arc(x, y, r * .5, 0, 6.3); ctx.fill();
     });
   }
 
