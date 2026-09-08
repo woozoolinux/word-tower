@@ -875,13 +875,17 @@ const AR = sandbox.AR, ARB = BAL.army;
 // 조준 보너스를 크게 두면 **틀린 문을 잘 겨눈 아이**가 맞는 문을 대충 지나간 아이를 이긴다.
 // 여긴 단어 게임이다 — 고르는 게 먼저고 조준은 그 위의 재미다. 그래서 보너스가 작다.
 //
-// 지키는 선: **다섯 개 다 맞히면 조준을 못해도 이기고, 두 개 이하면 아무리 잘 겨눠도 진다.**
-// 그 사이(3~4개)가 조준 실력이 가르는 구간이다.
+// 지키는 선: **다섯 개 다 맞히면 조준을 못해도 이기고, 세 개 이하면 아무리 잘 겨눠도 진다.**
+// 네 개일 때만 조준 실력이 가른다.
 eq('문 다섯 개', ARB.gates, 5);
 eq('갈림길 셋 — 둘이면 반은 찍어서 맞는다', ARB.lanes, 3);
 eq('한 명으로 시작한다', ARB.start, 1);
 ok('조준 보너스는 기본보다 작다 — 고르는 게 먼저다', ARB.gateBonus < ARB.gateBase / 2,
   '기본 +' + ARB.gateBase + ' · 조준 +' + ARB.gateBonus);
+// 1명이 한 번에 11명이 되면 늘어나는 재미가 없다. 한 문이 주는 건 지금 부대만큼을 넘지 않아야 한다
+ok('한 문이 부대를 몇 배로 만들지 않는다', ARB.gateBase + ARB.gateBonus <= ARB.start * 6,
+  '1명 → ' + (ARB.start + ARB.gateBase) + '명');
+ok('혼자일 땐 한 발씩 쏜다', ARB.shotEvery >= 0.8, ARB.shotEvery + '초에 한 발');
 const AIMS = [0, 0.25, 0.5, 0.75, 1];
 [1, 8, 16, 24].forEach(lv => {
   const c = AR.cfg(lv), tag = 'Lv' + lv + '(×' + c.k + ')';
@@ -893,8 +897,8 @@ const AIMS = [0, 0.25, 0.5, 0.75, 1];
   const by = k => rows.filter(r => r.n === k);
   ok(tag + ' 다 맞히면 조준을 못해도 이긴다', by(5).every(r => r.win),
     '화력 ' + Math.min.apply(null, by(5).map(r => r.power)) + '~' + Math.max.apply(null, by(5).map(r => r.power)) + ' vs ' + c.boss);
-  ok(tag + ' 두 개 이하면 아무리 잘 겨눠도 진다', by(2).concat(by(1), by(0)).every(r => !r.win),
-    '화력 최대 ' + Math.max.apply(null, by(2).map(r => r.power)));
+  ok(tag + ' 세 개 이하면 아무리 잘 겨눠도 진다', by(3).concat(by(2), by(1), by(0)).every(r => !r.win),
+    '화력 최대 ' + Math.max.apply(null, by(3).map(r => r.power)));
   // 3~4개는 조준이 가른다 — 둘 다 나와야 그 구간이 살아 있는 것이다
   ok(tag + ' 네 개는 조준에 따라 갈린다', by(4).some(r => r.win) && by(4).some(r => !r.win));
   ok(tag + ' 다 틀려도 부대가 남는다', by(0)[0].troops >= c.min, by(0)[0].troops + '명');

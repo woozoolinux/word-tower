@@ -459,8 +459,12 @@ const Army = (() => {
       // 그 문이 주는 수 — 겨누고 있으면 커진다. 이게 조준의 이유다
       const ns = Math.max(10, 24 * s);
       ctx.font = `800 ${ns}px "Jua", sans-serif`;
+      const txt = (add >= 0 ? '+' : '') + add;
+      // 총알 빛이 숫자를 가려서 안 읽혔다 — 흰 테두리를 두른다
+      ctx.lineWidth = Math.max(2, 5 * s); ctx.strokeStyle = 'rgba(255,252,240,.95)';
+      ctx.strokeText(txt, cx, y - hgt * 0.26, w - 6 * s);
       ctx.fillStyle = add >= 0 ? '#1e9e78' : '#c4364a';
-      ctx.fillText((add >= 0 ? '+' : '') + add, cx, y - hgt * 0.26, w - 6 * s);
+      ctx.fillText(txt, cx, y - hgt * 0.26, w - 6 * s);
     }
   }
   // 총알이 문에 박히는 자리
@@ -469,7 +473,7 @@ const Army = (() => {
       const s0 = sz(s.z);
       ctx.globalAlpha = 1 - s.t;
       ctx.fillStyle = SHOT.glow;
-      ctx.beginPath(); ctx.arc(pxz(s.x, s.z), pz(s.z) - 30 * s0, (3 + s.t * 7) * s0 * 1.6, 0, 6.3); ctx.fill();
+      ctx.beginPath(); ctx.arc(pxz(s.x, s.z), pz(s.z) - 46 * s0, (2 + s.t * 5) * s0 * 1.5, 0, 6.3); ctx.fill();
       ctx.globalAlpha = 1;
     });
   }
