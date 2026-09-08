@@ -1053,13 +1053,16 @@ input.name-input { font-family: inherit; font-size: 18px; padding: 8px 12px; bor
 .ar-count b { color: var(--mint-dark); font-size: 17px; }
 .ar-wrap { position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
 .ar-wrap canvas { display: block; width: 100%; }
+/* 갈림길만큼 눌러야 할 자리가 있다. 화면을 그 수만큼 나눈다.
+   버튼을 flex 로 만들면 캔버스가 흐름에서 빠져 **높이가 0** 이 된다 —
+   높이는 캔버스가 정하고, 버튼은 그 위에 덮는다 */
+.ar-lanes { position: absolute; inset: 0; display: flex; }
 .ar-side {
-  position: absolute; top: 0; bottom: 0; width: 50%;
-  background: transparent; border: none; padding: 0; cursor: pointer;
+  flex: 1; background: transparent; border: none; padding: 0; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.ar-side.left { left: 0; } .ar-side.right { right: 0; }
 .ar-side:active { background: rgba(255,255,255,.10); }
+.ar-side + .ar-side { box-shadow: inset 1px 0 0 rgba(255,255,255,.07); }
 .ar-tip { margin: 8px 0 2px; font-size: 14px; color: var(--ink-dim); }
 /* 끝에 뜨는 큰 숫자 — 이 판이 무슨 이야기였는지 한 줄로 말한다 */
 .ar-big {

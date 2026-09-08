@@ -872,34 +872,47 @@ const AR = sandbox.AR, ARB = BAL.army;
 // 게이트는 전부 곱하기 — 순서가 결과를 안 바꾼다.
 // 전투 손실은 **머릿수 상한**이다. 비율로 두면 병력이 적을 때 배로 늘려도
 // 그만큼 다시 잃어서 영영 못 올라온다 (죽음의 나선).
-// 지키는 선은 하나: **4개 맞히면 이기고 3개면 진다.** 32가지 순서를 다 돌린다.
+// 지키는 선은 하나: **4개 맞히면 이기고 3개면 진다.** 32가지 순서를 다 돌린다 —
+// 그리고 **레벨이 올라도** 그대로여야 한다.
 eq('문 다섯 개', ARB.gates, 5);
-ok('적장의 무리가 있다', ARB.boss >= 10, ARB.boss + '명');
-const ARR = [];
-for (let m = 0; m < 32; m++) {
-  let c = 0; for (let bt = 0; bt < 5; bt++) if (m & (1 << bt)) c++;
-  ARR.push(Object.assign({ c }, AR.simulate(m)));
-}
-const arBy = c => ARR.filter(r => r.c === c);
-ok('4개 맞히면 어떤 순서로든 이긴다', arBy(4).every(r => r.win),
-  '화력 ' + Math.min.apply(null, arBy(4).map(r => r.power)) + '~' + Math.max.apply(null, arBy(4).map(r => r.power)));
-ok('5개면 당연히 이긴다', arBy(5).every(r => r.win));
-ok('3개면 어떤 순서로든 진다', arBy(3).every(r => !r.win),
-  '화력 ' + Math.min.apply(null, arBy(3).map(r => r.power)) + '~' + Math.max.apply(null, arBy(3).map(r => r.power)));
-ok('2개 이하도 물론 진다', arBy(2).concat(arBy(1), arBy(0)).every(r => !r.win));
-// 죽음의 나선 — 다 틀려도 부대가 사라지면 안 된다. 아이는 끝까지 달려 보고 지는 게 낫다
-ok('다 틀려도 부대가 남는다', arBy(0)[0].troops >= ARB.min, arBy(0)[0].troops + '명');
-// 한 웨이브가 병력의 일부를 **비율로** 가져가면 작은 부대는 영영 못 올라온다.
-// 머릿수 상한이라야 ×2 두 번으로 되살아난다
+eq('갈림길 셋 — 둘이면 반은 찍어서 맞는다', ARB.lanes, 3);
+[1, 8, 16, 24, 40].forEach(lv => {
+  const c = AR.cfg(lv), tag = 'Lv' + lv + '(×' + c.k + ')';
+  const rows = [];
+  for (let m = 0; m < 32; m++) {
+    let n = 0; for (let bt = 0; bt < 5; bt++) if (m & (1 << bt)) n++;
+    rows.push(Object.assign({ n }, AR.simulate(m, lv)));
+  }
+  const by = k => rows.filter(r => r.n === k);
+  ok(tag + ' 4개 맞히면 어떤 순서로든 이긴다', by(4).every(r => r.win),
+    '화력 ' + Math.min.apply(null, by(4).map(r => r.power)) + '~' + Math.max.apply(null, by(4).map(r => r.power)) + ' vs 적장 ' + c.boss);
+  ok(tag + ' 3개면 어떤 순서로든 진다', by(3).every(r => !r.win),
+    '화력 ' + Math.min.apply(null, by(3).map(r => r.power)) + '~' + Math.max.apply(null, by(3).map(r => r.power)));
+  ok(tag + ' 2개 이하도 물론 진다', by(2).concat(by(1), by(0)).every(r => !r.win));
+  // 죽음의 나선 — 다 틀려도 부대가 사라지면 안 된다
+  ok(tag + ' 다 틀려도 부대가 남는다', by(0)[0].troops >= c.min, by(0)[0].troops + '명');
+  ok(tag + ' 부하에 상한이 있다', by(5)[0].troops <= c.cap, by(5)[0].troops + '명 / ' + c.cap);
+});
+// 레벨이 올라도 **수만 커지고 규칙은 그대로**다. 어려워지는 건 판단할 시간뿐
+ok('레벨이 오르면 부대도 적도 같은 배로 커진다', (() => {
+  const a1 = AR.cfg(1), a2 = AR.cfg(1 + ARB.tierPer);
+  return a2.k === a1.k + 1 && a2.start === a1.start * a2.k && a2.boss === a1.boss * a2.k;
+})());
+ok('레벨이 오르면 문이 더 빨리 온다', AR.cfg(1).approach > AR.cfg(1 + ARB.tierPer).approach,
+  AR.cfg(1).approach.toFixed(2) + '초 → ' + AR.cfg(1 + ARB.tierPer).approach.toFixed(2) + '초');
+ok('아무리 높아도 손이 못 따라갈 만큼 빨라지진 않는다', AR.cfg(999).approach >= ARB.minApproach,
+  AR.cfg(999).approach.toFixed(2) + '초');
+ok('배율에도 끝이 있다', AR.tier(999) === ARB.tierMax, '×' + AR.tier(999));
+// 한 웨이브가 병력의 일부를 **비율로** 가져가면 작은 부대는 영영 못 올라온다
 ok('한 웨이브가 데려가는 병사에 상한이 있다', ARB.maxLoss > 0 && ARB.maxLoss <= 5, ARB.maxLoss + '명');
-ok('작은 부대도 ×2 두 번이면 되살아난다',
-  AR.gateStep(AR.gateStep(ARB.min, true), true) - ARB.maxLoss * 2 > ARB.min);
+ok('작은 부대도 ×2 두 번이면 되살아난다', (() => {
+  const c = AR.cfg(1);
+  return AR.gateStep(AR.gateStep(c.min, true, c), true, c) - c.maxLoss * 2 > c.min;
+})());
 // 무기 — 맞힐 때마다 좋아진다. 이게 이 판의 보너스다
 eq('무기는 네 단계', AR.WEAPONS.length, ARB.weaponMax + 1);
 ok('한 문 맞힐 때마다 무기가 좋아진다', AR.level(0) === 0 && AR.level(1) === 1 && AR.level(9) === ARB.weaponMax);
 ok('무기가 좋아질수록 화력이 세진다', ARB.fire.every((v, i) => i === 0 || v > ARB.fire[i - 1]), ARB.fire.join(' → '));
-// 부하가 너무 많아지면 폰이 못 버티고 화면도 안 읽힌다
-ok('부하에 상한이 있다', arBy(5)[0].troops <= ARB.cap, arBy(5)[0].troops + '명 (상한 ' + ARB.cap + ')');
 // 판 하나가 아이가 앉아 있을 만한 길이인가
 ok('한 판이 1분 안쪽이다',
   ARB.gates * (ARB.approach + ARB.waveTime) + ARB.bossTime < 60,
