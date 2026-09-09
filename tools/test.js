@@ -905,7 +905,10 @@ const AIMS = [0, 0.25, 0.5, 0.75, 1];
     '화력 최대 ' + Math.max.apply(null, by(3).map(r => r.power)));
   // 다섯 중 하나 틀린 건 용서한다 — 아이가 한 번 틀렸다고 판이 끝나면 다시 안 한다
   ok(tag + ' 하나 틀린 건 용서한다', by(4).every(r => r.win));
-  ok(tag + ' 다 틀려도 부대가 남는다', by(0)[0].troops >= c.min, by(0)[0].troops + '명');
+  // 다 틀리면 적이 부대를 전부 쓰러뜨린다 — 전멸이 있어야 이기는 게 기쁘다
+  ok(tag + ' 다 틀리면 전멸한다', by(0).every(r => r.wiped));
+  // 하지만 네 개 이상 맞힌 판이 전멸하면 안 된다. 잘하고도 죽으면 억울하다
+  ok(tag + ' 네 개 맞힌 판은 전멸하지 않는다', by(4).concat(by(5)).every(r => !r.wiped));
   ok(tag + ' 부하에 상한이 있다', rows.every(r => r.troops <= c.cap));
 });
 // 조준은 보너스지 승패가 아니다 — 같은 개수를 맞혔으면 조준한 쪽이 더 세야 하고,

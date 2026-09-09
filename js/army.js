@@ -86,7 +86,8 @@ const Army = (() => {
     for (let i = 0; i < c.gates; i++) {
       const ok = typeof mask === 'number' ? !!(mask & (1 << i)) : i < mask;
       n = gateStep(n, ok, aim, c);
-      n = Math.max(c.min, n - waveOutcome(n, c.waves[i], c).loss);
+      n = n - waveOutcome(n, c.waves[i], c).loss;      // 전투에서는 0까지 간다
+      if (n <= 0) return { troops: 0, power: 0, win: false, wiped: true, cfg: c };
     }
     return { troops: n, power: firepower(n), win: firepower(n) >= c.boss, cfg: c };
   }
@@ -368,8 +369,9 @@ const Army = (() => {
         f.atk = 0;
         if (wave.taken < wave.loss) {
           wave.taken++;
-          troops = Math.max(C.min, troops - 1);
+          troops = troops - 1;                    // 전투에서는 0까지 간다 — 전멸이 있어야 긴장이 산다
           hit = .32; Sfx.bad(); say('−1명', '#ff8090');
+          if (troops <= 0) { troops = 0; wiped(); return; }
           setAsk(wave.boss ? chief.emoji + ' ' + chief.name + '!' : '막아라!', wave.boss ? '마지막 싸움' : '적이 내려온다');
         }
       }
@@ -386,6 +388,11 @@ const Army = (() => {
 
   function say(t, c) { msg = { t, c }; msgT = 1.1; }
 
+  // 부대가 전부 쓰러졌다 — 그 자리에서 끝난다
+  function wiped() {
+    stop();
+    setTimeout(() => lost(0, true), 700);
+  }
   function finish() {
     stop();
     const power = firepower(troops);
@@ -399,7 +406,7 @@ const Army = (() => {
     if (hit > 0.3) ctx.translate((Math.random() - .5) * 5, (Math.random() - .5) * 5);
     sky(); road(); scenery();
     drawFoes();
-    if (gate && phase === 'gate') { drawGate(gate); drawSparks(); }
+    if (gate && phase === 'gate') { drawGate(gate); drawSparks(); drawAsk(gate); }
     drawShots();
     drawCrowd();
     if (msgT > 0) {
@@ -466,8 +473,6 @@ const Army = (() => {
     const sel = doorAt(x);
     for (let i = 0; i < C.lanes; i++) {
       const cx = pxz(doorX(i), z), w = W * 0.30 * s;
-      const ok = i === g.ans;
-      const add = gateAdd(ok, g.aim[i] / C.approach, C);
       ctx.fillStyle = i === sel ? '#ffd964' : '#e9dfc8';
       ctx.fillRect(cx - w / 2, y - hgt, w, hgt);
       ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(cx - w / 2, y - hgt, w, 6 * s);
@@ -475,21 +480,37 @@ const Army = (() => {
       ctx.strokeRect(cx - w / 2, y - hgt, w, hgt);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       // 단어
-      const fs = Math.max(8, 18 * s);
-      ctx.font = `700 ${fs}px "Baloo 2", sans-serif`;
+      const fsz = Math.max(9, 20 * s);
+      ctx.font = `700 ${fsz}px "Baloo 2", sans-serif`;
       ctx.fillStyle = '#3a2d1c';
-      ctx.fillText(g.doors[i], cx, y - hgt * 0.66, w - 6 * s);
-      // 그 문이 주는 수 — 겨누고 있으면 커진다. 이게 조준의 이유다
-      const ns = Math.max(10, 24 * s);
-      ctx.font = `800 ${ns}px "Jua", sans-serif`;
-      const txt = (add >= 0 ? '+' : '') + add;
-      // 총알 빛이 숫자를 가려서 안 읽혔다 — 흰 테두리를 두른다
-      ctx.lineWidth = Math.max(2, 5 * s); ctx.strokeStyle = 'rgba(255,252,240,.95)';
-      ctx.strokeText(txt, cx, y - hgt * 0.26, w - 6 * s);
-      ctx.fillStyle = add >= 0 ? '#1e9e78' : '#c4364a';
-      ctx.fillText(txt, cx, y - hgt * 0.26, w - 6 * s);
+      ctx.fillText(g.doors[i], cx, y - hgt * 0.62, w - 8 * s);
+      // 겨눈 만큼 차오르는 게이지.
+      // 여기에 +6 / −2 를 적으면 **색만 보고 답을 안다** — 단어를 안 읽어도 된다.
+      // 게이지는 정답인지 아닌지를 드러내지 않으면서 "겨누면 이득" 만 보여준다
+      const gw = w - 16 * s, gh = Math.max(4, 9 * s), gy = y - hgt * 0.26;
+      ctx.fillStyle = 'rgba(90,72,40,.28)';
+      ctx.fillRect(cx - gw / 2, gy, gw, gh);
+      const fill = Math.max(0, Math.min(1, g.aim[i] / C.approach));
+      if (fill > 0) {
+        ctx.fillStyle = '#ffb02e';
+        ctx.fillRect(cx - gw / 2, gy, gw * fill, gh);
+      }
+      ctx.strokeStyle = 'rgba(90,72,40,.45)'; ctx.lineWidth = Math.max(1, 1.5 * s);
+      ctx.strokeRect(cx - gw / 2, gy, gw, gh);
     }
   }
+  // 뜻 — 문 바로 위에 크게. HUD 맨 위에만 있으면 눈이 위아래로 왔다 갔다 한다
+  function drawAsk(g) {
+    const t = g.word.m;
+    ctx.font = '800 24px "Jua", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = Math.min(W - 24, ctx.measureText(t).width + 34), y = H * 0.13;
+    ctx.fillStyle = 'rgba(10,8,28,.78)';
+    ctx.beginPath(); ctx.roundRect(W / 2 - w / 2, y - 21, w, 42, 21); ctx.fill();
+    ctx.fillStyle = '#ffd964';
+    ctx.fillText(t, W / 2, y + 1, w - 20);
+  }
+
   // 총알이 문에 박히는 자리
   function drawSparks() {
     sparks.forEach(s => {
@@ -536,7 +557,7 @@ const Army = (() => {
     });
     if (wave.boss) drawChief();
     const left = Math.max(0, Math.round(wave.size - wave.killed));
-    if (left > 0) badge(pxz(0.55, 0.06), pz(0.06) - 118, left + '명', '#ff8090');
+    if (left > 0) badge(W * 0.83, H - 22, left + '명', '#ff8090');
   }
 
   // 적장 — 무리 맨 앞에 크게. 이름 없는 빨간 무리보다 "곰 대장" 이 훨씬 무섭다
@@ -577,13 +598,17 @@ const Army = (() => {
     const n = Math.min(C.drawMax, troops);
     const t = performance.now() / 1000;
     const sp = spread(troops), mid = x;
+    // 코앞에 적이 있으면 **내 병사도 맞받아친다** — 앞으로 몸을 내밀었다 돌아온다
+    const melee = foes.some(f => !f.dead && !f.fall && f.z <= LINE + 0.02);
     crowd.slice(0, n).sort((a2, b2) => b2.oz - a2.oz).forEach(c => {
-      const zz = 0.03 + c.oz * (0.07 + sp * 0.07);
+      const lunge = melee ? Math.max(0, Math.sin(t * 11 + c.f)) * 0.045 : 0;
+      const zz = 0.03 + c.oz * (0.07 + sp * 0.07) + lunge;
       // 길 밖으로 나가면 안 보인다 — 갈림길 끝에 서면 무리가 반쯤 화면을 벗어났다
       const x = Math.max(-1, Math.min(1, mid + c.ox * sp));
       soldier(pxz(x, zz), pz(zz), sz(zz) * 0.9, look.base, look.belt, c.f + t * 9);
     });
-    badge(pxz(phase === 'gate' ? Math.max(-0.6, Math.min(0.6, mid)) : -0.55, 0.06), pz(0.06) - 118, troops + '명', '#3ee0c4');
+    // 배지가 부대를 따라다니면 문 위로 올라가 단어를 가린다 — 왼쪽 아래에 고정한다
+    badge(W * 0.17, H - 22, troops + '명', '#3ee0c4');
   }
 
   // 부하 하나 — 머리·몸·다리 셋이면 사람으로 읽힌다. 작게 그리니 이걸로 충분하다
@@ -600,6 +625,7 @@ const Army = (() => {
     ctx.beginPath(); ctx.arc(x, top + h * 0.17, 4.6 * s, 0, 6.3); ctx.fill();
   }
 
+  // x·y 는 캔버스 좌표 그대로다 (원근 밖에 고정해 두는 것이 목적이라)
   function badge(x, y, text, color) {
     ctx.font = '800 20px "Jua", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(text).width + 22;
@@ -633,17 +659,18 @@ const Army = (() => {
         <button class="btn ghost" data-close="x">마을로</button>
       </div>`, { onClose: v => v === 'again' ? start() : Game.town(false) });
   }
-  function lost(power) {
+  function lost(power, wipe) {
     const a = C;
     addGold(a.gold.lose);
     addExp(a.exp.lose).forEach(lv => Game.pendingUps.push(lv));
     saveState();
     Sfx.down();
     UI.modal(`
-      <div class="modal-title">🛡️ 밀렸다!</div>
-      <div class="ar-big lose">${power} <span>vs</span> ${a.boss}</div>
-      <div class="modal-sub">${chief.emoji} <b>${esc(chief.name)}</b>의 무리는 <b>${a.boss}명</b>인데<br>
-        화력이 <b>${power}</b>밖에 안 됐어요.<br>
+      <div class="modal-title">${wipe ? '💀 전멸했다!' : '🛡️ 밀렸다!'}</div>
+      <div class="ar-big lose">${wipe ? '0' : power} <span>vs</span> ${wipe ? '적' : a.boss}</div>
+      <div class="modal-sub">${wipe
+        ? '적이 부대를 전부 쓰러뜨렸어요.<br>맞는 문으로 가야 부하가 늘어나요!'
+        : chief.emoji + ' <b>' + esc(chief.name) + '</b>의 무리는 <b>' + a.boss + '명</b>인데<br>화력이 <b>' + power + '</b>밖에 안 됐어요.'}<br>
         문 ${a.gates}개 중 <b>4개</b>만 맞히면 이길 수 있어요!</div>
       <div class="reward-row">💰 +${a.gold.lose} · ⭐ +${a.exp.lose}</div>
       <div class="dg-brief small">${wordList()}</div>
