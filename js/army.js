@@ -185,12 +185,20 @@ const Army = (() => {
 
   function startWave(size, boss) {
     const out = waveOutcome(troops, size);
-    wave = { size, boss: !!boss, kills: out.kills, loss: out.loss, killed: 0, applied: false };
+    wave = { size, boss: !!boss, kills: out.kills, loss: out.loss, killed: 0, taken: 0, said: false };
     foes = [];
     const n = Math.min(C.drawMax, size);
+    const per = size / Math.max(1, n);
+    // 몇을 잡을지는 이미 정해져 있다. 그 수만큼을 **미리 골라 둔다** —
+    // 총알이 몇 발 맞느냐로 승패가 갈리면 폰 성능에 따라 난이도가 달라진다
+    const doomed = Math.round(out.kills / per);
     for (let i = 0; i < n; i++) {
-      foes.push({ ox: (Math.random() - .5) * 1.7, z: 1 + Math.random() * 0.3, dead: 0, f: Math.random() * 6.3 });
+      foes.push({
+        ox: (Math.random() - .5) * 1.7, z: 1 + Math.random() * 0.3, f: Math.random() * 6.3,
+        hp: A().foeHp, hpMax: A().foeHp, doomed: i < doomed, fall: 0, dead: false, atk: 0,
+      });
     }
+    wave.per = per;
     phase = boss ? 'boss' : 'wave'; phaseT = 0;
     setAsk(boss ? chief.emoji + ' ' + chief.name + '!' : '막아라!', boss ? '마지막 싸움' : '적이 내려온다');
   }
@@ -305,7 +313,8 @@ const Army = (() => {
     for (let i = 0; i < want && shots.length < a.maxShots; i++) {
       shots.push({
         x: Math.max(-1, Math.min(1, x + (Math.random() - .5) * a.shotSpread)),
-        z: LINE + 0.02 + Math.random() * 0.03,
+        // 줄보다 **뒤에서** 출발한다. 줄 위에 선 적(내 앞까지 온 적)도 맞아야 한다
+        z: LINE - 0.06 + Math.random() * 0.03,
         v: 1 / a.shotTime,
       });
     }
@@ -328,12 +337,13 @@ const Army = (() => {
     shots.forEach(s => {
       const z0 = s.z;
       s.z += s.v * dt;
-      if (!wave || wave.killed >= wave.kills) return;
+      if (!wave) return;
       for (let i = 0; i < foes.length; i++) {
         const f = foes[i];
-        if (f.fall) continue;
-        if (f.z <= a.range && f.z > z0 && f.z <= s.z && Math.abs(f.ox * fsp - s.x) < 0.17) {
-          f.fall = 0.7; wave.killed = Math.min(wave.kills, wave.killed + per); s.gone = true;
+        if (f.fall || f.dead || !f.doomed) continue;      // 죽을 적만 맞는다 (위 설명 참고)
+        if (f.z <= a.range && f.z > z0 && f.z <= s.z && Math.abs(f.ox * fsp - s.x) < 0.19) {
+          f.hp--; f.flash = 0.16; s.gone = true;
+          if (f.hp <= 0) { f.fall = 0.7; wave.killed = Math.min(wave.kills, wave.killed + per); }
           break;
         }
       }
@@ -346,21 +356,29 @@ const Army = (() => {
   function fight(dt) {
     phaseT += dt;
     const dur = wave.boss ? C.bossTime : C.waveTime;
+    const a2 = A();
     foes.forEach(f => {
+      if (f.flash > 0) f.flash -= dt;
       if (f.fall) { f.fall -= dt; if (f.fall <= 0) { f.fall = 0; f.dead = true; } return; }
       if (f.dead) return;
-      f.z = Math.max(LINE, f.z - dt / dur);
+      if (f.z > LINE) { f.z = Math.max(LINE, f.z - dt / (dur * a2.foeSpeed)); return; }
+      // 내 줄에 닿았다 — 때린다. 잃을 수는 이미 정해져 있고 그만큼만 데려간다
+      f.atk += dt;
+      if (f.atk >= a2.foeHitEvery) {
+        f.atk = 0;
+        if (wave.taken < wave.loss) {
+          wave.taken++;
+          troops = Math.max(C.min, troops - 1);
+          hit = .32; Sfx.bad(); say('−1명', '#ff8090');
+          setAsk(wave.boss ? chief.emoji + ' ' + chief.name + '!' : '막아라!', wave.boss ? '마지막 싸움' : '적이 내려온다');
+        }
+      }
     });
-    // 결산 — 못 막은 적이 줄에 닿으면 병사를 잃는다
-    if (!wave.applied && phaseT > dur * 0.86) {
-      wave.applied = true;
-      if (wave.loss > 0) {
-        troops = Math.max(C.min, troops - wave.loss);
-        Sfx.bad(); hit = .45; say('−' + wave.loss + '명', '#ff8090');
-      } else if (!wave.boss) say('막아냈다!', '#3ee0c4');
-      setAsk(wave.boss ? chief.emoji + ' ' + chief.name + '!' : '막아라!', wave.boss ? '마지막 싸움' : '적이 내려온다');
+    // 다 막아냈으면 말해 준다 (한 명도 안 잃은 것은 칭찬할 만하다)
+    if (!wave.said && wave.loss === 0 && !wave.boss && phaseT > dur * a2.foeSpeed + 0.3) {
+      wave.said = true; say('막아냈다!', '#3ee0c4');
     }
-    if (phaseT > dur + 0.6) {
+    if (phaseT > dur + 1.3) {
       if (wave.boss) { finish(); return; }
       foes = []; shots = []; nextGate();
     }
@@ -508,7 +526,13 @@ const Army = (() => {
         }
         return;
       }
-      soldier(x, y, s, '#d9455a', '#8f2436', f.f + phaseT * 9);
+      soldier(x, y, s, f.flash > 0 ? '#ffd0d6' : '#d9455a', '#8f2436', f.f + phaseT * 9);
+      if (f.hp < f.hpMax) {
+        const bw = 16 * s, bh = Math.max(2, 3 * s), by = y - 34 * s;
+        ctx.fillStyle = 'rgba(10,8,28,.6)'; ctx.fillRect(x - bw / 2, by, bw, bh);
+        ctx.fillStyle = '#ff8090';
+        ctx.fillRect(x - bw / 2, by, bw * Math.max(0, f.hp / f.hpMax), bh);
+      }
     });
     if (wave.boss) drawChief();
     const left = Math.max(0, Math.round(wave.size - wave.killed));

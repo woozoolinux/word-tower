@@ -931,6 +931,14 @@ ok('화력은 사람 수에 비례한다', AR.firepower(100) === AR.firepower(10
 ok('총알이 좁게 나가야 겨눌 수 있다', ARB.shotSpread <= 0.25, '퍼짐 ' + ARB.shotSpread);
 // 너무 빠르면 눈이 못 따라간다 — 날아가는 게 보여야 쏘는 맛이 난다
 ok('총알이 눈으로 따라갈 만큼 천천히 난다', ARB.shotTime >= 1.2, ARB.shotTime + '초');
+// 적에게 체력을 준다 — 한 방에 죽으면 맞히는 맛이 없다
+ok('적이 총알 여러 발을 버틴다', ARB.foeHp >= 2, ARB.foeHp + '발');
+// 적이 내 줄까지 와서 싸울 시간이 남아야 한다. 웨이브 시간을 다 써서 오면 도착하자마자 끝난다
+ok('적이 도착한 뒤에도 싸울 시간이 남는다', ARB.foeSpeed < 0.85, '이동에 ' + Math.round(ARB.foeSpeed * 100) + '%');
+ok('내 줄에 닿은 적이 병사를 데려간다', ARB.foeHitEvery > 0 && ARB.foeHitEvery < 1, ARB.foeHitEvery + '초마다 한 명');
+// 총알은 줄보다 **뒤에서** 나가야 한다 — 내 앞까지 온 적도 맞아야 하니까.
+// 줄 위에서 쏘면 이미 줄에 선 적은 총알이 지나칠 수가 없어 영영 안 맞는다
+ok('총알이 줄보다 뒤에서 나간다', fs.readFileSync(path.join(ROOT, 'js/army.js'), 'utf8').indexOf('z: LINE - 0.06') >= 0);
 // 세 갈래를 읽고 겨누려면 시간이 필요하다
 ok('문을 읽고 겨눌 시간이 넉넉하다', ARB.approach >= 3.5, ARB.approach + '초');
 ok('레벨이 올라도 겨눌 시간은 남는다', ARB.minApproach >= 2.5, ARB.minApproach + '초');
