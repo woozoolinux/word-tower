@@ -44,6 +44,7 @@ const Army = (() => {
   let troops, gateIdx, gate, aimX, x, phase, phaseT, pool, queue, hit;
   let bg, crowd, foes, shots, wave, result, runWords, msg, msgT, C, chief;
   let fireT = 0, fired = 0, sparks = [];
+  let muzzles = [], bits = [], redT = 0, peak = 1;
 
   // ---------- 균형 ----------
   // 게이트는 **전부 곱하기**다. 맞으면 ×2, 틀리면 ×0.6.
@@ -118,6 +119,7 @@ const Army = (() => {
     C = cfg();
     troops = C.start; gateIdx = 0; aimX = 0; x = 0;   // 가운데에서 출발
     hit = 0; result = null; bg = 0; foes = []; shots = []; sparks = []; wave = null; fireT = 0; fired = 0;
+    muzzles = []; bits = []; redT = 0; peak = C.start;
     msg = null; msgT = 0; chief = chiefOf();
     crowd = [];
     for (let i = 0; i < a.drawMax; i++) {
@@ -310,16 +312,23 @@ const Army = (() => {
     const shooters = Math.min(C.drawMax, troops);
     let want = Math.floor(fireT * (shooters / a.shotEvery)) - fired;
     if (want > 60) { fired += want - 60; want = 60; }     // 창을 다시 열었을 때 몰아 나오지 않게
-    // 총알은 **부대 한가운데에서 좁게** 나간다. 무리 넓이만큼 퍼지면 겨눌 수가 없다
+    // 총알은 **쏘는 병사 자리**에서 나간다. 한 점에서 나오면 "내가 쏜다" 가 아니라
+    // "어디선가 나온다" 가 된다. 다만 겨눌 수 있어야 하니 부대 한가운데 쪽에서 고른다
+    const sp0 = spread(troops), mid0 = phase === 'gate' ? x : x;
     for (let i = 0; i < want && shots.length < a.maxShots; i++) {
-      shots.push({
-        x: Math.max(-1, Math.min(1, x + (Math.random() - .5) * a.shotSpread)),
-        // 줄보다 **뒤에서** 출발한다. 줄 위에 선 적(내 앞까지 온 적)도 맞아야 한다
-        z: LINE - 0.06 + Math.random() * 0.03,
-        v: 1 / a.shotTime,
-      });
+      const c = crowd[(fired + i) % crowd.length];
+      const bx = Math.max(-1, Math.min(1,
+        x + (Math.random() - .5) * a.shotSpread + c.ox * sp0 * a.shotFrom));
+      const bz = LINE - 0.06 + Math.random() * 0.03;      // 줄보다 **뒤에서** — 내 앞까지 온 적도 맞아야 한다
+      shots.push({ x: bx, z: bz, v: 1 / a.shotTime });
+      muzzles.push({ x: bx, z: bz + 0.02, t: 0 });
     }
     fired += want;
+    muzzles.forEach(m => (m.t += dt * 11));
+    muzzles = muzzles.filter(m => m.t < 1);
+    bits.forEach(b => { b.t += dt * 2.6; b.x += b.vx * dt; b.z += b.vz * dt; });
+    bits = bits.filter(b => b.t < 1);
+    if (redT > 0) redT -= dt;
     // 문을 겨누고 있으면 그 문의 숫자가 오른다 — 총알이 박히는 게 보인다
     if (gate && phase === 'gate') {
       const d = doorAt(x);
@@ -343,8 +352,17 @@ const Army = (() => {
         const f = foes[i];
         if (f.fall || f.dead || !f.doomed) continue;      // 죽을 적만 맞는다 (위 설명 참고)
         if (f.z <= a.range && f.z > z0 && f.z <= s.z && Math.abs(f.ox * fsp - s.x) < 0.19) {
-          f.hp--; f.flash = 0.16; s.gone = true;
-          if (f.hp <= 0) { f.fall = 0.7; wave.killed = Math.min(wave.kills, wave.killed + per); }
+          f.hp--; f.flash = 0.2; f.knock = 0.05; s.gone = true;
+          for (let k = 0; k < 4; k++) {
+            bits.push({ x: f.ox * fsp, z: f.z, vx: (Math.random() - .5) * .5, vz: .12 + Math.random() * .3, t: 0, c: '#ffd633' });
+          }
+          if (f.hp <= 0) {
+            f.fall = 0.7; wave.killed = Math.min(wave.kills, wave.killed + per);
+            hit = Math.max(hit, .18); Sfx.hit && Sfx.hit();
+            for (let k = 0; k < 7; k++) {
+              bits.push({ x: f.ox * fsp, z: f.z, vx: (Math.random() - .5) * .8, vz: .1 + Math.random() * .45, t: 0, c: '#ff8090' });
+            }
+          }
           break;
         }
       }
@@ -360,6 +378,7 @@ const Army = (() => {
     const a2 = A();
     foes.forEach(f => {
       if (f.flash > 0) f.flash -= dt;
+      if (f.knock > 0) { f.knock -= dt * 1.6; f.z = Math.min(1.1, f.z + dt * 0.22); }
       if (f.fall) { f.fall -= dt; if (f.fall <= 0) { f.fall = 0; f.dead = true; } return; }
       if (f.dead) return;
       if (f.z > LINE) { f.z = Math.max(LINE, f.z - dt / (dur * a2.foeSpeed)); return; }
@@ -370,7 +389,10 @@ const Army = (() => {
         if (wave.taken < wave.loss) {
           wave.taken++;
           troops = troops - 1;                    // 전투에서는 0까지 간다 — 전멸이 있어야 긴장이 산다
-          hit = .32; Sfx.bad(); say('−1명', '#ff8090');
+          hit = .55; redT = .38; Sfx.bad(); say('−1명', '#ff8090');
+          for (let k = 0; k < 8; k++) {
+            bits.push({ x: f.ox * spread(wave.size), z: LINE, vx: (Math.random() - .5) * .7, vz: -.05 - Math.random() * .2, t: 0, c: '#ff5a6e' });
+          }
           if (troops <= 0) { troops = 0; wiped(); return; }
           setAsk(wave.boss ? chief.emoji + ' ' + chief.name + '!' : '막아라!', wave.boss ? '마지막 싸움' : '적이 내려온다');
         }
@@ -408,7 +430,16 @@ const Army = (() => {
     drawFoes();
     if (gate && phase === 'gate') { drawGate(gate); drawSparks(); drawAsk(gate); }
     drawShots();
+    drawMuzzles();
     drawCrowd();
+    drawBits();
+    drawTroopBar();
+    if (redT > 0) {
+      const g = ctx.createRadialGradient(W / 2, H * .7, H * .2, W / 2, H * .7, W * .9);
+      g.addColorStop(0, 'rgba(255,40,70,0)');
+      g.addColorStop(1, 'rgba(255,40,70,' + (0.55 * (redT / .38)).toFixed(3) + ')');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
     if (msgT > 0) {
       ctx.globalAlpha = Math.min(1, msgT * 2);
       ctx.font = '800 26px "Jua", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -511,6 +542,39 @@ const Army = (() => {
     ctx.fillText(t, W / 2, y + 1, w - 20);
   }
 
+  // 총구 섬광 — 쏜 자리에서 아주 짧게 번쩍. 이게 있어야 **내가 쏘는 것**이 된다
+  function drawMuzzles() {
+    muzzles.forEach(m => {
+      const s0 = sz(m.z), r = (7 - m.t * 5) * s0 * 1.8;
+      if (r <= 0) return;
+      ctx.globalAlpha = 1 - m.t;
+      ctx.fillStyle = '#fff6c0';
+      ctx.beginPath(); ctx.arc(pxz(m.x, m.z), pz(m.z) - 17 * s0, r, 0, 6.3); ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+  }
+  // 파편 — 맞은 자리에서 튄다. 부딪혔다는 걸 알려주는 가장 싼 방법
+  function drawBits() {
+    bits.forEach(b => {
+      const s0 = sz(b.z);
+      ctx.globalAlpha = Math.max(0, 1 - b.t);
+      ctx.fillStyle = b.c;
+      const r = 3.4 * s0 * 1.6 * (1 - b.t * .5);
+      ctx.beginPath(); ctx.arc(pxz(b.x, b.z), pz(b.z) - 20 * s0 - b.t * 14 * s0, r, 0, 6.3); ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+  }
+  // 내 부대 막대 — 숫자만 바뀌면 깎이는 게 안 느껴진다. **줄어드는 막대**가 보여야 한다
+  function drawTroopBar() {
+    peak = Math.max(peak, troops);
+    const w = W * 0.44, h = 12, bx = W / 2 - w / 2, by = H - 16;
+    ctx.fillStyle = 'rgba(10,8,28,.55)';
+    ctx.beginPath(); ctx.roundRect(bx, by, w, h, 6); ctx.fill();
+    const k = Math.max(0, Math.min(1, troops / Math.max(1, peak)));
+    ctx.fillStyle = k > .35 ? '#3ee0c4' : '#ff8090';
+    ctx.beginPath(); ctx.roundRect(bx, by, Math.max(4, w * k), h, 6); ctx.fill();
+  }
+
   // 총알이 문에 박히는 자리
   function drawSparks() {
     sparks.forEach(s => {
@@ -548,12 +612,10 @@ const Army = (() => {
         return;
       }
       soldier(x, y, s, f.flash > 0 ? '#ffd0d6' : '#d9455a', '#8f2436', f.f + phaseT * 9);
-      if (f.hp < f.hpMax) {
-        const bw = 16 * s, bh = Math.max(2, 3 * s), by = y - 34 * s;
-        ctx.fillStyle = 'rgba(10,8,28,.6)'; ctx.fillRect(x - bw / 2, by, bw, bh);
-        ctx.fillStyle = '#ff8090';
-        ctx.fillRect(x - bw / 2, by, bw * Math.max(0, f.hp / f.hpMax), bh);
-      }
+      const bw = 18 * s, bh = Math.max(2.5, 4 * s), by = y - 36 * s;
+      ctx.fillStyle = 'rgba(10,8,28,.65)'; ctx.fillRect(x - bw / 2, by, bw, bh);
+      ctx.fillStyle = f.hp > f.hpMax / 2 ? '#ff5a6e' : '#ffb02e';
+      ctx.fillRect(x - bw / 2, by, bw * Math.max(0, f.hp / f.hpMax), bh);
     });
     if (wave.boss) drawChief();
     const left = Math.max(0, Math.round(wave.size - wave.killed));
